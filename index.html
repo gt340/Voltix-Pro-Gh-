@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voltix Pro GH — Ghana's #1 Premium Earpods Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, addDoc, deleteDoc,
+    onSnapshot, getDocs, query
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+    authDomain: "voltix-pro-dc363.firebaseapp.com",
+    projectId: "voltix-pro-dc363",
+    storageBucket: "voltix-pro-dc363.firebasestorage.app",
+    messagingSenderId: "778425016855",
+    appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  function adminLogin(email, password){ return signInWithEmailAndPassword(auth, email, password); }
+  function adminLogout(){ return signOut(auth); }
+  function watchAdminAuth(callback){ onAuthStateChanged(auth, (user) => callback(user)); }
+  function adminResetPassword(email){ return sendPasswordResetEmail(auth, email); }
+
+  const DEFAULT_PRODUCTS = [
+    { id:'1', name:'Berlin Open-Ear Pro', category:'open-ear', price:130, oldPrice:180, emoji:'🎵', imageUrl:null, badge:'Hot Deal', badgeClass:'badge-hot', specs:'Futuristic Open-Ear Design • Robot Charging Case • 5-Year Warranty • Bluetooth 5.4' },
+    { id:'2', name:'Ultrapods Max - White', category:'ultrapods', price:120, oldPrice:160, emoji:'🎧', imageUrl:null, badge:'New', badgeClass:'badge-new', specs:'Transparent LED Display Case • Noise Cancelling • Hi-Res Audio • Bluetooth 5.3' },
+    { id:'3', name:'Ultrapods Max - Blue', category:'ultrapods', price:120, oldPrice:160, emoji:'🌊', imageUrl:null, badge:'New', badgeClass:'badge-new', specs:'Sky Blue Transparent LED Case • Noise Cancelling • Hi-Res Audio • Bluetooth 5.3' },
+    { id:'4', name:'Ultrapods Max - Black', category:'ultrapods', price:120, oldPrice:160, emoji:'⚫', imageUrl:null, badge:'Best Seller', badgeClass:'badge-bestseller', specs:'Smoked Black Case • Noise Cancelling • Hi-Res Audio • Bluetooth 5.3' },
+    { id:'5', name:'Ultrapods Max - Green', category:'ultrapods', price:120, oldPrice:160, emoji:'🟢', imageUrl:null, badge:'New', badgeClass:'badge-new', specs:'Vibrant Green Case • Noise Cancelling • Hi-Res Audio • Bluetooth 5.3' },
+    { id:'6', name:'RingPod One - Cool Black', category:'ring-clip', price:40, oldPrice:65, emoji:'💎', imageUrl:null, badge:'Best Value', badgeClass:'badge-value', specs:'Comfortable ear-clip ring design with secure all-day fit • Bluetooth 5.3 stable connection for calls and music • Deep bass sound with ENC clear call support • Water resistant build with long battery endurance' },
+    { id:'7', name:'RingPod One - Titan Grey', category:'ring-clip', price:40, oldPrice:65, emoji:'🩶', imageUrl:null, badge:'Best Value', badgeClass:'badge-value', specs:'Soft-touch ring clip design that stays secure without pressure • 36-hour talk endurance and 18-hour music playback • Bluetooth 5.3 chip for stable low-latency connection • Hi-Fi sound quality with IPX7 water resistance' },
+    { id:'8', name:'RingPod One - Stealth Black', category:'ring-clip', price:40, oldPrice:65, emoji:'🖤', imageUrl:null, badge:'Best Value', badgeClass:'badge-value', specs:'Minimal ring design built for light secure wear • Bluetooth 5.3 with powerful sound and touch control • Compact charging case included in the box set • IPX4 protection for everyday active use' },
+    { id:'9', name:'RingPod One - Pearl White', category:'ring-clip', price:40, oldPrice:65, emoji:'🤍', imageUrl:null, badge:'Best Value', badgeClass:'badge-value', specs:'Premium open-ear clip structure for everyday comfort • Lightweight body that rests securely without pressure • Balanced audio for calls, music, and business use • Clean premium styling with dependable performance' },
+    { id:'10', name:'RingPod One - Soft Cream', category:'ring-clip', price:40, oldPrice:65, emoji:'🟡', imageUrl:null, badge:'Best Value', badgeClass:'badge-value', specs:'Skin-friendly cloud comfort ear-clip structure • Dual-mode low latency for gaming and music • ENC call noise reduction with denoise support • 360 air conduction stereo with long battery life' },
+    { id:'11', name:'RingPod One - Midnight Black', category:'ring-clip', price:40, oldPrice:65, emoji:'⚫', imageUrl:null, badge:'Best Value', badgeClass:'badge-value', specs:'Gloss black ring-style ear clip with ergonomic comfort • Hi-Fi Bluetooth 5.3 audio with dual-mic ENC support • Fast charge and strong waterproof protection for daily use • Built for calls, music, and low-latency listening' },
+    { id:'12', name:'RingPod One - Pure White', category:'ring-clip', price:40, oldPrice:65, emoji:'⚪', imageUrl:null, badge:'Best Value', badgeClass:'badge-value', specs:'Lightweight ear-clip ring body for long comfortable wear • Open-ear style for awareness while commuting or working • Bluetooth 5.3 with smart touch controls • Crystal clear sound with dependable battery life' },
+    { id:'13', name:'SportHook Elite - Black', category:'sport', price:220, oldPrice:290, emoji:'⚡', imageUrl:null, badge:'Premium', badgeClass:'badge-premium', specs:'Over-Ear Sport Hooks • 48h Battery • LED Mirror Case • IPX6 Sweat Proof' },
+    { id:'14', name:'SportHook Elite - White', category:'sport', price:220, oldPrice:290, emoji:'⚪', imageUrl:null, badge:'Premium', badgeClass:'badge-premium', specs:'Over-Ear Sport Hooks • 48h Battery • LED Mirror Case • IPX6 Sweat Proof' }
+  ];
+
+  async function seedDefaultsIfEmpty(){
+    const snap = await getDocs(query(collection(db, "products")));
+    if (snap.empty) { for (const p of DEFAULT_PRODUCTS) await setDoc(doc(db, "products", p.id), p); }
+  }
+
+  function subscribeProducts(callback){
+    return onSnapshot(collection(db, "products"), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a,b) => a.name.localeCompare(b.name));
+      callback(list);
+    });
+  }
+
+  async function saveProduct(productData){
+    const toSave = { ...productData };
+    if (productData.id) {
+      const id = String(productData.id);
+      delete toSave.id;
+      await setDoc(doc(db, "products", id), toSave, { merge: true });
+      return id;
+    } else {
+      delete toSave.id;
+      const docRef = await addDoc(collection(db, "products"), toSave);
+      return docRef.id;
+    }
+  }
+
+  async function deleteProductById(id){ await deleteDoc(doc(db, "products", String(id))); }
+
+  async function saveMusicUrl(url, name){
+    await setDoc(doc(db, "settings", "store"), { musicUrl: url, musicName: name }, { merge: true });
+  }
+  async function removeMusicUrl(){
+    await setDoc(doc(db, "settings", "store"), { musicUrl: null, musicName: null }, { merge: true });
+  }
+  function subscribeMusic(callback){
+    return onSnapshot(doc(db, "settings", "store"), (snap) => { callback(snap.exists() ? snap.data() : { musicUrl: null, musicName: null }); });
+  }
+
+  function downloadImageFromUrl(base64Data, filename){
+    const a = document.createElement('a');
+    a.href = base64Data;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  async function addReferrer(data){
+    const docRef = await addDoc(collection(db, "referrers"), { ...data, createdAt: new Date().toISOString() });
+    return docRef.id;
+  }
+  function subscribeReferrers(callback){
+    return onSnapshot(collection(db, "referrers"), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+      callback(list);
+    });
+  }
+  async function addReferralSale(data){
+    const docRef = await addDoc(collection(db, "referralSales"), { ...data, status: 'pending', createdAt: new Date().toISOString() });
+    return docRef.id;
+  }
+  function subscribeReferralSales(callback){
+    return onSnapshot(collection(db, "referralSales"), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+      callback(list);
+    });
+  }
+  async function updateReferralSaleStatus(id, status){ await setDoc(doc(db, "referralSales", id), { status }, { merge: true }); }
+
+  window.VDB = {
+    seedDefaultsIfEmpty, subscribeProducts, saveProduct, deleteProductById,
+    saveMusicUrl, removeMusicUrl, subscribeMusic, downloadImageFromUrl,
+    addReferrer, subscribeReferrers, addReferralSale, subscribeReferralSales, updateReferralSaleStatus,
+    adminLogin, adminLogout, watchAdminAuth, adminResetPassword
+  };
+  window.dispatchEvent(new Event('vdb-ready'));
+</script>
+
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Outfit',sans-serif; background:linear-gradient(135deg,#1a0a2e 0%,#2d0a35 40%,#0d0a1a 100%); color:#fff; min-height:100vh; overflow-x:hidden; }
+html { scroll-behavior:smooth; }
+button, input, textarea, select { font-family:'Outfit',sans-serif; }
+
+.flash-banner{background:linear-gradient(90deg,#ef4444,#dc2626);padding:.75rem 1rem;text-align:center;font-size:.85rem;font-weight:700;display:flex;justify-content:center;align-items:center;gap:1rem;position:relative;z-index:40;}
+.flash-banner-text{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:center;}
+.flash-timer{background:rgba(0,0,0,.3);padding:.25rem .75rem;border-radius:.25rem;font-family:monospace;font-weight:800;}
+.close-banner{background:none;border:none;color:#fff;cursor:pointer;font-size:1.25rem;position:absolute;right:1rem;}
+
+header{position:sticky;top:0;z-index:50;background:linear-gradient(to right,rgba(26,10,46,.95),rgba(45,10,53,.95));backdrop-filter:blur(10px);border-bottom:1px solid rgba(236,72,153,.2);}
+.header-container{max-width:1280px;margin:0 auto;padding:1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;}
+.logo-section{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
+.logo-icon{width:40px;height:40px;background:radial-gradient(circle,#0ea5e9,#1e40af);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;border:2px solid #facc15;}
+.logo-text{display:flex;flex-direction:column;gap:.125rem;}
+.logo-main{font-size:1rem;font-weight:900;background:linear-gradient(to right,#60a5fa,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.logo-sub{font-size:.65rem;font-weight:800;color:#facc15;letter-spacing:.1em;}
+.header-nav{display:flex;gap:.5rem;flex:1;justify-content:center;flex-wrap:wrap;}
+.tab-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#fff;cursor:pointer;transition:all .3s;font-size:.8rem;font-weight:600;padding:.5rem 1rem;border-radius:.75rem;white-space:nowrap;}
+.tab-btn:hover{border-color:rgba(236,72,153,.3);background:rgba(236,72,153,.15);}
+.tab-btn.active{background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;border-color:rgba(236,72,153,.8);}
+.header-right{display:flex;gap:.5rem;align-items:center;flex-shrink:0;}
+.music-btn,.login-btn{background:rgba(236,72,153,.2);border:1px solid rgba(236,72,153,.4);color:#f472b6;padding:.5rem .75rem;border-radius:.5rem;font-size:.7rem;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.music-btn:hover,.login-btn:hover{background:rgba(236,72,153,.4);}
+.cart-btn{position:relative;background:none;border:none;color:#fff;cursor:pointer;font-size:1.5rem;padding:.5rem;border-radius:.5rem;transition:background .2s;}
+.cart-btn:hover{background:rgba(236,72,153,.2);}
+.cart-count{position:absolute;top:0;right:0;background:#ec4899;color:#fff;font-size:.75rem;font-weight:bold;min-width:1.25rem;height:1.25rem;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+.welcome-section{position:relative;padding:3rem 1rem;overflow:hidden;}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;}
+.orb1{width:400px;height:400px;background:#ec4899;opacity:.12;top:-100px;right:-100px;animation:float1 6s ease-in-out infinite;}
+.orb2{width:350px;height:350px;background:#a855f7;opacity:.1;bottom:-80px;left:-80px;animation:float2 8s ease-in-out infinite;}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(-20px,20px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-20px)}}
+.welcome-inner{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;position:relative;z-index:10;}
+.photo-side{display:flex;flex-direction:column;align-items:center;gap:1.5rem;}
+.photo-frame{position:relative;width:300px;height:380px;border-radius:2rem;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.photo-frame img{width:100%;height:100%;object-fit:cover;object-position:center;}
+.photo-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(26,10,46,.8),transparent);}
+.photo-badge{position:absolute;bottom:1rem;left:1rem;right:1rem;background:rgba(0,0,0,.7);border:1px solid rgba(236,72,153,.5);border-radius:.75rem;padding:1rem;backdrop-filter:blur(10px);}
+.badge-title{font-size:.75rem;color:#f472b6;text-transform:uppercase;font-weight:800;letter-spacing:.1em;margin-bottom:.25rem;}
+.badge-name{font-size:1.125rem;font-weight:900;}
+.badge-subtitle{font-size:.75rem;color:rgba(255,255,255,.7);}
+.text-side{display:flex;flex-direction:column;gap:1.5rem;}
+.welcome-tag{display:inline-flex;align-items:center;gap:.5rem;background:rgba(236,72,153,.15);border:1px solid rgba(236,72,153,.4);border-radius:999px;padding:.5rem 1.25rem;font-size:.75rem;font-weight:800;color:#f472b6;letter-spacing:.1em;text-transform:uppercase;width:fit-content;}
+.text-side h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.1;}
+.highlight{background:linear-gradient(135deg,#ec4899,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.founder-info{font-size:1rem;font-weight:700;color:rgba(255,255,255,.8);}
+.founder-info span{color:#facc15;}
+.intro-text{font-size:.95rem;line-height:1.8;color:rgba(255,255,255,.7);border-left:3px solid #ec4899;padding-left:1rem;}
+.offerings{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.offer-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:.875rem;transition:all .2s;}
+.offer-item:hover{border-color:rgba(236,72,153,.5);background:rgba(236,72,153,.1);}
+.offer-icon{font-size:1.5rem;margin-bottom:.5rem;}
+.offer-title{font-size:.875rem;font-weight:800;margin-bottom:.25rem;}
+.offer-desc{font-size:.75rem;color:rgba(255,255,255,.5);}
+.cta-row{display:flex;gap:1rem;flex-wrap:wrap;}
+.cta-shop{flex:1;min-width:150px;padding:.875rem 1.5rem;border-radius:.75rem;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;font-weight:800;font-size:.875rem;text-decoration:none;border:none;cursor:pointer;transition:all .2s;text-align:center;}
+.cta-shop:hover{filter:brightness(1.1);transform:scale(1.03);}
+.cta-chat{flex:1;min-width:150px;padding:.875rem 1.5rem;border-radius:.75rem;background:rgba(34,197,94,.15);border:1.5px solid rgba(34,197,94,.5);color:#22c55e;font-weight:700;font-size:.875rem;text-decoration:none;cursor:pointer;transition:all .2s;text-align:center;}
+.cta-chat:hover{background:rgba(34,197,94,.25);}
+
+.live-indicator{background:linear-gradient(90deg,rgba(236,72,153,.2),transparent);border-left:3px solid #ec4899;padding:.75rem 1rem;margin:1rem 0;border-radius:.5rem;font-size:.875rem;font-weight:600;}
+.live-badge{display:inline-flex;align-items:center;gap:.375rem;background:#ec4899;color:#fff;padding:.25rem .75rem;border-radius:999px;font-size:.7rem;font-weight:800;margin-right:.5rem;}
+.live-dot{width:6px;height:6px;background:#fff;border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+.filter-section{max-width:1280px;margin:0 auto 2rem;padding:0 1rem;}
+.filter-box{background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(236,72,153,.15));border:1px solid rgba(236,72,153,.25);border-radius:1.25rem;padding:1.75rem;}
+.filter-title{display:flex;align-items:center;gap:.5rem;font-size:1.35rem;font-weight:900;margin-bottom:.4rem;}
+.filter-sub{color:rgba(255,255,255,.6);font-size:.85rem;margin-bottom:1.5rem;}
+.filter-label{font-size:.75rem;font-weight:800;color:#f472b6;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem;}
+.filter-row{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:1.5rem;}
+.filter-row:last-child{margin-bottom:0;}
+.filter-chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:.7rem 1.3rem;border-radius:999px;font-size:.8rem;font-weight:800;cursor:pointer;transition:all .2s;letter-spacing:.02em;}
+.filter-chip:hover{border-color:rgba(236,72,153,.5);}
+.filter-chip.active{background:linear-gradient(135deg,#ec4899,#a855f7);border-color:transparent;}
+
+.products-section{padding:4rem 1rem;}
+.products-container{max-width:1280px;margin:0 auto;}
+.section-header{text-align:center;margin-bottom:3rem;}
+.section-header h2{font-size:2.5rem;font-weight:900;margin-bottom:.75rem;}
+.section-header p{color:#9ca3af;font-size:1rem;}
+.products-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;}
+@media(min-width:640px){.products-grid{grid-template-columns:repeat(3,1fr);gap:1.5rem;}}
+@media(min-width:1024px){.products-grid{grid-template-columns:repeat(4,1fr);}}
+.product-card{background:linear-gradient(to bottom right,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:1rem;padding:1rem;transition:all .3s;display:flex;flex-direction:column;cursor:pointer;}
+.product-card:hover{border-color:rgba(236,72,153,.5);box-shadow:0 20px 40px rgba(236,72,153,.15);transform:translateY(-3px);}
+.product-image{position:relative;margin-bottom:.875rem;font-size:3.5rem;height:6.5rem;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(236,72,153,.25),rgba(168,85,247,.25));border:1px solid rgba(236,72,153,.2);border-radius:.75rem;transition:all .3s;overflow:hidden;}
+.product-image img{width:100%;height:100%;object-fit:cover;}
+.product-card:hover .product-image{background:linear-gradient(135deg,rgba(236,72,153,.4),rgba(168,85,247,.4));}
+.product-badge{position:absolute;top:.5rem;right:.5rem;background:linear-gradient(135deg,#ec4899,#a855f7);padding:.3rem .8rem;border-radius:999px;font-size:.65rem;font-weight:900;text-transform:uppercase;letter-spacing:.03em;box-shadow:0 3px 10px rgba(0,0,0,.4);}
+.badge-hot{background:linear-gradient(135deg,#ef4444,#dc2626);}
+.badge-new{background:linear-gradient(135deg,#3b82f6,#2563eb);}
+.badge-bestseller{background:linear-gradient(135deg,#facc15,#f59e0b);color:#1a0a2e;}
+.badge-value{background:linear-gradient(135deg,#22c55e,#16a34a);}
+.badge-premium{background:linear-gradient(135deg,#a855f7,#7c3aed);}
+.badge-gift{background:linear-gradient(135deg,#ec4899,#db2777);}
+.product-name{font-size:1.05rem;font-weight:900;margin-bottom:.5rem;line-height:1.3;}
+.product-specs{font-size:.7rem;color:#d1d5db;margin-bottom:.75rem;line-height:1.5;flex:1;}
+.price-row{display:flex;align-items:baseline;gap:.6rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.1);flex-wrap:wrap;}
+.product-price{font-size:1.5rem;font-weight:900;background:linear-gradient(to right,#facc15,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.product-old-price{font-size:.9rem;font-weight:700;color:rgba(255,255,255,.4);text-decoration:line-through;}
+.product-footer{display:flex;justify-content:stretch;align-items:center;padding-top:.875rem;}
+.add-btn{width:100%;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;padding:.65rem 1.25rem;border-radius:.5rem;border:none;font-weight:800;font-size:.85rem;cursor:pointer;transition:all .2s;}
+.add-btn:hover{filter:brightness(1.15);transform:scale(1.03);}
+.tap-hint{font-size:.65rem;color:rgba(255,255,255,.35);text-align:center;margin-top:.4rem;}
+
+.detail-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:75;padding:1rem;overflow-y:auto;}
+.detail-modal.active{display:flex;}
+.detail-content{background:linear-gradient(135deg,#2d0a35,#1a0a2e);border:1px solid rgba(236,72,153,.3);border-radius:1.5rem;max-width:520px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(236,72,153,.3);}
+.detail-image-wrap{position:relative;width:100%;height:280px;background:linear-gradient(135deg,rgba(236,72,153,.25),rgba(168,85,247,.25));display:flex;align-items:center;justify-content:center;font-size:7rem;border-radius:1.5rem 1.5rem 0 0;overflow:hidden;}
+.detail-image-wrap img{width:100%;height:100%;object-fit:cover;}
+.detail-close{position:absolute;top:.75rem;right:.75rem;background:rgba(0,0,0,.6);border:none;color:#fff;width:2.25rem;height:2.25rem;border-radius:50%;font-size:1.1rem;cursor:pointer;z-index:2;}
+.detail-download{position:absolute;bottom:.75rem;right:.75rem;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.3);color:#fff;padding:.5rem .9rem;border-radius:.6rem;font-size:.75rem;font-weight:700;cursor:pointer;z-index:2;display:flex;align-items:center;gap:.35rem;}
+.detail-download:hover{background:rgba(236,72,153,.6);}
+.detail-body{padding:1.5rem;}
+.detail-badge{display:inline-block;margin-bottom:.75rem;}
+.detail-name{font-size:1.5rem;font-weight:900;margin-bottom:.5rem;}
+.detail-specs{font-size:.9rem;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:1.25rem;}
+.detail-price-row{display:flex;align-items:baseline;gap:.75rem;margin-bottom:1.5rem;}
+.detail-price{font-size:2rem;font-weight:900;background:linear-gradient(to right,#facc15,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.detail-old-price{font-size:1.1rem;color:rgba(255,255,255,.4);text-decoration:line-through;}
+.qty-row{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;}
+.qty-row .qty-btn{background:rgba(255,255,255,.1);border:1px solid rgba(236,72,153,.3);color:#fff;width:2.25rem;height:2.25rem;border-radius:.5rem;font-weight:900;font-size:1.1rem;cursor:pointer;}
+.qty-row .qty-btn:hover{background:rgba(236,72,153,.3);}
+.qty-display{font-size:1.2rem;font-weight:800;min-width:2rem;text-align:center;}
+.detail-add-btn{width:100%;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;padding:1rem;border-radius:.75rem;border:none;font-weight:800;font-size:1rem;cursor:pointer;transition:all .2s;}
+.detail-add-btn:hover{filter:brightness(1.1);}
+
+.promo-header{background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(236,72,153,.15));border:1px solid rgba(236,72,153,.3);border-radius:1rem;padding:1.25rem;margin-bottom:1.5rem;}
+.promo-stocking{display:flex;align-items:center;gap:.4rem;color:#f472b6;font-weight:800;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem;}
+.promo-badges{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.9rem;}
+.promo-save-badge{display:inline-flex;align-items:center;gap:.35rem;background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);color:#fca5a5;padding:.5rem 1rem;border-radius:999px;font-size:.75rem;font-weight:800;}
+.promo-refer-badge{display:inline-flex;align-items:center;gap:.35rem;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#4ade80;padding:.5rem 1rem;border-radius:999px;font-size:.75rem;font-weight:800;}
+.refer-cta{cursor:pointer;}
+.refer-cta:hover{background:rgba(34,197,94,.25);}
+
+.share-section{margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.1);}
+.share-title{font-size:.8rem;font-weight:800;color:#f472b6;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;}
+.share-sub{font-size:.75rem;color:rgba(255,255,255,.5);margin-bottom:1rem;}
+.share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+.share-btn{border:none;border-radius:.65rem;padding:.75rem;font-weight:800;font-size:.8rem;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;gap:.4rem;transition:filter .2s,transform .2s;}
+.share-btn:hover{filter:brightness(1.1);transform:translateY(-2px);}
+.share-whatsapp{background:#22c55e;}
+.share-facebook{background:#1877f2;}
+.share-twitter{background:#1da1f2;}
+.share-telegram{background:#229ed9;}
+.share-copy{background:rgba(255,255,255,.15);grid-column:1/-1;}
+
+.cart-overlay{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.5);display:none;}
+.cart-overlay.active{display:block;}
+.cart-sidebar{position:fixed;right:0;top:0;height:100%;width:100%;max-width:28rem;background:linear-gradient(to bottom,#2d0a35,#1a0a2e);z-index:50;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s ease-in-out;}
+.cart-sidebar.active{transform:translateX(0);}
+.cart-header{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center;}
+.cart-header h2{font-size:1.5rem;font-weight:900;}
+.close-btn{background:none;border:none;color:#fff;cursor:pointer;font-size:1.5rem;padding:.5rem;}
+.cart-items{flex:1;overflow-y:auto;padding:1.5rem;}
+.cart-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;padding:1rem;margin-bottom:1rem;}
+.cart-item-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem;}
+.cart-item-name{font-weight:bold;}
+.cart-item-price{color:#9ca3af;font-size:.875rem;}
+.remove-btn{background:none;border:none;color:#ef4444;cursor:pointer;font-weight:bold;}
+.cart-qty{display:flex;align-items:center;gap:.5rem;}
+.qty-btn{background:rgba(255,255,255,.1);border:none;color:#fff;width:1.5rem;height:1.5rem;cursor:pointer;border-radius:.25rem;font-weight:bold;}
+.qty-btn:hover{background:rgba(255,255,255,.2);}
+.empty-cart{text-align:center;color:#9ca3af;padding:2rem;}
+.cart-footer{border-top:1px solid rgba(255,255,255,.1);padding:1.5rem;}
+.cart-total{display:flex;justify-content:space-between;font-size:1.125rem;font-weight:bold;margin-bottom:1rem;}
+.total-amount{color:#facc15;}
+.checkout-btn{width:100%;background:linear-gradient(to right,#ec4899,#a855f7);color:#fff;font-weight:bold;padding:.875rem;border-radius:.5rem;border:none;cursor:pointer;display:block;text-align:center;margin-bottom:.75rem;transition:all .2s;font-size:.9rem;}
+.checkout-btn:hover{filter:brightness(1.1);}
+.continue-btn{width:100%;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-weight:bold;padding:.75rem;border-radius:.5rem;cursor:pointer;transition:all .2s;}
+.continue-btn:hover{background:rgba(255,255,255,.1);}
+
+.center-modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:70;padding:1rem;overflow-y:auto;}
+.center-modal.active{display:flex;}
+.modal-box{background:linear-gradient(135deg,#2d0a35,#1a0a2e);border:1px solid rgba(236,72,153,.3);border-radius:1.5rem;padding:2rem;max-width:500px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(236,72,153,.3);}
+.modal-header{text-align:center;margin-bottom:1.75rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(236,72,153,.2);}
+.modal-icon{font-size:2.75rem;margin-bottom:.75rem;}
+.modal-title{font-size:1.6rem;font-weight:900;margin-bottom:.4rem;background:linear-gradient(135deg,#ec4899,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.modal-subtitle{color:rgba(255,255,255,.6);font-size:.85rem;}
+.form-group{margin-bottom:1.4rem;}
+.form-label{display:block;font-size:.8rem;font-weight:700;margin-bottom:.4rem;color:#f472b6;text-transform:uppercase;letter-spacing:.05em;}
+.form-input,.form-select,.form-textarea{width:100%;padding:.8rem;border:1px solid rgba(236,72,153,.3);border-radius:.7rem;background:rgba(255,255,255,.05);color:#fff;font-size:.9rem;transition:all .2s;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:rgba(236,72,153,.8);background:rgba(236,72,153,.1);}
+.form-input::placeholder,.form-textarea::placeholder{color:rgba(255,255,255,.4);}
+.form-textarea{resize:vertical;min-height:70px;}
+.form-select option{background:#2d0a35;}
+.modal-btns{display:flex;gap:1rem;}
+.modal-btn{flex:1;padding:1rem;border-radius:.75rem;border:none;font-weight:800;cursor:pointer;transition:all .2s;font-size:.95rem;}
+.btn-primary{background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;box-shadow:0 4px 15px rgba(236,72,153,.3);}
+.btn-primary:hover{filter:brightness(1.1);}
+.btn-cancel{background:transparent;border:1px solid rgba(255,255,255,.2);color:#fff;}
+.btn-cancel:hover{background:rgba(255,255,255,.1);}
+
+.payment-methods{margin-bottom:1.5rem;}
+.payment-methods-label{display:block;font-size:.875rem;font-weight:700;margin-bottom:1rem;color:#f472b6;text-transform:uppercase;letter-spacing:.05em;}
+.method-option{display:flex;align-items:center;padding:1rem;margin-bottom:.75rem;background:rgba(255,255,255,.05);border:2px solid rgba(236,72,153,.2);border-radius:.75rem;cursor:pointer;transition:all .2s;}
+.method-option:hover{border-color:rgba(236,72,153,.5);background:rgba(236,72,153,.1);}
+.method-option input[type="radio"]{margin-right:1rem;cursor:pointer;width:1.25rem;height:1.25rem;accent-color:#ec4899;}
+.method-option.selected{border-color:#ec4899;background:rgba(236,72,153,.15);}
+.method-info{flex:1;}
+.method-name{font-weight:800;margin-bottom:.25rem;font-size:.95rem;}
+.method-desc{font-size:.75rem;color:rgba(255,255,255,.6);}
+.order-summary{background:linear-gradient(135deg,rgba(236,72,153,.15),rgba(168,85,247,.15));border:1px solid rgba(236,72,153,.3);border-radius:1rem;padding:1.25rem;margin-bottom:1.5rem;}
+.summary-title{font-weight:800;margin-bottom:1rem;font-size:.9rem;text-transform:uppercase;letter-spacing:.05em;color:#f472b6;}
+.summary-item{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:.9rem;}
+.summary-item:last-child{border-bottom:none;padding-top:.75rem;margin-top:.75rem;border-top:2px solid rgba(236,72,153,.3);font-weight:900;font-size:1.1rem;}
+.summary-amount{background:linear-gradient(to right,#facc15,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900;}
+
+.confirmation-icon{font-size:4rem;margin-bottom:1rem;animation:bounce .6s ease-in-out;text-align:center;}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.reference-box{background:linear-gradient(135deg,rgba(249,212,35,.2),rgba(236,72,153,.2));border:2px solid #facc15;border-radius:1rem;padding:1.5rem;margin-bottom:1.5rem;text-align:center;}
+.reference-label{font-size:.75rem;color:#facc15;text-transform:uppercase;font-weight:800;letter-spacing:.1em;margin-bottom:.5rem;}
+.reference-number{font-family:monospace;font-weight:bold;font-size:1.75rem;color:#facc15;letter-spacing:.1em;}
+.confirmation-details{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:1rem;text-align:left;margin-bottom:1.5rem;font-size:.9rem;}
+.detail-item{display:flex;justify-content:space-between;padding:.75rem 0;border-bottom:1px solid rgba(255,255,255,.1);}
+.detail-item:last-child{border-bottom:none;}
+.detail-label{color:rgba(255,255,255,.6);font-weight:600;}
+.detail-value{color:#facc15;font-weight:700;}
+.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;}
+.btn-success:hover{filter:brightness(1.1);}
+
+.referral-code-box{background:linear-gradient(135deg,rgba(249,212,35,.2),rgba(236,72,153,.2));border:2px solid #facc15;border-radius:1rem;padding:1.25rem;margin:1.25rem 0;text-align:center;}
+.referral-code-label{font-size:.7rem;color:#facc15;text-transform:uppercase;font-weight:800;letter-spacing:.1em;margin-bottom:.4rem;}
+.referral-code-value{font-family:monospace;font-weight:900;font-size:1.4rem;color:#facc15;letter-spacing:.05em;word-break:break-all;}
+.referral-tiers{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1.25rem 0;}
+.tier-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:.75rem;padding:.9rem;text-align:center;}
+.tier-price{font-size:.75rem;color:rgba(255,255,255,.6);}
+.tier-commission{font-size:1.2rem;font-weight:900;color:#4ade80;}
+.rules-link{display:block;text-align:center;margin-top:1rem;color:#f472b6;font-size:.8rem;font-weight:700;text-decoration:underline;cursor:pointer;background:none;border:none;width:100%;}
+.rules-text{font-size:.85rem;line-height:1.75;color:rgba(255,255,255,.75);}
+.rules-text h4{color:#f472b6;font-size:.9rem;margin:1.25rem 0 .5rem;}
+.rules-text h4:first-child{margin-top:0;}
+.rules-text ul{padding-left:1.2rem;margin-top:.4rem;}
+.rules-text li{margin-bottom:.4rem;}
+
+.admin-modal-content{max-width:800px;}
+.admin-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+.admin-tab-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem 1.1rem;border-radius:.6rem;font-size:.8rem;font-weight:700;cursor:pointer;}
+.admin-tab-btn.active{background:linear-gradient(135deg,#ec4899,#a855f7);border-color:transparent;}
+.admin-section{display:none;}
+.admin-section.active{display:block;}
+.admin-product-list{display:flex;flex-direction:column;gap:.75rem;max-height:340px;overflow-y:auto;margin-bottom:1.5rem;}
+.admin-product-row{display:flex;align-items:center;gap:.9rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:.75rem;}
+.admin-thumb{width:52px;height:52px;border-radius:.5rem;background:linear-gradient(135deg,rgba(236,72,153,.3),rgba(168,85,247,.3));display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;overflow:hidden;}
+.admin-thumb img{width:100%;height:100%;object-fit:cover;}
+.admin-row-info{flex:1;min-width:0;}
+.admin-row-name{font-weight:800;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.admin-row-price{font-size:.78rem;color:#facc15;font-weight:700;}
+.admin-row-btns{display:flex;gap:.4rem;flex-shrink:0;}
+.admin-icon-btn{background:rgba(255,255,255,.1);border:none;color:#fff;width:2.1rem;height:2.1rem;border-radius:.5rem;cursor:pointer;font-size:.9rem;}
+.admin-icon-btn.edit:hover{background:rgba(59,130,246,.4);}
+.admin-icon-btn.del:hover{background:rgba(239,68,68,.4);}
+.file-drop{border:2px dashed rgba(236,72,153,.4);border-radius:.9rem;padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:rgba(236,72,153,.05);margin-bottom:.5rem;}
+.file-drop:hover{background:rgba(236,72,153,.12);border-color:rgba(236,72,153,.7);}
+.file-preview{width:100%;max-height:160px;object-fit:contain;border-radius:.6rem;margin-top:.75rem;display:none;}
+.music-current{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:.75rem;padding:1rem;margin-top:1rem;font-size:.85rem;display:none;align-items:center;justify-content:space-between;gap:.5rem;}
+.admin-note{font-size:.75rem;color:rgba(255,255,255,.45);line-height:1.5;margin-top:.5rem;}
+.admin-status-pill{padding:.3rem .7rem;border-radius:999px;font-size:.7rem;font-weight:800;text-transform:uppercase;}
+.status-pending{background:rgba(250,204,21,.2);color:#facc15;}
+.status-verified{background:rgba(59,130,246,.2);color:#60a5fa;}
+.status-paid{background:rgba(34,197,94,.2);color:#4ade80;}
+.admin-sale-row{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:1rem;margin-bottom:.75rem;}
+.admin-sale-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem;gap:.5rem;}
+.admin-sale-commission{font-weight:900;color:#facc15;font-size:1.1rem;}
+.admin-sale-detail{font-size:.8rem;color:rgba(255,255,255,.6);line-height:1.6;}
+.admin-sale-btns{display:flex;gap:.5rem;margin-top:.75rem;}
+.admin-mini-btn{flex:1;padding:.5rem;border-radius:.5rem;border:none;font-weight:800;font-size:.75rem;cursor:pointer;}
+.btn-verify{background:rgba(59,130,246,.3);color:#60a5fa;}
+.btn-paid{background:rgba(34,197,94,.3);color:#4ade80;}
+.referrer-row{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:.9rem 1rem;margin-bottom:.6rem;}
+.referrer-info .rname{font-weight:800;}
+.referrer-info .rphone{font-size:.8rem;color:rgba(255,255,255,.6);}
+.referrer-code-tag{font-family:monospace;font-size:.75rem;background:rgba(250,204,21,.15);color:#facc15;padding:.3rem .6rem;border-radius:.4rem;font-weight:700;}
+
+.founder-page{max-width:820px;margin:0 auto;padding:2rem 1rem 4rem;}
+.founder-photo-top{position:relative;width:100%;max-width:340px;height:420px;margin:0 auto 2rem;border-radius:2rem;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.founder-photo-top img{width:100%;height:100%;object-fit:cover;object-position:top center;}
+.founder-photo-top .photo-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(26,10,46,.85),transparent);}
+.founder-photo-top .photo-badge{position:absolute;bottom:1rem;left:1rem;right:1rem;}
+.founder-brand-tag{display:inline-flex;align-items:center;gap:.5rem;background:rgba(236,72,153,.15);border:1px solid rgba(236,72,153,.4);border-radius:999px;padding:.5rem 1.25rem;font-size:.7rem;font-weight:800;color:#f472b6;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1.25rem;}
+.founder-quote-title{font-size:clamp(1.8rem,5vw,2.6rem);font-weight:900;line-height:1.15;margin-bottom:.5rem;}
+.founder-quote-by{color:#f9a8d4;font-weight:700;margin-bottom:1.5rem;font-size:1rem;}
+.founder-quote-block{border-left:3px solid #ec4899;padding-left:1.25rem;margin-bottom:1.5rem;}
+.founder-quote-block p{color:rgba(255,255,255,.75);line-height:1.85;font-size:.98rem;margin-bottom:1.25rem;}
+.founder-quote-block p:last-child{margin-bottom:0;}
+.founder-contact-card{background:rgba(255,255,255,.05);border:1px solid rgba(236,72,153,.3);border-radius:1rem;padding:1.5rem;margin-top:1.5rem;}
+.founder-contact-card .fc-title{font-weight:900;font-size:1rem;margin-bottom:.35rem;display:flex;align-items:center;gap:.5rem;}
+.founder-contact-card .fc-sub{color:rgba(255,255,255,.6);font-size:.85rem;margin-bottom:1.1rem;}
+.founder-wa-btn{display:inline-flex;align-items:center;gap:.6rem;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;padding:.9rem 1.5rem;border-radius:.75rem;text-decoration:none;font-weight:800;font-size:.9rem;}
+.founder-wa-btn:hover{filter:brightness(1.1);}
+
+footer{border-top:1px solid rgba(255,255,255,.1);padding:3rem 1rem;background:linear-gradient(to bottom,transparent,rgba(0,0,0,.3));}
+.footer-container{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;margin-bottom:2rem;}
+.footer-col h4{font-weight:bold;margin-bottom:.75rem;}
+.footer-col p{font-size:.875rem;color:#9ca3af;}
+.footer-col a,.footer-col button{color:#9ca3af;text-decoration:none;background:none;border:none;cursor:pointer;font-size:.875rem;padding:0;}
+.footer-col a:hover,.footer-col button:hover{color:#f472b6;}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.1);padding-top:2rem;text-align:center;color:#6b7280;font-size:.875rem;}
+
+@media(max-width:768px){
+  .header-nav{gap:.25rem;}
+  .tab-btn{font-size:.7rem;padding:.4rem .75rem;}
+  .welcome-inner{grid-template-columns:1fr;}
+  .photo-frame{width:250px;height:320px;}
+  .offerings{grid-template-columns:1fr;}
+  .cart-sidebar{max-width:100%;}
+  .section-header h2{font-size:1.75rem;}
+  .modal-box{padding:1.5rem;}
+  .modal-btns{flex-direction:column;}
+  .reference-number{font-size:1.5rem;}
+  .detail-image-wrap{height:220px;font-size:5rem;}
+  .founder-photo-top{max-width:260px;height:320px;}
+  .founder-quote-title{font-size:1.6rem;}
+}
+</style>
+</head>
+<body>
+
+<div class="flash-banner" id="flashBanner">
+  <div class="flash-banner-text">
+    <span>🔥 FLASH DEAL — FREE DELIVERY ON ALL ORDERS TODAY!</span>
+    <span class="flash-timer">ENDS IN 05:10:11</span>
+    <span>⭐ Order now before midnight & get FREE delivery across Ghana!</span>
+  </div>
+  <button class="close-banner" onclick="document.getElementById('flashBanner').style.display='none'">✕</button>
+</div>
+
+<header>
+  <div class="header-container">
+    <div class="logo-section">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text"><div class="logo-main">VOLTIX</div><div class="logo-sub">GHANA #1</div></div>
+    </div>
+    <div class="header-nav">
+      <button class="tab-btn active" onclick="switchTab('shop')" id="tab-shop">🛒 Shop Earpods</button>
+      <button class="tab-btn" onclick="switchTab('design')" id="tab-design">🎛️ Design Lab</button>
+      <button class="tab-btn" onclick="switchTab('studio')" id="tab-studio">🎬 Ad Studio</button>
+      <button class="tab-btn" onclick="switchTab('founder')" id="tab-founder">👤 Founder</button>
+    </div>
+    <div class="header-right">
+      <button class="music-btn" id="musicBtn" onclick="toggleMusic()">🎵 Play Store Music</button>
+      <button class="login-btn" id="loginBtn" onclick="openLoginModal()">🔑 Login</button>
+      <button class="cart-btn" onclick="toggleCart()">🛒<span class="cart-count" id="cartCount" style="display:none;">0</span></button>
+    </div>
+  </div>
+</header>
+
+<audio id="storeAudio" loop></audio>
+
+<div class="cart-overlay" id="cartOverlay" onclick="if(event.target===this) toggleCart()"></div>
+<div class="cart-sidebar" id="cartSidebar">
+  <div class="cart-header"><h2>Shopping Cart</h2><button class="close-btn" onclick="toggleCart()">✕</button></div>
+  <div class="cart-items" id="cartItems"><div class="empty-cart">Your cart is empty</div></div>
+  <div class="cart-footer">
+    <div class="cart-total"><span>Total:</span><span class="total-amount" id="cartTotal">Ghc0</span></div>
+    <button class="checkout-btn" onclick="startCheckout()">💳 Proceed to Checkout</button>
+    <button class="continue-btn" onclick="toggleCart()">Continue Shopping</button>
+  </div>
+</div>
+
+<div class="detail-modal" id="detailModal">
+  <div class="detail-content">
+    <div class="detail-image-wrap" id="detailImageWrap">
+      <button class="detail-close" onclick="closeDetailModal()">✕</button>
+      <span id="detailEmoji"></span>
+      <button class="detail-download" id="detailDownloadBtn" onclick="downloadProductImage()">⬇ Save Image</button>
+    </div>
+    <div class="detail-body">
+      <div id="detailPromoWrap"></div>
+      <div class="detail-badge" id="detailBadgeWrap"></div>
+      <div class="detail-name" id="detailName"></div>
+      <p class="detail-specs" id="detailSpecs"></p>
+      <div class="detail-price-row">
+        <div class="detail-price" id="detailPrice"></div>
+        <div class="detail-old-price" id="detailOldPrice"></div>
+      </div>
+      <div class="qty-row">
+        <span class="form-label" style="margin:0;">Quantity</span>
+        <button class="qty-btn" onclick="changeDetailQty(-1)">−</button>
+        <span class="qty-display" id="detailQty">1</span>
+        <button class="qty-btn" onclick="changeDetailQty(1)">+</button>
+      </div>
+      <button class="detail-add-btn" onclick="addDetailToCart()">🛒 Add to Cart</button>
+      <div class="share-section">
+        <div class="share-title">📤 Share This Earpod</div>
+        <div class="share-sub">Preview shows the product you're viewing.</div>
+        <div class="share-grid">
+          <button class="share-btn share-whatsapp" onclick="shareProduct('whatsapp')">💬 WhatsApp</button>
+          <button class="share-btn share-facebook" onclick="shareProduct('facebook')">📘 Facebook</button>
+          <button class="share-btn share-twitter" onclick="shareProduct('twitter')">🐦 Twitter</button>
+          <button class="share-btn share-telegram" onclick="shareProduct('telegram')">✈️ Telegram</button>
+          <button class="share-btn share-copy" onclick="shareProduct('copy')">🔗 Copy Link</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="center-modal" id="loginModal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-icon">🔑</div><div class="modal-title">Login to Continue</div><div class="modal-subtitle">You need an account to order from Voltix Pro GH</div></div>
+    <form onsubmit="handleLogin(event)">
+      <div class="form-group"><label class="form-label">👤 Full Name</label><input type="text" id="loginName" class="form-input" placeholder="Enter your full name" required></div>
+      <div class="form-group"><label class="form-label">📱 Phone Number</label><input type="tel" id="loginPhone" class="form-input" placeholder="0536 193 862" required></div>
+      <div class="modal-btns"><button type="submit" class="modal-btn btn-primary">✅ Login</button><button type="button" class="modal-btn btn-cancel" onclick="closeLoginModal()">Cancel</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="center-modal" id="paymentModal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-icon">💳</div><div class="modal-title">Complete Your Order</div><div class="modal-subtitle">Secure payment powered by Paystack</div></div>
+    <form onsubmit="processPayment(event)">
+      <div class="form-group"><label class="form-label">👤 Full Name</label><input type="text" id="customerName" class="form-input" placeholder="Enter your full name" required></div>
+      <div class="form-group"><label class="form-label">📱 Phone Number (MoMo)</label><input type="tel" id="customerPhone" class="form-input" placeholder="0536 193 862" required></div>
+      <div class="form-group"><label class="form-label">📍 Delivery Location</label><input type="text" id="deliveryLocation" class="form-input" placeholder="Enter your delivery address" required></div>
+      <div class="payment-methods">
+        <label class="payment-methods-label">💰 Choose Payment Method</label>
+        <label class="method-option selected" onclick="selectPaymentMethod('card',event)"><input type="radio" name="paymentMethod" value="card" checked><div class="method-info"><div class="method-name">💳 Visa / Mastercard</div><div class="method-desc">Secure card payment via Paystack</div></div></label>
+        <label class="method-option" onclick="selectPaymentMethod('mtn',event)"><input type="radio" name="paymentMethod" value="mtn"><div class="method-info"><div class="method-name">📱 MTN MoMo</div><div class="method-desc">Instant mobile money payment</div></div></label>
+        <label class="method-option" onclick="selectPaymentMethod('telecel',event)"><input type="radio" name="paymentMethod" value="telecel"><div class="method-info"><div class="method-name">📱 Telecel Cash</div><div class="method-desc">Instant mobile money payment</div></div></label>
+        <label class="method-option" onclick="selectPaymentMethod('cod',event)"><input type="radio" name="paymentMethod" value="cod"><div class="method-info"><div class="method-name">🏠 Cash on Delivery</div><div class="method-desc">Pay when package arrives</div></div></label>
+      </div>
+      <div class="order-summary">
+        <div class="summary-title">📦 Order Summary</div>
+        <div id="summaryItems"></div>
+        <div class="summary-item"><span>Total Amount</span><span class="summary-amount" id="summaryTotal">Ghc0</span></div>
+      </div>
+      <div class="modal-btns"><button type="submit" class="modal-btn btn-primary">💰 Pay Now</button><button type="button" class="modal-btn btn-cancel" onclick="closePaymentModal()">Cancel</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="center-modal" id="confirmationModal">
+  <div class="modal-box" style="text-align:center;">
+    <div class="confirmation-icon">✅</div>
+    <div class="modal-title">Payment Successful!</div>
+    <p class="modal-subtitle" style="margin-bottom:1.5rem;">Your order has been confirmed and sent to our WhatsApp team.</p>
+    <div class="reference-box"><div class="reference-label">Order Reference Number</div><div class="reference-number" id="refNumber">#1001</div></div>
+    <div class="confirmation-details">
+      <div class="detail-item"><span class="detail-label">👤 Customer</span><span class="detail-value" id="confName">-</span></div>
+      <div class="detail-item"><span class="detail-label">📱 Phone</span><span class="detail-value" id="confPhone">-</span></div>
+      <div class="detail-item"><span class="detail-label">📍 Location</span><span class="detail-value" id="confLocation">-</span></div>
+      <div class="detail-item"><span class="detail-label">💰 Total Paid</span><span class="detail-value" id="confAmount">-</span></div>
+      <div class="detail-item"><span class="detail-label">🚚 Delivery</span><span class="detail-value">1-3 Days</span></div>
+    </div>
+    <button class="modal-btn btn-success" style="width:100%;" onclick="closeConfirmation()">✅ Got It!</button>
+  </div>
+</div>
+
+<div class="center-modal" id="referModal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-icon">🤝</div><div class="modal-title">Refer &amp; Earn</div><div class="modal-subtitle">Share Voltix Pro GH and earn real cash on every sale</div></div>
+    <div class="referral-tiers">
+      <div class="tier-card"><div class="tier-price">Ghc40 Earbuds</div><div class="tier-commission">Ghc5</div></div>
+      <div class="tier-card"><div class="tier-price">Ghc120 Earbuds</div><div class="tier-commission">Ghc7</div></div>
+      <div class="tier-card"><div class="tier-price">Ghc130 Earbuds</div><div class="tier-commission">Ghc7</div></div>
+      <div class="tier-card"><div class="tier-price">Ghc220 Earbuds</div><div class="tier-commission">Ghc10</div></div>
+    </div>
+    <div id="referSignupArea">
+      <form onsubmit="handleReferrerSignup(event)">
+        <div class="form-group"><label class="form-label">👤 Full Name</label><input type="text" id="referName" class="form-input" placeholder="Enter your full name" required></div>
+        <div class="form-group"><label class="form-label">📱 WhatsApp Number</label><input type="tel" id="referPhone" class="form-input" placeholder="0536 193 862" required></div>
+        <div class="modal-btns"><button type="submit" class="modal-btn btn-primary">🚀 Get My Referral Link</button><button type="button" class="modal-btn btn-cancel" onclick="closeCenterModal('referModal')">Cancel</button></div>
+      </form>
+    </div>
+    <div id="referDashboardArea" style="display:none;">
+      <div class="referral-code-box"><div class="referral-code-label">Your Referral Code</div><div class="referral-code-value" id="myReferralCode">-</div></div>
+      <div class="modal-btns"><button type="button" class="modal-btn btn-primary" onclick="copyReferralLink()">🔗 Copy My Link</button><button type="button" class="modal-btn btn-cancel" onclick="closeCenterModal('referModal')">Close</button></div>
+    </div>
+    <button class="rules-link" onclick="closeCenterModal('referModal'); openRulesModal();">📋 Referral Rules &amp; Regulations</button>
+  </div>
+</div>
+
+<div class="center-modal" id="rulesModal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-icon">📋</div><div class="modal-title">Referral Rules &amp; Regulations</div></div>
+    <div class="rules-text">
+      <h4>1. How Commission Works</h4>
+      <ul>
+        <li>Ghc40 earbuds (RingPod One) earn you <strong>Ghc5</strong> per sale</li>
+        <li>Ghc120 earbuds (Ultrapods Max) earn you <strong>Ghc7</strong> per sale</li>
+        <li>Ghc130 earbuds (Berlin Open-Ear Pro) earn you <strong>Ghc7</strong> per sale</li>
+        <li>Ghc220 earbuds (SportHook Elite) earn you <strong>Ghc10</strong> per sale</li>
+        <li>Commission is calculated per item sold</li>
+      </ul>
+      <h4>2. When You Get Paid</h4>
+      <ul>
+        <li>Only paid after the buyer's payment is confirmed and the order is verified</li>
+        <li>Cash on Delivery orders paid only after confirmed delivery</li>
+        <li>Payment sent to the WhatsApp/MoMo number you registered with</li>
+        <li>Payouts processed within 3–7 business days of verification</li>
+      </ul>
+      <h4>3. Rules</h4>
+      <ul>
+        <li>Self-referrals are not eligible for commission</li>
+        <li>Fraudulent or duplicate orders forfeit commission</li>
+        <li>Accurate name and WhatsApp details required</li>
+        <li>Voltix Pro GH may change rates or end the program anytime; pending commissions still honored</li>
+      </ul>
+      <h4>4. Sharing Guidelines</h4>
+      <ul>
+        <li>Share honestly — no false product claims</li>
+        <li>One referral code per person</li>
+      </ul>
+    </div>
+    <div class="modal-btns" style="margin-top:1.5rem;"><button type="button" class="modal-btn btn-primary" style="width:100%;" onclick="closeCenterModal('rulesModal')">I Understand</button></div>
+  </div>
+</div>
+
+<div class="center-modal" id="adminLoginModal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-icon">⚙️</div><div class="modal-title">Admin Access</div><div class="modal-subtitle">Sign in with your admin email to manage the store</div></div>
+    <form onsubmit="handleAdminLogin(event)">
+      <div class="form-group"><label class="form-label">📧 Email</label><input type="email" id="adminEmail" class="form-input" placeholder="you@example.com" required></div>
+      <div class="form-group"><label class="form-label">🔒 Password</label><input type="password" id="adminPasswordInput" class="form-input" placeholder="Enter your password" required></div>
+      <div class="modal-btns"><button type="submit" class="modal-btn btn-primary" id="adminLoginBtn">Sign In</button><button type="button" class="modal-btn btn-cancel" onclick="closeCenterModal('adminLoginModal')">Cancel</button></div>
+    </form>
+    <button class="rules-link" onclick="handleForgotPassword()">🔑 Forgot Password?</button>
+  </div>
+</div>
+
+<div class="center-modal" id="adminDashModal">
+  <div class="modal-box admin-modal-content">
+    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;text-align:left;border-bottom:none;padding-bottom:0;">
+      <div><div class="modal-title" style="margin-bottom:.2rem;">⚙️ Admin Dashboard</div><div class="modal-subtitle">Manage products, music &amp; referrals</div></div>
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <button class="admin-tab-btn" onclick="handleAdminLogout()">🚪 Logout</button>
+        <button class="close-btn" onclick="closeCenterModal('adminDashModal')">✕</button>
+      </div>
+    </div>
+    <div class="admin-tabs" style="margin-top:1.25rem;">
+      <button class="admin-tab-btn active" onclick="switchAdminTab('products')" id="admintab-products">📦 Products</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('add')" id="admintab-add">➕ Add / Edit</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('music')" id="admintab-music">🎵 Store Music</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('referrers')" id="admintab-referrers">🎁 Referrers</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('sales')" id="admintab-sales">🧾 Referral Sales</button>
+    </div>
+
+    <div class="admin-section active" id="adminsection-products">
+      <div class="admin-product-list" id="adminProductList"></div>
+      <div class="admin-note">Tap ✏️ to edit a product's photo, name or price, or 🗑️ to remove it.</div>
+    </div>
+
+    <div class="admin-section" id="adminsection-add">
+      <form onsubmit="saveProductForm(event)">
+        <input type="hidden" id="editingProductId" value="">
+        <div class="form-group">
+          <label class="form-label">📸 Product Photo (from your gallery)</label>
+          <div class="file-drop" onclick="document.getElementById('productImageInput').click()">📁 Tap to choose a photo from your gallery</div>
+          <input type="file" id="productImageInput" accept="image/*" style="display:none;" onchange="handleProductImage(event)">
+          <img id="productImagePreview" class="file-preview">
+        </div>
+        <div class="form-group"><label class="form-label">Product Name</label><input type="text" id="formName" class="form-input" placeholder="e.g. Ultrapods Max - Red" required></div>
+        <div class="form-group"><label class="form-label">Price (Ghc)</label><input type="number" id="formPrice" class="form-input" placeholder="120" required></div>
+        <div class="form-group"><label class="form-label">Old Price (Ghc) — optional</label><input type="number" id="formOldPrice" class="form-input" placeholder="160"></div>
+        <div class="form-group">
+          <label class="form-label">Badge</label>
+          <select id="formBadge" class="form-select">
+            <option value="badge-hot|Hot Deal">🔴 Hot Deal</option>
+            <option value="badge-new|New">🔵 New</option>
+            <option value="badge-bestseller|Best Seller">🟡 Best Seller</option>
+            <option value="badge-value|Best Value">🟢 Best Value</option>
+            <option value="badge-premium|Premium">🟣 Premium</option>
+            <option value="badge-gift|Gift Set">🌸 Gift Set</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="formCategory" class="form-select">
+            <option value="ring-clip">Ring-Clip · Ghc40</option>
+            <option value="open-ear">Open-Ear · Ghc130</option>
+            <option value="ultrapods">Ultrapods · Ghc120</option>
+            <option value="sport">Sport · Ghc220</option>
+            <option value="bundle">Bundle</option>
+            <option value="accessory">Accessory</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Description / Specs</label><textarea id="formSpecs" class="form-textarea" placeholder="Noise Cancelling • Bluetooth 5.3 • 48h Battery"></textarea></div>
+        <div class="modal-btns">
+          <button type="submit" class="modal-btn btn-primary" id="saveProductBtn">💾 Save Product</button>
+          <button type="button" class="modal-btn btn-cancel" onclick="resetProductForm()">Clear Form</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="admin-section" id="adminsection-music">
+      <form onsubmit="handleMusicUrlSave(event)">
+        <div class="form-group">
+          <label class="form-label">🎵 Store Music Link (MP3 URL)</label>
+          <input type="url" id="musicUrlInput" class="form-input" placeholder="https://example.com/song.mp3">
+        </div>
+        <button type="submit" class="modal-btn btn-primary" style="width:100%;margin-bottom:1rem;">💾 Save Music Link</button>
+      </form>
+      <div class="music-current" id="musicCurrent"><span id="musicFileName">🎶 No music set</span><button type="button" class="admin-icon-btn del" onclick="removeMusic()">🗑️</button></div>
+      <div class="admin-note">Paste a direct MP3 link (from a free host like Archive.org, SoundCloud's download link, or your own hosting). Direct file uploads come back once Storage is enabled.</div>
+    </div>
+
+    <div class="admin-section" id="adminsection-referrers">
+      <div id="adminReferrerList"></div>
+      <div class="admin-note">Everyone who signs up for Refer &amp; Earn appears here with their name and WhatsApp number.</div>
+    </div>
+
+    <div class="admin-section" id="adminsection-sales">
+      <div id="adminSalesList"></div>
+      <div class="admin-note">Every order placed through a referral link shows here. Mark ✅ Verified once payment is confirmed, then 💰 Paid once you've sent their commission.</div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-content active" id="content-shop">
+<section class="welcome-section">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="welcome-inner">
+    <div class="photo-side">
+      <div class="photo-frame">
+        <img src="founder.jpg" alt="Kodiya Nekara — Founder" onerror="this.parentElement.textContent='👤'">
+        <div class="photo-overlay"></div>
+        <div class="photo-badge"><div class="badge-title">⚡ Founder</div><div class="badge-name">Kodiya Nekara</div><div class="badge-subtitle">Trust God Company</div></div>
+      </div>
+    </div>
+    <div class="text-side">
+      <div class="welcome-tag">👋 Welcome to Voltix Pro GH</div>
+      <h1>Ghana's #1<br><span class="highlight">Premium Earpods</span><br>Store</h1>
+      <div class="founder-info">By <span>Kodiya Nekara</span> · Trust God Company</div>
+      <p class="intro-text">Hi! I'm Kodiya, founder of Voltix Pro GH. I created this store to give every Ghanaian access to premium wireless earpods at prices that make sense. No overpricing — just real quality, real value, delivered to your door. 🎧</p>
+      <div class="offerings">
+        <div class="offer-item"><div class="offer-icon">🎧</div><div style="text-align:left;"><div class="offer-title">Premium Earpods</div><div class="offer-desc">From Ghc 40</div></div></div>
+        <div class="offer-item"><div class="offer-icon">💳</div><div style="text-align:left;"><div class="offer-title">Secure Payment</div><div class="offer-desc">Paystack Verified</div></div></div>
+        <div class="offer-item"><div class="offer-icon">📱</div><div style="text-align:left;"><div class="offer-title">Easy Checkout</div><div class="offer-desc">Login &amp; Order Fast</div></div></div>
+        <div class="offer-item"><div class="offer-icon">🚚</div><div style="text-align:left;"><div class="offer-title">Fast Delivery</div><div class="offer-desc">1-3 Days</div></div></div>
+      </div>
+      <div class="cta-row">
+        <button class="cta-shop" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'})">🛒 Shop Now →</button>
+        <a href="https://wa.me/233536193862" target="_blank" class="cta-chat">📱 Chat With Me</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div style="max-width:1280px;margin:2rem auto 0;padding:0 1rem;">
+  <div class="live-indicator"><span class="live-badge"><span class="live-dot"></span>LIVE</span>🔥 12 people bought SportHook Elite this week</div>
+</div>
+
+<section id="products" class="products-section">
+  <div class="products-container">
+    <div class="filter-section">
+      <div class="filter-box">
+        <div class="filter-title">✨ Browse Our Collection</div>
+        <div class="filter-sub">Select a filter to narrow down what you're looking for</div>
+        <div class="filter-label">Category</div>
+        <div class="filter-row" id="categoryFilters">
+          <button class="filter-chip active" onclick="setCategoryFilter('all', event)">All</button>
+          <button class="filter-chip" onclick="setCategoryFilter('ring-clip', event)">Ring-Clip · Ghc40</button>
+          <button class="filter-chip" onclick="setCategoryFilter('open-ear', event)">Open-Ear · Ghc130</button>
+          <button class="filter-chip" onclick="setCategoryFilter('ultrapods', event)">Ultrapods · Ghc120</button>
+          <button class="filter-chip" onclick="setCategoryFilter('sport', event)">Sport · Ghc220</button>
+          <button class="filter-chip" onclick="setCategoryFilter('bundle', event)">Bundle</button>
+          <button class="filter-chip" onclick="setCategoryFilter('accessory', event)">Accessory</button>
+        </div>
+        <div class="filter-label">Price</div>
+        <div class="filter-row" id="priceFilters">
+          <button class="filter-chip active" onclick="setPriceFilter('any', event)">Any Price</button>
+          <button class="filter-chip" onclick="setPriceFilter('under40', event)">≤ Ghc40</button>
+          <button class="filter-chip" onclick="setPriceFilter('mid', event)">Ghc50–150</button>
+          <button class="filter-chip" onclick="setPriceFilter('high', event)">Ghc150+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <h2>Our <span class="highlight">Premium Collection</span></h2>
+      <p>Tap any product to view photos, details &amp; save the image</p>
+    </div>
+    <div class="products-grid" id="productsGrid"></div>
+  </div>
+</section>
+</div>
+
+<div class="tab-content" id="content-design">
+  <section style="padding:5rem 1rem;max-width:1280px;margin:0 auto;">
+    <div style="text-align:center;">
+      <h2 style="font-size:2.5rem;font-weight:900;margin-bottom:1rem;">🎛️ Design Lab</h2>
+      <p style="color:#9ca3af;font-size:1.125rem;margin-bottom:2rem;">Coming Soon - Custom Earpods Design Studio</p>
+      <div style="background:linear-gradient(135deg,rgba(236,72,153,.2),rgba(168,85,247,.2));border:1px solid rgba(236,72,153,.3);border-radius:1rem;padding:3rem;">
+        <div style="font-size:4rem;margin-bottom:1rem;">🎨</div>
+        <p style="color:rgba(255,255,255,.8);font-size:1.1rem;">Design your own custom earpods with our lab. Choose colors, materials, and personalization options.</p>
+        <p style="color:rgba(255,255,255,.5);margin-top:1rem;font-size:.95rem;">Contact us on WhatsApp to get started</p>
+        <a href="https://wa.me/233536193862" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;padding:.875rem 2rem;border-radius:.75rem;text-decoration:none;font-weight:800;margin-top:1.5rem;">📱 Chat with Designer</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="tab-content" id="content-studio">
+  <section style="padding:5rem 1rem;max-width:1280px;margin:0 auto;">
+    <div style="text-align:center;">
+      <h2 style="font-size:2.5rem;font-weight:900;margin-bottom:1rem;">🎬 Ad Studio</h2>
+      <p style="color:#9ca3af;font-size:1.125rem;margin-bottom:2rem;">Influencer &amp; Affiliate Program</p>
+      <div style="background:linear-gradient(135deg,rgba(236,72,153,.2),rgba(168,85,247,.2));border:1px solid rgba(236,72,153,.3);border-radius:1rem;padding:3rem;">
+        <div style="font-size:4rem;margin-bottom:1rem;">📹</div>
+        <p style="color:rgba(255,255,255,.8);font-size:1.1rem;">Become a Voltix Pro GH brand ambassador. Create content, earn commissions, grow your influence.</p>
+        <p style="color:rgba(255,255,255,.5);margin-top:1rem;font-size:.95rem;">Sign up through our "Refer &amp; Earn" program in the footer to start earning today</p>
+        <button onclick="switchTab('shop'); openReferModal();" style="display:inline-block;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;padding:.875rem 2rem;border-radius:.75rem;border:none;font-weight:800;margin-top:1.5rem;cursor:pointer;">🎥 Become an Influencer</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="tab-content" id="content-founder">
+  <div class="founder-page">
+    <div class="founder-photo-top">
+      <img src="founder.jpg" alt="Kodiya Nekara — Founder" onerror="this.parentElement.textContent='👤'">
+      <div class="photo-overlay"></div>
+      <div class="photo-badge"><div class="badge-title">⚡ Founder</div><div class="badge-name">Kodiya Nekara</div><div class="badge-subtitle">Trust God Company</div></div>
+    </div>
+    <div class="founder-brand-tag">🇬🇭 A Trust God Company Brand</div>
+    <h1 class="founder-quote-title">"Premium Sound.<br>Real Prices."</h1>
+    <div class="founder-quote-by">Message from Kodiya Nekara</div>
+    <div class="founder-quote-block">
+      <p>"Hi everyone! I am Kodiya Nekara, founder of Voltix Pro GH. When I set out to build Ghana's number one premium earpods store, my goal was plain and simple: bringing the absolute best, crystal clear bass and audio technology to every Ghanaian at authentic, fair value prices starting from just Ghc 40!"</p>
+      <p>"Why pay hundreds of cedis for overpriced products when you can get genuine high fidelity, digital battery LED displays, or active noise cancellation that lasts an entire weekend? Every single pair of earbuds in our warehouse is thoroughly tested under strict quality regulations before getting delivered across Ghana."</p>
+      <p>"As a proud brand of the 'Trust God Company', we believe in absolute integrity, clean customer service, and solid support. That is why we offer an unconditional 7-Day defection replacement return warranty to guarantee your satisfaction."</p>
+    </div>
+    <div class="founder-contact-card">
+      <div class="fc-title">📞 Talk Directly to the CEO</div>
+      <div class="fc-sub">Have questions or want bulk purchase discounts?</div>
+      <a href="https://wa.me/233536193862" target="_blank" class="founder-wa-btn">💬 WhatsApp Kodiya</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-container">
+    <div class="footer-col"><h4>⚡ VOLTIX PRO GH</h4><p>Ghana's #1 Premium Earpods Store</p></div>
+    <div class="footer-col">
+      <h4>Quick Links</h4>
+      <p><button onclick="switchTab('shop')">Shop</button></p>
+      <p><button onclick="switchTab('founder')">About</button></p>
+      <p><button onclick="openReferModal()">Refer &amp; Earn</button></p>
+      <p><a href="https://wa.me/233536193862">WhatsApp</a></p>
+    </div>
+    <div class="footer-col"><h4>Payment</h4><p>💳 Paystack Secure</p><p>📱 MTN MoMo</p><p>🏠 Cash on Delivery</p></div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <p>📱 +233 536 193 862</p>
+      <p>🇬🇭 Delivered Across Ghana</p>
+      <p style="margin-top:.75rem;"><button onclick="openAdminLoginModal()" style="color:#6b7280;">⚙️ Admin</button></p>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>⚡ Voltix Pro GH — A Trust God Company Brand</p>
+    <p style="margin-top:.5rem;">Premium Sound. Real Prices. Ghana First. 🇬🇭</p>
+  </div>
+</footer>
+
+<script>
+const COMMISSION_TIERS = { 40:5, 120:7, 130:7, 220:10 };
+
+let products = [];
+let cart = JSON.parse(localStorage.getItem('voltixCart') || '[]');
+let currentPaymentMethod = 'card';
+let currentUser = JSON.parse(localStorage.getItem('voltixUser') || 'null');
+let activeDetailProduct = null;
+let detailQty = 1;
+let pendingProductImageFile = null;
+let currentMusicUrl = null;
+let musicPlaying = false;
+let pendingCheckout = false;
+let activeCategory = 'all';
+let activePriceFilter = 'any';
+let myReferrer = JSON.parse(localStorage.getItem('voltixMyReferrer') || 'null');
+let isAdminAuthed = false;
+
+(function captureRefCode(){
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get('ref');
+  if(ref) localStorage.setItem('voltixPendingRefCode', ref);
+})();
+
+function getCommissionForPrice(price){
+  if(COMMISSION_TIERS[price] !== undefined) return COMMISSION_TIERS[price];
+  const tiers = Object.keys(COMMISSION_TIERS).map(Number).sort((a,b)=>a-b);
+  let match = 0;
+  for(const t of tiers){ if(price >= t) match = COMMISSION_TIERS[t]; }
+  return match;
+}
+
+function initFirebaseData(){
+  window.VDB.seedDefaultsIfEmpty();
+  window.VDB.subscribeProducts((list) => {
+    products = list;
+    renderProducts();
+    if (document.getElementById('adminDashModal').classList.contains('active')) renderAdminProductList();
+  });
+  window.VDB.subscribeMusic((data) => {
+    currentMusicUrl = data.musicUrl || null;
+    const audio = document.getElementById('storeAudio');
+    if (currentMusicUrl) audio.src = currentMusicUrl; else audio.removeAttribute('src');
+    refreshMusicPanel(data.musicName);
+  });
+  window.VDB.subscribeReferrers((list) => { renderAdminReferrers(list); });
+  window.VDB.subscribeReferralSales((list) => { renderAdminSales(list); });
+  window.VDB.watchAdminAuth((user) => { isAdminAuthed = !!user; });
+}
+if (window.VDB) { initFirebaseData(); } else { window.addEventListener('vdb-ready', initFirebaseData); }
+
+function matchesFilters(p){
+  if(activeCategory !== 'all' && (p.category||'') !== activeCategory) return false;
+  if(activePriceFilter === 'under40' && p.price > 40) return false;
+  if(activePriceFilter === 'mid' && (p.price < 50 || p.price > 150)) return false;
+  if(activePriceFilter === 'high' && p.price <= 150) return false;
+  return true;
+}
+function setCategoryFilter(cat, event){
+  activeCategory = cat;
+  document.querySelectorAll('#categoryFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  renderProducts();
+}
+function setPriceFilter(range, event){
+  activePriceFilter = range;
+  document.querySelectorAll('#priceFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  renderProducts();
+}
+
+function renderProducts(){
+  const grid = document.getElementById('productsGrid');
+  const filtered = products.filter(matchesFilters);
+  if(filtered.length === 0){
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem 1rem;color:rgba(255,255,255,.5);">No products match this filter yet.</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(p => `
+    <div class="product-card" onclick="openDetailModal('${p.id}')">
+      <div class="product-image">
+        ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.name}">` : (p.emoji||'🎧')}
+        <div class="product-badge ${p.badgeClass||''}">${p.badge||''}</div>
+      </div>
+      <h3 class="product-name">${p.name}</h3>
+      <p class="product-specs">${p.specs||''}</p>
+      <div class="price-row">
+        <div class="product-price">Ghc${p.price}</div>
+        ${p.oldPrice ? `<div class="product-old-price">Ghc${p.oldPrice}</div>` : ''}
+      </div>
+      <div class="product-footer"><button class="add-btn" onclick="event.stopPropagation(); addToCart('${p.id}')">Add to Cart</button></div>
+      <div class="tap-hint">👆 Tap to view</div>
+    </div>`).join('');
+}
+
+function openDetailModal(id){
+  const p = products.find(x => String(x.id) === String(id));
+  if(!p) return;
+  activeDetailProduct = p;
+  detailQty = 1;
+  document.getElementById('detailQty').textContent = detailQty;
+
+  const imgWrap = document.getElementById('detailImageWrap');
+  document.getElementById('detailEmoji').textContent = p.imageUrl ? '' : (p.emoji||'🎧');
+  const existingImg = imgWrap.querySelector('img.detail-real-img');
+  if(existingImg) existingImg.remove();
+  if(p.imageUrl){
+    const img = document.createElement('img');
+    img.src = p.imageUrl;
+    img.className = 'detail-real-img';
+    img.style.position='absolute'; img.style.inset='0'; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; img.style.zIndex='1';
+    imgWrap.insertBefore(img, imgWrap.firstChild);
+  }
+
+  const promoWrap = document.getElementById('detailPromoWrap');
+  const commission = getCommissionForPrice(p.price);
+  const savings = p.oldPrice ? (p.oldPrice - p.price) : 0;
+  promoWrap.innerHTML = `
+    <div class="promo-header">
+      <div class="promo-stocking">⚡ Now Stocking in Ghana</div>
+      <div class="promo-badges">
+        ${savings > 0 ? `<span class="promo-save-badge">💥 You Save Ghc${savings}!</span>` : ''}
+        <span class="promo-refer-badge refer-cta" onclick="closeDetailModal(); openReferModal();">🤝 Refer &amp; Earn Ghc${commission}</span>
+      </div>
+    </div>`;
+
+  document.getElementById('detailBadgeWrap').innerHTML = `<span class="product-badge ${p.badgeClass||''}" style="position:static;display:inline-block;">${p.badge||''}</span>`;
+  document.getElementById('detailName').textContent = p.name;
+  document.getElementById('detailSpecs').textContent = p.specs||'';
+  document.getElementById('detailPrice').textContent = 'Ghc' + p.price;
+  document.getElementById('detailOldPrice').textContent = p.oldPrice ? 'Ghc' + p.oldPrice : '';
+  document.getElementById('detailDownloadBtn').style.display = p.imageUrl ? 'flex' : 'none';
+
+  document.getElementById('detailModal').classList.add('active');
+}
+function closeDetailModal(){ document.getElementById('detailModal').classList.remove('active'); activeDetailProduct = null; }
+function changeDetailQty(delta){ detailQty = Math.max(1, detailQty + delta); document.getElementById('detailQty').textContent = detailQty; }
+function addDetailToCart(){
+  if(!activeDetailProduct) return;
+  for(let i=0;i<detailQty;i++) addToCart(activeDetailProduct.id, true);
+  closeDetailModal();
+  toggleCart();
+}
+function downloadProductImage(){
+  if(!activeDetailProduct || !activeDetailProduct.imageUrl) return;
+  window.VDB.downloadImageFromUrl(activeDetailProduct.imageUrl, activeDetailProduct.name.replace(/\s+/g,'_') + '.jpg');
+}
+function shareProduct(platform){
+  if(!activeDetailProduct) return;
+  const p = activeDetailProduct;
+  let shareUrl = window.location.origin + window.location.pathname + '?product=' + p.id;
+  if(myReferrer) shareUrl += '&ref=' + myReferrer.code;
+  const text = `Check out ${p.name} at Voltix Pro GH — Ghc${p.price}! ${p.specs}`;
+  const encodedUrl = encodeURIComponent(shareUrl);
+  const encodedText = encodeURIComponent(text);
+  if(platform==='whatsapp') window.open(`https://wa.me/?text=${encodedText}%20${encodedUrl}`, '_blank');
+  else if(platform==='facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, '_blank');
+  else if(platform==='twitter') window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
+  else if(platform==='telegram') window.open(`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`, '_blank');
+  else if(platform==='copy') navigator.clipboard.writeText(shareUrl).then(()=>alert('🔗 Link copied to clipboard!')).catch(()=>prompt('Copy this link:', shareUrl));
+}
+
+function addToCart(id, silent){
+  const product = products.find(p => String(p.id) === String(id));
+  if(!product) return;
+  const existing = cart.find(item => String(item.id) === String(id));
+  if(existing){ existing.qty++; } else { cart.push({ ...product, qty:1 }); }
+  updateCart();
+  if(!silent) toggleCart();
+}
+function removeFromCart(id){ cart = cart.filter(item => String(item.id) !== String(id)); updateCart(); }
+function updateQty(id, qty){
+  const item = cart.find(i => String(i.id) === String(id));
+  if(item){ if(qty<=0) removeFromCart(id); else { item.qty = qty; updateCart(); } }
+}
+function updateCart(){
+  const count = cart.reduce((s,i)=>s+i.qty,0);
+  const total = cart.reduce((s,i)=>s+(i.price*i.qty),0);
+  const countEl = document.getElementById('cartCount');
+  if(count>0){ countEl.textContent = count; countEl.style.display='flex'; } else { countEl.style.display='none'; }
+  document.getElementById('cartTotal').textContent = `Ghc${total}`;
+  const itemsEl = document.getElementById('cartItems');
+  itemsEl.innerHTML = cart.length===0 ? '<div class="empty-cart">Your cart is empty</div>' : cart.map(item => `
+    <div class="cart-item">
+      <div class="cart-item-header">
+        <div><div class="cart-item-name">${item.name}</div><div class="cart-item-price">Ghc${item.price}</div></div>
+        <button class="remove-btn" onclick="removeFromCart('${item.id}')">✕</button>
+      </div>
+      <div class="cart-qty">
+        <button class="qty-btn" onclick="updateQty('${item.id}', ${item.qty - 1})">−</button>
+        <span style="flex:1;text-align:center;">${item.qty}</span>
+        <button class="qty-btn" onclick="updateQty('${item.id}', ${item.qty + 1})">+</button>
+      </div>
+    </div>`).join('');
+  localStorage.setItem('voltixCart', JSON.stringify(cart));
+}
+function toggleCart(){
+  document.getElementById('cartSidebar').classList.toggle('active');
+  document.getElementById('cartOverlay').classList.toggle('active');
+}
+
+function switchTab(tabName){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('content-'+tabName)?.classList.add('active');
+  document.getElementById('tab-'+tabName)?.classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function updateLoginUI(){
+  const btn = document.getElementById('loginBtn');
+  if(currentUser){ btn.textContent = '👤 ' + currentUser.name.split(' ')[0]; btn.onclick = logoutUser; }
+  else { btn.textContent = '🔑 Login'; btn.onclick = openLoginModal; }
+}
+function openLoginModal(){ document.getElementById('loginModal').classList.add('active'); }
+function closeLoginModal(){ document.getElementById('loginModal').classList.remove('active'); }
+function handleLogin(e){
+  e.preventDefault();
+  const name = document.getElementById('loginName').value;
+  const phone = document.getElementById('loginPhone').value;
+  currentUser = { name, phone };
+  localStorage.setItem('voltixUser', JSON.stringify(currentUser));
+  updateLoginUI();
+  closeLoginModal();
+  if(pendingCheckout){ pendingCheckout = false; openPaymentModal(); }
+}
+function logoutUser(){ currentUser = null; localStorage.removeItem('voltixUser'); updateLoginUI(); }
+function startCheckout(){
+  if(cart.length===0){ alert('Your cart is empty!'); return; }
+  if(!currentUser){ pendingCheckout = true; toggleCart(); openLoginModal(); return; }
+  openPaymentModal();
+}
+
+function openPaymentModal(){
+  const total = cart.reduce((s,i)=>s+(i.price*i.qty),0);
+  document.getElementById('summaryTotal').textContent = `Ghc${total}`;
+  document.getElementById('summaryItems').innerHTML = cart.map(item => `
+    <div class="summary-item"><span>${item.name} x${item.qty}</span><span>Ghc${item.price*item.qty}</span></div>`).join('');
+  if(currentUser){
+    document.getElementById('customerName').value = currentUser.name;
+    document.getElementById('customerPhone').value = currentUser.phone;
+  }
+  document.getElementById('paymentModal').classList.add('active');
+  document.getElementById('cartSidebar').classList.remove('active');
+  document.getElementById('cartOverlay').classList.remove('active');
+}
+function closePaymentModal(){ document.getElementById('paymentModal').classList.remove('active'); }
+function selectPaymentMethod(method, event){
+  currentPaymentMethod = method;
+  document.querySelectorAll('.method-option').forEach(o=>o.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  event.currentTarget.querySelector('input[type="radio"]').checked = true;
+}
+function processPayment(e){
+  e.preventDefault();
+  const name = document.getElementById('customerName').value;
+  const phone = document.getElementById('customerPhone').value;
+  const location = document.getElementById('deliveryLocation').value;
+  if(!name||!phone||!location){ alert('Please fill in all fields'); return; }
+  const total = cart.reduce((s,i)=>s+(i.price*i.qty),0);
+  if(currentPaymentMethod==='cod'){ processOrder(name,phone,location,total,'Cash on Delivery'); }
+  else { payWithPaystack(name,phone,location,total); }
+}
+function payWithPaystack(name, phone, location, total){
+  const handler = PaystackPop.setup({
+    key: 'pk_test_2a5af3e6c5e20b46f27b26b0c7e3e4d5',
+    email: phone + '@voltix.com',
+    amount: total * 100,
+    currency: 'GHS',
+    ref: 'VOLTIX-' + Math.floor((Math.random()*9000000)+1000000),
+    onClose: function(){},
+    onSuccess: function(){ processOrder(name, phone, location, total, 'Paystack - ' + currentPaymentMethod.toUpperCase()); }
+  });
+  handler.openIframe();
+}
+function processOrder(name, phone, location, total, paymentMethod){
+  const refNum = '#' + (Math.floor(Math.random()*9000)+1000);
+  document.getElementById('refNumber').textContent = refNum;
+  document.getElementById('confName').textContent = name;
+  document.getElementById('confPhone').textContent = phone;
+  document.getElementById('confLocation').textContent = location;
+  document.getElementById('confAmount').textContent = 'Ghc' + total;
+  closePaymentModal();
+  document.getElementById('confirmationModal').classList.add('active');
+
+  const pendingRef = localStorage.getItem('voltixPendingRefCode');
+  if(pendingRef){
+    const commission = cart.reduce((sum,item) => sum + (getCommissionForPrice(item.price) * item.qty), 0);
+    const itemsSummary = cart.map(i => `${i.name} x${i.qty}`).join(', ');
+    window.VDB.addReferralSale({
+      refCode: pendingRef,
+      referrerName: myReferrer && myReferrer.code === pendingRef ? myReferrer.name : '',
+      referrerPhone: myReferrer && myReferrer.code === pendingRef ? myReferrer.phone : '',
+      customerName: name, customerPhone: phone,
+      orderRef: refNum, itemsSummary, commission
+    });
+    localStorage.removeItem('voltixPendingRefCode');
+  }
+
+  sendWhatsAppMessage(name, phone, location, total, paymentMethod, refNum);
+}
+function sendWhatsAppMessage(name, phone, location, total, paymentMethod, refNum){
+  const itemsList = cart.map(item => `• ${item.name} x${item.qty}: Ghc${item.price*item.qty}`).join('\n');
+  const message = `🎉 *NEW ORDER - ${refNum}*\n\n👤 *Customer:* ${name}\n📱 *Phone:* ${phone}\n📍 *Location:* ${location}\n\n*Items Ordered:*\n${itemsList}\n\n💰 *Total Amount:* Ghc${total}\n💳 *Payment:* ${paymentMethod}\n✅ *Status:* PAID & CONFIRMED\n\n🚚 *Delivery:* 1-3 business days\n✅ *Guarantee:* 100% Authentic\n\nThank you for ordering from Voltix Pro GH! ⚡`;
+  const encodedMsg = encodeURIComponent(message);
+  setTimeout(()=>{ window.open(`https://wa.me/233536193862?text=${encodedMsg}`, '_blank'); }, 1500);
+}
+function closeConfirmation(){
+  document.getElementById('confirmationModal').classList.remove('active');
+  cart = [];
+  updateCart();
+}
+function closeCenterModal(id){ document.getElementById(id).classList.remove('active'); }
+
+function toggleMusic(){
+  const btn = document.getElementById('musicBtn');
+  if(!currentMusicUrl){ alert('No store music set yet. Go to Admin Dashboard → Store Music to add a link.'); return; }
+  const audio = document.getElementById('storeAudio');
+  if(musicPlaying){ audio.pause(); btn.textContent='🎵 Play Store Music'; musicPlaying=false; }
+  else { audio.play(); btn.textContent='⏸ Pause Music'; musicPlaying=true; }
+}
+
+function openReferModal(){
+  document.getElementById('referModal').classList.add('active');
+  if(myReferrer){
+    document.getElementById('referSignupArea').style.display = 'none';
+    document.getElementById('referDashboardArea').style.display = 'block';
+    document.getElementById('myReferralCode').textContent = myReferrer.code;
+  } else {
+    document.getElementById('referSignupArea').style.display = 'block';
+    document.getElementById('referDashboardArea').style.display = 'none';
+  }
+}
+function openRulesModal(){ document.getElementById('rulesModal').classList.add('active'); }
+async function handleReferrerSignup(e){
+  e.preventDefault();
+  const name = document.getElementById('referName').value;
+  const phone = document.getElementById('referPhone').value;
+  const code = 'VLX-' + phone.replace(/\D/g,'').slice(-4) + Math.random().toString(36).slice(2,5).toUpperCase();
+  try {
+    await window.VDB.addReferrer({ name, phone, code });
+    myReferrer = { name, phone, code };
+    localStorage.setItem('voltixMyReferrer', JSON.stringify(myReferrer));
+    document.getElementById('referSignupArea').style.display = 'none';
+    document.getElementById('referDashboardArea').style.display = 'block';
+    document.getElementById('myReferralCode').textContent = code;
+  } catch(err){ alert('Failed to sign up: ' + err.message); }
+}
+function copyReferralLink(){
+  if(!myReferrer) return;
+  const link = window.location.origin + window.location.pathname + '?ref=' + myReferrer.code;
+  navigator.clipboard.writeText(link).then(()=>alert('🔗 Referral link copied! Share it anywhere.')).catch(()=>prompt('Copy this link:', link));
+}
+
+function openAdminLoginModal(){
+  if(isAdminAuthed){ openAdminDashboard(); return; }
+  document.getElementById('adminLoginModal').classList.add('active');
+}
+async function handleAdminLogin(e){
+  e.preventDefault();
+  const email = document.getElementById('adminEmail').value;
+  const password = document.getElementById('adminPasswordInput').value;
+  const btn = document.getElementById('adminLoginBtn');
+  btn.textContent = 'Signing in...';
+  btn.disabled = true;
+  try {
+    await window.VDB.adminLogin(email, password);
+    document.getElementById('adminEmail').value = '';
+    document.getElementById('adminPasswordInput').value = '';
+    closeCenterModal('adminLoginModal');
+    openAdminDashboard();
+  } catch(err) {
+    alert('Login failed: ' + err.message);
+  } finally {
+    btn.textContent = 'Sign In';
+    btn.disabled = false;
+  }
+}
+async function handleAdminLogout(){
+  await window.VDB.adminLogout();
+  closeCenterModal('adminDashModal');
+}
+async function handleForgotPassword(){
+  const email = document.getElementById('adminEmail').value;
+  if(!email){
+    alert('Type your admin email in the field above first, then tap "Forgot Password?" again.');
+    return;
+  }
+  try {
+    await window.VDB.adminResetPassword(email);
+    alert('✅ Password reset email sent to ' + email + '. Check your inbox (and spam folder) for a link from Firebase.');
+  } catch(err) {
+    alert('Failed to send reset email: ' + err.message);
+  }
+}
+function openAdminDashboard(){
+  renderAdminProductList();
+  switchAdminTab('products');
+  document.getElementById('adminDashModal').classList.add('active');
+}
+function switchAdminTab(tab){
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.admin-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('adminsection-'+tab).classList.add('active');
+  document.getElementById('admintab-'+tab).classList.add('active');
+}
+function renderAdminProductList(){
+  const list = document.getElementById('adminProductList');
+  list.innerHTML = products.map(p => `
+    <div class="admin-product-row">
+      <div class="admin-thumb">${p.imageUrl ? `<img src="${p.imageUrl}">` : (p.emoji||'🎧')}</div>
+      <div class="admin-row-info">
+        <div class="admin-row-name">${p.name}</div>
+        <div class="admin-row-price">Ghc${p.price} ${p.oldPrice ? '· was Ghc'+p.oldPrice : ''}</div>
+      </div>
+      <div class="admin-row-btns">
+        <button class="admin-icon-btn edit" onclick="editProduct('${p.id}')">✏️</button>
+        <button class="admin-icon-btn del" onclick="deleteProduct('${p.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+function editProduct(id){
+  const p = products.find(x => String(x.id) === String(id));
+  if(!p) return;
+  document.getElementById('editingProductId').value = p.id;
+  document.getElementById('formName').value = p.name;
+  document.getElementById('formPrice').value = p.price;
+  document.getElementById('formOldPrice').value = p.oldPrice || '';
+  document.getElementById('formSpecs').value = p.specs || '';
+  document.getElementById('formBadge').value = (p.badgeClass||'badge-hot') + '|' + (p.badge||'Hot Deal');
+  document.getElementById('formCategory').value = p.category || 'ring-clip';
+  pendingProductImageFile = null;
+  const preview = document.getElementById('productImagePreview');
+  if(p.imageUrl){ preview.src = p.imageUrl; preview.style.display='block'; } else { preview.style.display='none'; }
+  document.getElementById('saveProductBtn').textContent = '💾 Update Product';
+  switchAdminTab('add');
+}
+async function deleteProduct(id){
+  if(!confirm('Remove this product from your store?')) return;
+  try { await window.VDB.deleteProductById(id); } catch(err) { alert('Failed to delete: ' + err.message); }
+}
+function handleProductImage(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const maxDim = 500;
+      let w = img.width, h = img.height;
+      if(w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+      else if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      pendingProductImageFile = canvas.toDataURL('image/jpeg', 0.6);
+      const preview = document.getElementById('productImagePreview');
+      preview.src = pendingProductImageFile;
+      preview.style.display = 'block';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function resetProductForm(){
+  document.getElementById('editingProductId').value = '';
+  document.getElementById('formName').value = '';
+  document.getElementById('formPrice').value = '';
+  document.getElementById('formOldPrice').value = '';
+  document.getElementById('formSpecs').value = '';
+  document.getElementById('formBadge').selectedIndex = 0;
+  document.getElementById('formCategory').selectedIndex = 0;
+  document.getElementById('productImagePreview').style.display = 'none';
+  document.getElementById('productImageInput').value = '';
+  pendingProductImageFile = null;
+  document.getElementById('saveProductBtn').textContent = '💾 Save Product';
+}
+async function saveProductForm(e){
+  e.preventDefault();
+  const id = document.getElementById('editingProductId').value;
+  const name = document.getElementById('formName').value;
+  const price = parseFloat(document.getElementById('formPrice').value);
+  const oldPrice = document.getElementById('formOldPrice').value ? parseFloat(document.getElementById('formOldPrice').value) : null;
+  const specs = document.getElementById('formSpecs').value;
+  const category = document.getElementById('formCategory').value;
+  const [badgeClass, badge] = document.getElementById('formBadge').value.split('|');
+  const existing = id ? products.find(p => String(p.id) === String(id)) : null;
+  const productData = {
+    id: id || null, name, price, oldPrice, specs, badgeClass, badge, category,
+    emoji: existing?.emoji || '🎧',
+    imageUrl: pendingProductImageFile || existing?.imageUrl || null
+  };
+  const btn = document.getElementById('saveProductBtn');
+  btn.textContent = '⏳ Saving...';
+  btn.disabled = true;
+  try {
+    await window.VDB.saveProduct(productData);
+    resetProductForm();
+    switchAdminTab('products');
+  } catch(err) { alert('Failed to save: ' + err.message); }
+  finally { btn.disabled = false; }
+}
+
+function refreshMusicPanel(musicName){
+  const currentBox = document.getElementById('musicCurrent');
+  if(currentMusicUrl){
+    document.getElementById('musicFileName').textContent = '🎶 ' + (musicName || 'Store music set');
+    currentBox.style.display = 'flex';
+  } else { currentBox.style.display = 'none'; }
+}
+async function handleMusicUrlSave(e){
+  e.preventDefault();
+  const url = document.getElementById('musicUrlInput').value;
+  if(!url){ alert('Paste an MP3 link first.'); return; }
+  try {
+    await window.VDB.saveMusicUrl(url, 'Store music');
+    document.getElementById('musicUrlInput').value = '';
+    alert('✅ Music link saved! Visitors can now play it from the header button.');
+  } catch(err) { alert('Failed to save: ' + err.message); }
+}
+async function removeMusic(){
+  if(!confirm('Remove store music?')) return;
+  try {
+    await window.VDB.removeMusicUrl();
+    musicPlaying = false;
+    document.getElementById('musicBtn').textContent = '🎵 Play Store Music';
+  } catch(err) { alert('Failed to remove: ' + err.message); }
+}
+
+function renderAdminReferrers(list){
+  const box = document.getElementById('adminReferrerList');
+  if(!box) return;
+  if(list.length === 0){ box.innerHTML = '<div class="empty-cart">No referrers yet.</div>'; return; }
+  box.innerHTML = list.map(r => `
+    <div class="referrer-row">
+      <div class="referrer-info"><div class="rname">${r.name}</div><div class="rphone">📱 ${r.phone}</div></div>
+      <div class="referrer-code-tag">${r.code}</div>
+    </div>`).join('');
+}
+function renderAdminSales(list){
+  const box = document.getElementById('adminSalesList');
+  if(!box) return;
+  if(list.length === 0){ box.innerHTML = '<div class="empty-cart">No referral sales yet.</div>'; return; }
+  box.innerHTML = list.map(s => `
+    <div class="admin-sale-row">
+      <div class="admin-sale-top">
+        <div><div style="font-weight:800;">${s.refCode}</div><div class="admin-sale-detail">Referrer: ${s.referrerName||'Unknown'} (${s.referrerPhone||'-'})</div></div>
+        <span class="admin-status-pill status-${s.status}">${s.status}</span>
+      </div>
+      <div class="admin-sale-detail">👤 Buyer: ${s.customerName} · 📱 ${s.customerPhone}<br>📦 Order: ${s.orderRef} · Items: ${s.itemsSummary}</div>
+      <div class="admin-sale-commission">Commission: Ghc${s.commission}</div>
+      <div class="admin-sale-btns">
+        <button class="admin-mini-btn btn-verify" onclick="setSaleStatus('${s.id}','verified')">✅ Verified</button>
+        <button class="admin-mini-btn btn-paid" onclick="setSaleStatus('${s.id}','paid')">💰 Paid</button>
+      </div>
+    </div>`).join('');
+}
+async function setSaleStatus(id, status){
+  try { await window.VDB.updateReferralSaleStatus(id, status); }
+  catch(err){ alert('Failed: ' + err.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateCart();
+  updateLoginUI();
+});
+</script>
+</body>
+  </html>
