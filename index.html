@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Voltix Pro GH — Ghana's #1 premium earpods store. Genuine quality, real prices, delivered nationwide.">
+<title>Voltix Pro GH — Ghana's #1 Premium Earpods Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://js.paystack.co/v1/inline.js"></script>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="app-topbar">
+  <a href="index.html" class="topbar-logo">
+    <img src="logo.png" alt="Voltix Pro GH" onerror="this.style.display='none'">
+    <div class="topbar-logo-text"><b>VOLTIX</b><span>PRO GH</span></div>
+  </a>
+  <div class="topbar-icons">
+    <a href="search.html" class="icon-btn">🔍</a>
+    <a href="account.html?tab=notifications" class="icon-btn">🔔</a>
+    <a href="cart.html" class="icon-btn">🛒<span class="icon-badge" id="navCartCount" style="display:none;">0</span></a>
+  </div>
+</header>
+
+<!-- HERO BANNER -->
+<div class="hero-wrap">
+  <div class="glass-card hero-banner">
+    <div class="hero-orb hero-orb1"></div>
+    <div class="hero-orb hero-orb2"></div>
+    <div class="hero-tag">🇬🇭 Trust God Company Presents</div>
+    <h1>Ghana's #1 <span>Premium Earpods</span> Store</h1>
+    <p>Genuine quality, real prices, delivered nationwide in 1-3 days.</p>
+    <a href="shop.html" class="hero-cta ripple">🛒 Shop Collection →</a>
+    <div class="hero-dots">
+      <span class="hero-dot active"></span><span class="hero-dot"></span><span class="hero-dot"></span>
+    </div>
+  </div>
+</div>
+
+<!-- FLASH SALES -->
+<section class="section" style="padding-bottom:0;">
+  <div class="flash-header">
+    <div class="flash-title">🔥 Flash Sales</div>
+    <div class="flash-countdown"><span id="flashH">05</span><span>:</span><span id="flashM">10</span><span>:</span><span id="flashS">11</span></div>
+  </div>
+  <div class="hscroll" id="flashSalesRow"></div>
+</section>
+
+<!-- NEW ARRIVALS -->
+<section class="section">
+  <div class="section-head">
+    <div><h2>New Arrivals</h2><div class="section-sub">Just landed this week</div></div>
+    <a href="shop.html?filter=new" class="see-all">See All →</a>
+  </div>
+  <div class="hscroll" id="newArrivalsRow"></div>
+</section>
+
+<!-- BEST SELLERS -->
+<section class="section">
+  <div class="section-head">
+    <div><h2>Best Sellers</h2><div class="section-sub">Loved by 500+ Ghanaians</div></div>
+    <a href="shop.html?filter=bestseller" class="see-all">See All →</a>
+  </div>
+  <div class="hscroll" id="bestSellersRow"></div>
+</section><!-- CATEGORIES -->
+<section class="section">
+  <div class="section-head"><h2>Shop by Category</h2></div>
+  <div class="cat-grid" id="categoryGrid">
+    <a href="shop.html?category=ring-clip" class="cat-item"><div class="cat-circle">💎</div><span>Ring-Clip</span></a>
+    <a href="shop.html?category=ultrapods" class="cat-item"><div class="cat-circle">🎧</div><span>Ultrapods</span></a>
+    <a href="shop.html?category=open-ear" class="cat-item"><div class="cat-circle">🎵</div><span>Open-Ear</span></a>
+    <a href="shop.html?category=sport" class="cat-item"><div class="cat-circle">⚡</div><span>Sport</span></a>
+  </div>
+</section>
+
+<!-- FEATURED PRODUCTS -->
+<section class="section">
+  <div class="section-head">
+    <div><h2>Featured Products</h2><div class="section-sub">Hand-picked by Kodiya</div></div>
+    <a href="shop.html" class="see-all">See All →</a>
+  </div>
+  <div class="hscroll" id="featuredRow"></div>
+</section>
+
+<!-- RECENTLY VIEWED -->
+<section class="section" id="recentlyViewedSection" style="display:none;">
+  <div class="section-head"><h2>Recently Viewed</h2></div>
+  <div class="hscroll" id="recentlyViewedRow"></div>
+</section>
+
+<!-- RECOMMENDED -->
+<section class="section">
+  <div class="section-head"><h2>Recommended For You</h2></div>
+  <div class="hscroll" id="recommendedRow"></div>
+</section>
+
+<!-- CUSTOMER REVIEWS -->
+<section class="section">
+  <div class="section-head">
+    <div><h2>Customer Reviews</h2><div class="section-sub">👍 Verified buyers across Ghana</div></div>
+  </div>
+  <div class="hscroll">
+    <div class="glass-card review-card">
+      <div class="review-top"><span class="review-stars">★★★★★</span></div>
+      <p class="review-quote">"The RingPod One earbuds are a lifesaver for my active runs! Zero ear fatigue, delivered within 4 hours via MoMo. Absolute gold!"</p>
+      <div class="review-author"><div class="review-avatar">E</div><div><b>Emelia Darko</b><span>Tema, Greater Accra</span></div></div>
+    </div>
+    <div class="glass-card review-card">
+      <div class="review-top"><span class="review-stars">★★★★★</span></div>
+      <p class="review-quote">"Ultrapods Max White has amazing noise isolation. I use it at the busy Kejetia market and it completely blocks the noise. Futuristic case!"</p>
+      <div class="review-author"><div class="review-avatar">D</div><div><b>Derrick Boateng</b><span>Kumasi, Ashanti</span></div></div>
+    </div>
+    <div class="glass-card review-card">
+      <div class="review-top"><span class="review-stars">★★★★★</span></div>
+      <p class="review-quote">"The SportHook Elite is a beast! 48 hours of pure endurance. Dropped them in water and still working perfectly."</p>
+      <div class="review-author"><div class="review-avatar">K</div><div><b>Kwame Owusu</b><span>Sunyani, Bono Region</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- BRAND STORY -->
+<section class="section">
+  <div class="brand-story">
+    <div class="brand-story-tag">Our Story</div>
+    <h3>Premium Sound. Real Prices.</h3>
+    <p>Kodiya Nekara, founder of Voltix Pro GH, hand-selects every batch of earpods — testing microphone response and bass frequencies so every Ghanaian gets genuine quality without overpaying.</p>
+    <a href="about.html" class="brand-story-btn ripple">Read Our Story →</a>
+  </div>
+</section>
+
+<!-- NEWSLETTER -->
+<section class="section">
+  <div class="glass-card newsletter">
+    <h3>🎁 Get 10% Off Your First Order</h3>
+    <p>Join our list for exclusive deals & new arrivals</p>
+    <form class="newsletter-form" onsubmit="event.preventDefault(); showToast('✅ Subscribed! Check WhatsApp for your code.');">
+      <input type="tel" placeholder="Your WhatsApp number" required>
+      <button type="submit" class="ripple">Join</button>
+    </form>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="app-footer">
+  <div class="footer-logo">⚡ VOLTIX PRO GH</div>
+  <div class="footer-tagline">A Trust God Company Brand — Premium Sound, Real Prices, Ghana First 🇬🇭</div>
+  <div class="footer-links">
+    <div class="footer-col">
+      <h5>Shop</h5>
+      <a href="shop.html">All Products</a>
+      <a href="shop.html?filter=new">New Arrivals</a>
+      <a href="wishlist.html">Wishlist</a>
+    </div>
+    <div class="footer-col">
+      <h5>Support</h5>
+      <a href="help.html">Help Center</a>
+      <a href="contact.html">Contact Us</a>
+      <a href="track-order.html">Track Order</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2026 Voltix Pro GH · Made in Ghana 🇬🇭</div>
+</footer>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <a href="index.html" class="nav-item" data-page="home"><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page="shop"><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page="cart"><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page="account"><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+function renderHomePage(list){
+  const flash = list.filter(p=>p.badgeClass==='badge-hot').slice(0,6);
+  const newArr = list.filter(p=>p.badgeClass==='badge-new').slice(0,6);
+  const best = list.filter(p=>p.badgeClass==='badge-bestseller').slice(0,6);
+  const featured = list.slice(0,8);
+  const recommended = [...list].sort(()=>Math.random()-0.5).slice(0,6);
+
+  document.getElementById('flashSalesRow').innerHTML = (flash.length?flash:list.slice(0,4)).map(productCardHTML).join('');
+  document.getElementById('newArrivalsRow').innerHTML = (newArr.length?newArr:list.slice(0,4)).map(productCardHTML).join('');
+  document.getElementById('bestSellersRow').innerHTML = (best.length?best:list.slice(0,4)).map(productCardHTML).join('');
+  document.getElementById('featuredRow').innerHTML = featured.map(productCardHTML).join('');
+  document.getElementById('recommendedRow').innerHTML = recommended.map(productCardHTML).join('');
+
+  if(recentlyViewed.length>0){
+    const rv = recentlyViewed.map(id=>list.find(p=>String(p.id)===String(id))).filter(Boolean);
+    if(rv.length>0){
+      document.getElementById('recentlyViewedSection').style.display='block';
+      document.getElementById('recentlyViewedRow').innerHTML = rv.map(productCardHTML).join('');
+    }
+  }
+}
+
+initVoltixApp('home', renderHomePage);
+
+// Sync bottom nav cart badge with top bar
+const origUpdateBadges = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadges();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+
+// Flash sale countdown (visual only)
+let flashSeconds = 5*3600+10*60+11;
+setInterval(()=>{
+  flashSeconds--; if(flashSeconds<0) flashSeconds=5*3600;
+  const h=Math.floor(flashSeconds/3600), m=Math.floor((flashSeconds%3600)/60), s=flashSeconds%60;
+  document.getElementById('flashH').textContent=String(h).padStart(2,'0');
+  document.getElementById('flashM').textContent=String(m).padStart(2,'0');
+  document.getElementById('flashS').textContent=String(s).padStart(2,'0');
+}, 1000);
+</script>
+</body>
+</html>
