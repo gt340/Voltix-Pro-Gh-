@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Product Details — Voltix Pro GH</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.pd-topbar{position:sticky;top:0;z-index:60;background:rgba(6,10,20,.75);backdrop-filter:blur(20px);padding:.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;}
+.pd-back{width:2.5rem;height:2.5rem;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:1.1rem;display:flex;align-items:center;justify-content:center;}
+
+.gallery-wrap{position:relative;background:linear-gradient(150deg,rgba(14,165,233,.14),rgba(30,64,175,.08));}
+.gallery-main{width:100%;height:320px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;touch-action:pan-y;}
+.gallery-main img{width:100%;height:100%;object-fit:contain;padding:1.5rem;transition:transform .3s;cursor:zoom-in;}
+.gallery-main img.zoomed{transform:scale(1.9);cursor:zoom-out;}
+.gallery-main .emoji-fallback{font-size:7rem;}
+.gallery-dots{position:absolute;bottom:.9rem;left:0;right:0;display:flex;justify-content:center;gap:.4rem;}
+.gallery-dots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3);}
+.gallery-dots span.active{background:var(--gold);width:18px;border-radius:3px;}
+.gallery-360-btn{position:absolute;top:1rem;right:1rem;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:.7rem;font-weight:800;padding:.5rem .9rem;border-radius:999px;backdrop-filter:blur(6px);display:flex;align-items:center;gap:.35rem;}
+.gallery-main.spinning img{animation:spin360 1.4s linear;}
+@keyframes spin360{from{transform:rotateY(0deg);}to{transform:rotateY(360deg);}}
+.gallery-wish{position:absolute;top:1rem;left:1rem;width:2.4rem;height:2.4rem;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:1.1rem;backdrop-filter:blur(6px);}
+.gallery-wish.active{color:#f87171;}
+.thumb-strip{display:flex;gap:.6rem;padding:.8rem 1.1rem;overflow-x:auto;}
+.thumb{width:56px;height:56px;border-radius:.6rem;background:rgba(255,255,255,.05);border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:0 0 auto;overflow:hidden;}
+.thumb.active{border-color:var(--blue-electric);}
+.thumb img{width:100%;height:100%;object-fit:cover;}
+
+.pd-info{padding:1.3rem 1.1rem 0;}
+.pd-badge{display:inline-block;font-size:.65rem;font-weight:900;padding:.3rem .8rem;border-radius:999px;text-transform:uppercase;margin-bottom:.8rem;}
+.pd-name{font-size:1.35rem;font-weight:900;line-height:1.25;margin-bottom:.5rem;}
+.pd-rating-row{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;}
+.pd-stars{color:var(--gold);font-size:.9rem;}
+.pd-rating-count{font-size:.78rem;color:var(--text-muted);}
+.pd-price-row{display:flex;align-items:baseline;gap:.8rem;margin-bottom:.4rem;}
+.pd-price{font-size:2rem;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.pd-oldprice{font-size:1.05rem;color:var(--text-muted);text-decoration:line-through;}
+.pd-savings{display:inline-block;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);color:#4ade80;font-size:.72rem;font-weight:800;padding:.25rem .7rem;border-radius:999px;margin-bottom:1.1rem;}
+
+.pd-qty-row{display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;}
+.pd-qty-row span{font-size:.78rem;font-weight:800;color:var(--text-secondary);}
+.qty-ctrl{display:flex;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:.7rem;overflow:hidden;}
+.qty-ctrl button{width:2.4rem;height:2.4rem;background:none;border:none;color:#fff;font-size:1.1rem;font-weight:800;}
+.qty-ctrl .qty-val{width:2.4rem;text-align:center;font-weight:800;font-size:.95rem;}
+
+.pd-cta-row{display:flex;gap:.7rem;padding:0 1.1rem 1.3rem;}
+.pd-addcart-btn{flex:1;background:rgba(14,165,233,.15);border:1.5px solid var(--blue-electric);color:var(--blue-electric);font-weight:800;font-size:.85rem;padding:1rem;border-radius:.9rem;}
+.pd-buynow-btn{flex:1;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));border:none;color:#fff;font-weight:800;font-size:.85rem;padding:1rem;border-radius:.9rem;box-shadow:0 8px 24px rgba(14,165,233,.35);}
+
+.trust-strip{display:flex;justify-content:space-around;padding:1rem;margin:0 1.1rem 1.3rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1rem;}
+.trust-item{text-align:center;flex:1;}
+.trust-item .ic{font-size:1.3rem;margin-bottom:.3rem;}
+.trust-item span{display:block;font-size:.62rem;color:var(--text-secondary);font-weight:700;}
+
+.accordion{margin:0 1.1rem .8rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1rem;overflow:hidden;}
+.acc-head{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.1rem;font-weight:800;font-size:.88rem;}
+.acc-head .chev{transition:transform .3s;color:var(--blue-electric);}
+.acc-head.open .chev{transform:rotate(180deg);}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .35s ease;padding:0 1.1rem;}
+.acc-body.open{max-height:600px;padding-bottom:1.1rem;}
+.acc-body p, .acc-body li{font-size:.8rem;color:var(--text-secondary);line-height:1.7;}
+.acc-body ul{padding-left:1.1rem;}
+.faq-item{margin-bottom:.9rem;}
+.faq-q{font-weight:700;font-size:.8rem;color:#fff;margin-bottom:.3rem;}
+</style>
+</head>
+<body>
+
+<header class="pd-topbar">
+  <button class="pd-back" onclick="window.location.href='shop.html'">←</button>
+  <div style="display:flex;gap:.5rem;">
+    <a href="wishlist.html" class="icon-btn">♡<span class="icon-badge" id="navWishCount" style="display:none;">0</span></a>
+    <a href="cart.html" class="icon-btn">🛒<span class="icon-badge" id="navCartCount" style="display:none;">0</span></a>
+  </div>
+</header>
+
+<!-- GALLERY -->
+<div class="gallery-wrap">
+  <div class="gallery-main" id="galleryMain" onclick="toggleZoom()">
+    <button class="gallery-wish" id="pdWishBtn" onclick="event.stopPropagation(); togglePdWishlist()">♡</button>
+    <button class="gallery-360-btn" onclick="event.stopPropagation(); spin360()">🔄 360°</button>
+    <div id="galleryImgHolder"></div>
+  </div>
+  <div class="gallery-dots" id="galleryDots"></div>
+</div>
+<div class="thumb-strip" id="thumbStrip"></div>
+
+<!-- INFO -->
+<div class="pd-info">
+  <span class="pd-badge" id="pdBadge"></span>
+  <h1 class="pd-name" id="pdName">Loading...</h1>
+  <div class="pd-rating-row">
+    <span class="pd-stars">★★★★★</span>
+    <span class="pd-rating-count" id="pdReviewCount">(0 reviews)</span>
+  </div>
+  <div class="pd-price-row">
+    <span class="pd-price" id="pdPrice"></span>
+    <span class="pd-oldprice" id="pdOldPrice"></span>
+  </div>
+  <div class="pd-savings" id="pdSavings" style="display:none;"></div>
+  <div class="pd-qty-row">
+    <span>Quantity</span>
+    <div class="qty-ctrl">
+      <button onclick="changePdQty(-1)">−</button>
+      <span class="qty-val" id="pdQty">1</span>
+      <button onclick="changePdQty(1)">+</button>
+    </div>
+  </div>
+</div>
+
+<div class="pd-cta-row">
+  <button class="pd-addcart-btn ripple" onclick="pdAddToCart()">🛒 Add to Cart</button>
+  <button class="pd-buynow-btn ripple" onclick="pdBuyNow()">⚡ Buy Now</button>
+</div>
+
+<div class="trust-strip">
+  <div class="trust-item"><div class="ic">🚚</div><span>1-3 Day<br>Delivery</span></div>
+  <div class="trust-item"><div class="ic">🛡️</div><span>7-Day<br>Warranty</span></div>
+  <div class="trust-item"><div class="ic">✅</div><span>100%<br>Genuine</span></div>
+  </div><!-- SPECIFICATIONS ACCORDION -->
+<div class="accordion">
+  <div class="acc-head" onclick="toggleAcc(this)">📋 Specifications <span class="chev">▾</span></div>
+  <div class="acc-body">
+    <p id="pdSpecsFull"></p>
+  </div>
+</div>
+
+<!-- DESCRIPTION ACCORDION -->
+<div class="accordion">
+  <div class="acc-head open" onclick="toggleAcc(this)">📝 Description <span class="chev">▾</span></div>
+  <div class="acc-body open">
+    <p>Every Voltix Pro GH earpod is hand-selected by founder Kodiya Nekara, tested for microphone response and bass frequencies before it reaches you. Backed by our Trust God Company quality promise — genuine parts, honest pricing, and real customer care.</p>
+  </div>
+</div>
+
+<!-- SHIPPING & WARRANTY -->
+<div class="accordion">
+  <div class="acc-head" onclick="toggleAcc(this)">🚚 Shipping & Warranty <span class="chev">▾</span></div>
+  <div class="acc-body">
+    <ul>
+      <li>Delivered within 1-3 business days across Ghana</li>
+      <li>Free delivery on orders during flash sale periods</li>
+      <li>7-day defective replacement warranty</li>
+      <li>Cash on Delivery available nationwide</li>
+    </ul>
+  </div>
+</div>
+
+<!-- FAQ ACCORDION -->
+<div class="accordion">
+  <div class="acc-head" onclick="toggleAcc(this)">❓ FAQs <span class="chev">▾</span></div>
+  <div class="acc-body">
+    <div class="faq-item"><div class="faq-q">Is this earbud genuine?</div><p>Yes, 100% authentic — hand-tested by our founder before shipping.</p></div>
+    <div class="faq-item"><div class="faq-q">Can I pay with MoMo?</div><p>Yes — MTN MoMo, Telecel Cash, Visa/Mastercard, and Cash on Delivery all accepted.</p></div>
+    <div class="faq-item"><div class="faq-q">What if it stops working?</div><p>7-day replacement warranty covers any defects from delivery.</p></div>
+  </div>
+</div>
+
+<!-- REVIEWS -->
+<div class="section">
+  <div class="section-head"><h2>Customer Reviews</h2></div>
+  <div class="hscroll">
+    <div class="glass-card review-card">
+      <div class="review-top"><span class="review-stars">★★★★★</span></div>
+      <p class="review-quote">"Exceeded my expectations! Sound quality is crisp and the battery really does last as advertised."</p>
+      <div class="review-author"><div class="review-avatar">A</div><div><b>Ama Serwaa</b><span>Accra</span></div></div>
+    </div>
+    <div class="glass-card review-card">
+      <div class="review-top"><span class="review-stars">★★★★★</span></div>
+      <p class="review-quote">"Fast delivery, genuine product, paid with MoMo. Will buy again from Voltix Pro GH!"</p>
+      <div class="review-author"><div class="review-avatar">Y</div><div><b>Yaw Mensah</b><span>Takoradi</span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- FREQUENTLY BOUGHT TOGETHER -->
+<div class="section">
+  <div class="section-head"><h2>Frequently Bought Together</h2></div>
+  <div class="hscroll" id="fbtRow"></div>
+</div>
+
+<!-- RELATED PRODUCTS -->
+<div class="section">
+  <div class="section-head"><h2>Related Products</h2></div>
+  <div class="hscroll" id="relatedRow"></div>
+</div>
+
+<div style="height:1rem;"></div>
+
+<nav class="bottom-nav">
+  <a href="index.html" class="nav-item" data-page="home"><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page="shop"><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page="cart"><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page="account"><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+let pdProduct = null, pdQty = 1;
+
+function toggleAcc(head){
+  head.classList.toggle('open');
+  head.nextElementSibling.classList.toggle('open');
+}
+
+function toggleZoom(){
+  const img = document.querySelector('#galleryImgHolder img');
+  if(img) img.classList.toggle('zoomed');
+}
+function spin360(){
+  const wrap = document.getElementById('galleryMain');
+  wrap.classList.add('spinning');
+  setTimeout(()=>wrap.classList.remove('spinning'), 1400);
+}
+function togglePdWishlist(){
+  if(!pdProduct) return;
+  toggleWishlist(pdProduct.id);
+  const btn = document.getElementById('pdWishBtn');
+  btn.classList.toggle('active', isWishlisted(pdProduct.id));
+  btn.textContent = isWishlisted(pdProduct.id) ? '♥' : '♡';
+}
+function changePdQty(delta){
+  pdQty = Math.max(1, pdQty+delta);
+  document.getElementById('pdQty').textContent = pdQty;
+}
+function pdAddToCart(){
+  if(!pdProduct) return;
+  addToCart(pdProduct.id, pdQty);
+}
+function pdBuyNow(){
+  if(!pdProduct) return;
+  addToCart(pdProduct.id, pdQty);
+  window.location.href = 'cart.html';
+}
+
+function renderProductPage(list){
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  const p = list.find(x=>String(x.id)===String(id));
+  if(!p){ document.getElementById('pdName').textContent = 'Product not found'; return; }
+  pdProduct = p;
+  trackRecentlyViewed(id);
+
+  document.getElementById('galleryImgHolder').innerHTML = p.imageUrl
+    ? `<img src="${p.imageUrl}" alt="${p.name}">`
+    : `<span class="emoji-fallback">${p.emoji||'🎧'}</span>`;
+  document.getElementById('thumbStrip').innerHTML = `<div class="thumb active">${p.imageUrl?`<img src="${p.imageUrl}">`:(p.emoji||'🎧')}</div>`;
+  document.getElementById('galleryDots').innerHTML = `<span class="active"></span>`;
+
+  document.getElementById('pdWishBtn').classList.toggle('active', isWishlisted(id));
+  document.getElementById('pdWishBtn').textContent = isWishlisted(id) ? '♥' : '♡';
+
+  document.getElementById('pdBadge').textContent = p.badge||'';
+  document.getElementById('pdBadge').className = 'pd-badge ' + (p.badgeClass||'');
+  document.getElementById('pdName').textContent = p.name;
+  document.getElementById('pdReviewCount').textContent = `(${p.reviewCount||Math.floor(Math.random()*80)+20} reviews)`;
+  document.getElementById('pdPrice').textContent = 'Ghc'+p.price;
+  document.getElementById('pdOldPrice').textContent = p.oldPrice ? 'Ghc'+p.oldPrice : '';
+  document.getElementById('pdSpecsFull').textContent = p.specs||'';
+
+  if(p.oldPrice){
+    const savings = p.oldPrice - p.price;
+    document.getElementById('pdSavings').style.display = 'inline-block';
+    document.getElementById('pdSavings').textContent = `💥 You save Ghc${savings}!`;
+  }
+
+  const related = list.filter(x=>String(x.id)!==String(id) && x.category===p.category).slice(0,6);
+  const fbt = list.filter(x=>String(x.id)!==String(id)).sort(()=>Math.random()-0.5).slice(0,4);
+  document.getElementById('relatedRow').innerHTML = (related.length?related:list.filter(x=>String(x.id)!==String(id)).slice(0,6)).map(productCardHTML).join('');
+  document.getElementById('fbtRow').innerHTML = fbt.map(productCardHTML).join('');
+}
+
+initVoltixApp('shop', renderProductPage);
+
+const origUpdateBadges3 = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadges3();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+</script>
+</body>
+        </html>
