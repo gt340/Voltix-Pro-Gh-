@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Voltix Pro GH — Ghana's #1 Premium Earpods Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body{padding-bottom:0;}
+.splash-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem 1.5rem;text-align:center;position:relative;overflow:hidden;}
+.splash-orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;}
+.splash-orb1{width:420px;height:420px;background:var(--blue-electric);opacity:.22;top:-120px;right:-120px;}
+.splash-orb2{width:380px;height:380px;background:var(--gold);opacity:.1;bottom:-100px;left:-100px;}
+.splash-logo{width:170px;height:170px;border-radius:50%;object-fit:cover;margin-bottom:2rem;box-shadow:0 0 60px rgba(14,165,233,.45);position:relative;z-index:2;}
+.splash-presents{font-size:.78rem;font-weight:800;color:var(--gold);letter-spacing:.2em;text-transform:uppercase;margin-bottom:.7rem;position:relative;z-index:2;}
+.splash-brand{font-size:2.3rem;font-weight:900;line-height:1.15;margin-bottom:.9rem;position:relative;z-index:2;}
+.splash-tagline{font-size:1rem;color:var(--text-secondary);max-width:340px;line-height:1.6;margin-bottom:2rem;position:relative;z-index:2;}
+.splash-products-strip{display:flex;gap:1.1rem;justify-content:center;margin-bottom:2rem;position:relative;z-index:2;flex-wrap:wrap;}
+.splash-product-thumb{width:88px;height:88px;border-radius:1.2rem;background:linear-gradient(135deg,rgba(14,165,233,.2),rgba(30,64,175,.2));border:1px solid rgba(14,165,233,.3);display:flex;align-items:center;justify-content:center;font-size:2.4rem;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4);}
+.splash-product-thumb img{width:100%;height:100%;object-fit:cover;}
+.splash-get-started{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border:none;padding:1.15rem 3rem;border-radius:1rem;font-weight:900;font-size:1.05rem;cursor:pointer;box-shadow:0 10px 30px rgba(14,165,233,.4);position:relative;z-index:2;letter-spacing:.02em;}
+.splash-get-started:active{transform:scale(.96);}
+.splash-badges{display:flex;gap:1.6rem;margin-top:2.3rem;flex-wrap:wrap;justify-content:center;position:relative;z-index:2;}
+.splash-badge{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--text-muted);font-weight:600;}
+</style>
+</head>
+<body>
+
+<div class="splash-screen">
+  <div class="splash-orb splash-orb1"></div>
+  <div class="splash-orb splash-orb2"></div>
+  <img src="logo.png" alt="Voltix Pro GH" class="splash-logo" onerror="this.style.display='none'">
+  <div class="splash-presents">🇬🇭 Trust God Company Presents</div>
+  <h1 class="splash-brand"><span class="highlight" style="background:linear-gradient(90deg,var(--blue-electric),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Voltix Pro GH</span></h1>
+  <p class="splash-tagline">Ghana's #1 Premium Earpods Store — genuine quality, real prices, delivered nationwide.</p>
+  <div class="splash-products-strip" id="splashProductsStrip"></div>
+  <button class="splash-get-started ripple" onclick="window.location.href='shop.html'">⚡ Get Started</button>
+  <div class="splash-badges">
+    <span class="splash-badge">🔒 Secure Checkout</span>
+    <span class="splash-badge">🇬🇭 Made for Ghana</span>
+    <span class="splash-badge">✅ 100% Genuine</span>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+function renderSplashProducts(list){
+  const strip = document.getElementById('splashProductsStrip');
+  if(!strip) return;
+  const sample = list.slice(0,3);
+  strip.innerHTML = sample.map(p => `
+    <div class="splash-product-thumb">
+      ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.name}">` : (p.emoji||'🎧')}
+    </div>`).join('');
+}
+if(VDB){ VDB.subscribeProducts(renderSplashProducts); }
+else { window.addEventListener('vdb-ready', ()=>{ VDB.subscribeProducts(renderSplashProducts); }); }
+</script>
+</body>
+      </html>
