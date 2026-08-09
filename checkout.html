@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Checkout — Voltix Pro GH</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<style>
+.co-steps{display:flex;align-items:center;padding:1rem 1.1rem;gap:.4rem;}
+.co-step{flex:1;height:4px;border-radius:99px;background:rgba(255,255,255,.1);}
+.co-step.done{background:linear-gradient(90deg,var(--blue-electric),var(--gold));}
+
+.co-section{margin:0 1.1rem 1.1rem;padding:1.1rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1.1rem;}
+.co-section h4{display:flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:800;margin-bottom:1rem;}
+.co-group{margin-bottom:.9rem;}
+.co-group:last-child{margin-bottom:0;}
+.co-group label{display:block;font-size:.68rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem;}
+.co-group input,.co-group select,.co-group textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;}
+.co-group input::placeholder,.co-group textarea::placeholder{color:var(--text-muted);}
+.co-row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+
+.pay-method{display:flex;align-items:center;gap:.8rem;padding:.9rem;margin-bottom:.7rem;background:rgba(255,255,255,.04);border:2px solid rgba(255,255,255,.08);border-radius:.9rem;}
+.pay-method.selected{border-color:var(--blue-electric);background:rgba(14,165,233,.1);}
+.pay-method:last-child{margin-bottom:0;}
+.pay-method input{width:1.15rem;height:1.15rem;accent-color:var(--blue-electric);}
+.pay-icon{font-size:1.4rem;}
+.pay-text b{display:block;font-size:.85rem;}
+.pay-text span{font-size:.68rem;color:var(--text-muted);}
+.pay-subfields{display:none;margin-top:.9rem;padding-top:.9rem;border-top:1px solid rgba(255,255,255,.08);}
+.pay-subfields.active{display:block;}
+.network-chips{display:flex;gap:.6rem;}
+.network-chip{flex:1;text-align:center;padding:.7rem;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:.7rem;font-size:.72rem;font-weight:800;}
+.network-chip.selected{border-color:var(--gold);background:rgba(250,204,21,.1);color:var(--gold);}
+
+.co-summary{margin:0 1.1rem 1.1rem;padding:1.1rem;background:linear-gradient(150deg,rgba(30,64,175,.18),rgba(14,165,233,.08));border:1px solid rgba(14,165,233,.25);border-radius:1.1rem;}
+.co-item-row{display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-secondary);padding:.4rem 0;}
+.co-summary-row{display:flex;justify-content:space-between;padding:.4rem 0;font-size:.85rem;color:var(--text-secondary);}
+.co-summary-row.discount{color:#4ade80;}
+.co-summary-row.total{border-top:1px solid rgba(255,255,255,.12);margin-top:.5rem;padding-top:.8rem;font-size:1.15rem;font-weight:900;color:#fff;}
+.co-summary-row.total .amt{background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.co-coupon-tag{display:inline-flex;align-items:center;gap:.35rem;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);color:#4ade80;font-size:.7rem;font-weight:800;padding:.3rem .7rem;border-radius:999px;margin-top:.5rem;}
+
+.place-order-btn{width:calc(100% - 2.2rem);margin:0 1.1rem 1.5rem;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:900;font-size:.95rem;padding:1.1rem;border-radius:1rem;border:none;box-shadow:0 10px 30px rgba(14,165,233,.4);}
+.place-order-btn:disabled{opacity:.6;}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="cart.html" class="icon-btn">←</a>
+  <div style="font-weight:800;font-size:.95rem;">Checkout</div>
+  <div style="width:2.5rem;"></div>
+</header>
+
+<div class="co-steps">
+  <div class="co-step done"></div>
+  <div class="co-step done"></div>
+  <div class="co-step"></div>
+</div>
+
+<!-- SHIPPING ADDRESS -->
+<div class="co-section">
+  <h4>📍 Shipping Address</h4>
+  <div class="co-group"><label>Full Name</label><input type="text" id="coName" placeholder="Enter your full name" required></div>
+  <div class="co-group"><label>Phone Number</label><input type="tel" id="coPhone" placeholder="0536 193 862" required></div>
+  <div class="co-row2">
+    <div class="co-group"><label>Region</label>
+      <select id="coRegion">
+        <option>Greater Accra</option><option>Ashanti</option><option>Western</option><option>Eastern</option><option>Central</option><option>Volta</option><option>Northern</option><option>Bono</option><option>Other</option>
+      </select>
+    </div>
+    <div class="co-group"><label>City / Town</label><input type="text" id="coCity" placeholder="e.g. Accra"></div>
+  </div>
+  <div class="co-group"><label>Delivery Address</label><textarea id="coAddress" rows="2" placeholder="House number, street, landmark..." required></textarea></div>
+</div>
+
+<!-- DELIVERY METHOD (read-only summary from cart) -->
+<div class="co-section">
+  <h4>🚚 Delivery Method</h4>
+  <div class="co-summary-row"><span id="coDeliveryLabel">Standard Delivery (1-3 days)</span><span id="coDeliveryPrice">Free</span></div>
+  <a href="cart.html" style="font-size:.72rem;color:var(--blue-electric);font-weight:700;">Change delivery option →</a>
+</div>
+
+<!-- PAYMENT METHOD -->
+<div class="co-section">
+  <h4>💳 Payment Method</h4>
+
+  <label class="pay-method selected" onclick="selectPayMethod('momo', this)">
+    <input type="radio" name="paymethod" checked>
+    <span class="pay-icon">📱</span>
+    <div class="pay-text"><b>Mobile Money</b><span>MTN, Telecel, AirtelTigo</span></div>
+  </label>
+  <div class="pay-subfields active" id="momoFields">
+    <div class="network-chips">
+      <div class="network-chip selected" data-net="MTN" onclick="selectNetwork(this)">MTN MoMo</div>
+      <div class="network-chip" data-net="Telecel" onclick="selectNetwork(this)">Telecel</div>
+      <div class="network-chip" data-net="AirtelTigo" onclick="selectNetwork(this)">AirtelTigo</div>
+    </div>
+  </div>
+
+  <label class="pay-method" onclick="selectPayMethod('card', this)">
+    <input type="radio" name="paymethod">
+    <span class="pay-icon">💳</span>
+    <div class="pay-text"><b>Visa / MasterCard</b><span>Secure card payment</span></div>
+  </label>
+
+  <label class="pay-method" onclick="selectPayMethod('cod', this)">
+    <input type="radio" name="paymethod">
+    <span class="pay-icon">🏠</span>
+    <div class="pay-text"><b>Cash on Delivery</b><span>Pay when package arrives</span></div>
+  </label>
+</div>
+
+<!-- ORDER SUMMARY -->
+<div class="co-summary">
+  <h4 style="margin-bottom:.8rem;font-size:.85rem;font-weight:800;">📦 Order Summary</h4>
+  <div id="coItemsList"></div>
+  <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">Ghc0</span></div>
+  <div class="co-summary-row discount" id="coDiscountRow" style="display:none;"><span>Discount</span><span id="coDiscount">-Ghc0</span></div>
+  <div class="co-summary-row"><span>Delivery</span><span id="coDeliveryLine">Free</span></div>
+  <div class="co-summary-row total"><span>Total</span><span class="amt" id="coTotal">Ghc0</span></div>
+  <div id="coCouponTag" style="display:none;"></div>
+</div>
+
+<button class="place-order-btn ripple" id="placeOrderBtn" onclick="placeOrder()">🔒 Place Order</button>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item" data-page=""><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page=""><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page=""><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page=""><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+let selectedPayMethod = 'momo';
+let selectedNetwork = 'MTN';
+let checkoutSummary = JSON.parse(localStorage.getItem('voltixCheckoutSummary') || '{}');
+
+function selectPayMethod(method, el){
+  document.querySelectorAll('.pay-method').forEach(m=>m.classList.remove('selected'));
+  el.classList.add('selected');
+  el.querySelector('input').checked = true;
+  selectedPayMethod = method;
+  document.getElementById('momoFields').classList.toggle('active', method==='momo');
+}
+function selectNetwork(el){
+  document.querySelectorAll('.network-chip').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedNetwork = el.dataset.net;
+}
+
+function renderCheckoutSummary(){
+  if(cart.length === 0){
+    showToast('Your cart is empty');
+    window.location.href = 'cart.html';
+    return;
+  }
+  document.getElementById('coItemsList').innerHTML = cart.map(item => `
+    <div class="co-item-row"><span>${item.name} x${item.qty}</span><span>Ghc${item.price*item.qty}</span></div>
+  `).join('');
+
+  const subtotal = checkoutSummary.subtotal || cartTotal();
+  const discount = checkoutSummary.discount || 0;
+  const delivery = checkoutSummary.delivery || 0;
+  const total = checkoutSummary.total || subtotal;
+
+  document.getElementById('coSubtotal').textContent = `Ghc${subtotal}`;
+  if(discount > 0){
+    document.getElementById('coDiscountRow').style.display = 'flex';
+    document.getElementById('coDiscount').textContent = `-Ghc${discount}`;
+  }
+  document.getElementById('coDeliveryLine').textContent = delivery > 0 ? `Ghc${delivery}` : 'Free';
+  document.getElementById('coTotal').textContent = `Ghc${total}`;
+
+  if(checkoutSummary.deliveryMethod === 'express'){
+    document.getElementById('coDeliveryLabel').textContent = 'Express Delivery (Same day)';
+    document.getElementById('coDeliveryPrice').textContent = 'Ghc20';
+  }
+
+  if(checkoutSummary.couponCode){
+    document.getElementById('coCouponTag').style.display = 'block';
+    document.getElementById('coCouponTag').innerHTML = `<span class="co-coupon-tag">🎟️ ${checkoutSummary.couponCode} applied</span>`;
+  }
+
+  if(currentUser){
+    document.getElementById('coName').value = currentUser.name || '';
+    document.getElementById('coPhone').value = currentUser.phone || '';
+  }
+}
+
+function getFinalTotal(){
+  return checkoutSummary.total || cartTotal();
+}
+
+function placeOrder(){
+  const name = document.getElementById('coName').value.trim();
+  const phone = document.getElementById('coPhone').value.trim();
+  const region = document.getElementById('coRegion').value;
+  const city = document.getElementById('coCity').value.trim();
+  const address = document.getElementById('coAddress').value.trim();
+
+  if(!name || !phone || !address){
+    showToast('Please fill in all required fields');
+    return;
+  }
+
+  const total = getFinalTotal();
+  const btn = document.getElementById('placeOrderBtn');
+
+  if(selectedPayMethod === 'cod'){
+    completeOrder(name, phone, region, city, address, total, 'Cash on Delivery');
+  } else {
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    const handler = PaystackPop.setup({
+      key: 'pk_test_2a5af3e6c5e20b46f27b26b0c7e3e4d5',
+      email: phone.replace(/\D/g,'') + '@voltix.com',
+      amount: total * 100,
+      currency: 'GHS',
+      ref: 'VOLTIX-' + Math.floor((Math.random()*9000000)+1000000),
+      onClose: function(){ btn.disabled = false; btn.textContent = '🔒 Place Order'; },
+      onSuccess: function(){
+        const method = selectedPayMethod === 'momo' ? `${selectedNetwork} MoMo` : 'Visa/MasterCard';
+        completeOrder(name, phone, region, city, address, total, method);
+      }
+    });
+    handler.openIframe();
+  }
+}
+
+function completeOrder(name, phone, region, city, address, total, paymentMethod){
+  const refNum = '#' + (Math.floor(Math.random()*9000)+1000);
+  const order = {
+    ref: refNum,
+    date: new Date().toISOString(),
+    items: cart,
+    total, paymentMethod,
+    customer: { name, phone, region, city, address },
+    status: 'Processing'
+  };
+
+  let orders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
+  orders.unshift(order);
+  localStorage.setItem('voltixOrders', JSON.stringify(orders));
+  localStorage.setItem('voltixLastOrder', JSON.stringify(order));
+
+  // referral commission tracking (if referred)
+  const pendingRef = localStorage.getItem('voltixPendingRefCode');
+  if(pendingRef && VDB && VDB.addReferralSale){
+    const commission = cart.reduce((sum,item)=>sum + (getCommissionForPrice(item.price)*item.qty), 0);
+    VDB.addReferralSale({
+      refCode: pendingRef, customerName: name, customerPhone: phone,
+      orderRef: refNum, itemsSummary: cart.map(i=>`${i.name} x${i.qty}`).join(', '), commission
+    });
+    localStorage.removeItem('voltixPendingRefCode');
+  }
+
+  const itemsList = cart.map(i => `• ${i.name} x${i.qty}: Ghc${i.price*i.qty}`).join('\n');
+  const message = `🎉 *NEW ORDER - ${refNum}*\n\n👤 *Customer:* ${name}\n📱 *Phone:* ${phone}\n📍 *Location:* ${address}, ${city}, ${region}\n\n*Items:*\n${itemsList}\n\n💰 *Total:* Ghc${total}\n💳 *Payment:* ${paymentMethod}\n✅ *Status:* CONFIRMED\n\nThank you for ordering from Voltix Pro GH! ⚡`;
+  setTimeout(()=>{ window.open(`https://wa.me/233536193862?text=${encodeURIComponent(message)}`, '_blank'); }, 1200);
+
+  cart = [];
+  saveCart();
+  window.location.href = 'order-success.html';
+}
+
+initVoltixApp('checkout', renderCheckoutSummary);
+
+const origUpdateBadgesCo = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadgesCo();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+</script>
+</body>
+    </html>
