@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Notifications — Voltix Pro GH</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.notif-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
+.notif-empty .ic{font-size:4rem;margin-bottom:1.2rem;opacity:.5;}
+.notif-empty h3{font-size:1.15rem;font-weight:900;margin-bottom:.5rem;}
+.notif-empty p{font-size:.85rem;color:var(--text-secondary);}
+
+.notif-header-row{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.1rem;}
+.notif-clear-btn{background:none;border:none;color:var(--blue-electric);font-size:.75rem;font-weight:700;}
+
+.notif-card{display:flex;gap:.9rem;margin:0 1.1rem .8rem;padding:1rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1.1rem;position:relative;}
+.notif-card.unread{background:rgba(14,165,233,.08);border-color:rgba(14,165,233,.25);}
+.notif-card.unread::before{content:'';position:absolute;top:1.1rem;right:1rem;width:8px;height:8px;border-radius:50%;background:var(--blue-electric);}
+.notif-icon{width:2.6rem;height:2.6rem;border-radius:.8rem;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.notif-icon.order{background:rgba(14,165,233,.15);}
+.notif-icon.promo{background:rgba(250,204,21,.15);}
+.notif-icon.system{background:rgba(168,85,247,.15);}
+.notif-content{flex:1;min-width:0;}
+.notif-title{font-size:.85rem;font-weight:800;margin-bottom:.25rem;}
+.notif-desc{font-size:.75rem;color:var(--text-secondary);line-height:1.5;margin-bottom:.35rem;}
+.notif-time{font-size:.65rem;color:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="account.html" class="icon-btn">←</a>
+  <div style="font-weight:800;font-size:.95rem;">Notifications</div>
+  <div style="width:2.5rem;"></div>
+</header>
+
+<div id="notifEmptyState" class="notif-empty" style="display:none;">
+  <div class="ic">🔔</div>
+  <h3>No notifications yet</h3>
+  <p>Order updates and offers will appear here</p>
+</div>
+
+<div id="notifContent">
+  <div class="notif-header-row">
+    <span style="font-size:.8rem;color:var(--text-secondary);" id="notifCountText">0 notifications</span>
+    <button class="notif-clear-btn" onclick="markAllRead()">Mark all as read</button>
+  </div>
+  <div id="notifList"></div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item" data-page="account"><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page="account"><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page="account"><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page="account"><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+function getDefaultNotifications(){
+  const orders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
+  const notifs = [];
+
+  orders.forEach(o => {
+    notifs.push({
+      id: 'order-'+o.ref,
+      type: 'order',
+      icon: '✅',
+      title: `Order ${o.ref} Confirmed`,
+      desc: `Your order of Ghc${o.total} has been placed and is being processed.`,
+      time: o.date,
+      read: true
+    });
+  });
+
+  notifs.push({
+    id: 'promo-1', type: 'promo', icon: '🔥',
+    title: 'Flash Sale — Up to 38% Off!',
+    desc: 'Limited time offer on select earpods. Shop now before it ends.',
+    time: new Date().toISOString(), read: false
+  });
+  notifs.push({
+    id: 'promo-2', type: 'promo', icon: '🎁',
+    title: 'Refer & Earn Ghc5-10 Per Sale',
+    desc: 'Share your referral link and earn cash on every purchase your friends make.',
+    time: new Date(Date.now() - 86400000).toISOString(), read: false
+  });
+  notifs.push({
+    id: 'system-1', type: 'system', icon: '🇬🇭',
+    title: 'Welcome to Voltix Pro GH!',
+    desc: 'Thanks for joining Ghana\'s #1 premium earpods store. Enjoy shopping!',
+    time: new Date(Date.now() - 172800000).toISOString(), read: true
+  });
+
+  return notifs.sort((a,b) => new Date(b.time) - new Date(a.time));
+}
+
+function timeAgo(dateStr){
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff/60000);
+  if(mins < 60) return mins <= 1 ? 'Just now' : `${mins}m ago`;
+  const hrs = Math.floor(mins/60);
+  if(hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs/24);
+  return `${days}d ago`;
+}
+
+function renderNotifications(){
+  let notifs = JSON.parse(localStorage.getItem('voltixNotifState') || 'null');
+  if(!notifs){
+    notifs = getDefaultNotifications();
+    localStorage.setItem('voltixNotifState', JSON.stringify(notifs));
+  }
+
+  const emptyEl = document.getElementById('notifEmptyState');
+  const contentEl = document.getElementById('notifContent');
+
+  if(notifs.length === 0){
+    emptyEl.style.display = 'flex';
+    contentEl.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  contentEl.style.display = 'block';
+
+  const unreadCount = notifs.filter(n=>!n.read).length;
+  document.getElementById('notifCountText').textContent = `${notifs.length} notification${notifs.length>1?'s':''}${unreadCount>0?` · ${unreadCount} unread`:''}`;
+
+  document.getElementById('notifList').innerHTML = notifs.map(n => `
+    <div class="notif-card ${n.read?'':'unread'}" onclick="markOneRead('${n.id}')">
+      <div class="notif-icon ${n.type}">${n.icon}</div>
+      <div class="notif-content">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-desc">${n.desc}</div>
+        <div class="notif-time">${timeAgo(n.time)}</div>
+      </div>
+    </div>`).join('');
+
+  const badge = document.getElementById('notifBadge');
+  if(badge){ badge.textContent = unreadCount; badge.style.display = unreadCount>0?'flex':'none'; }
+}
+
+function markOneRead(id){
+  let notifs = JSON.parse(localStorage.getItem('voltixNotifState') || '[]');
+  const n = notifs.find(x=>x.id===id);
+  if(n) n.read = true;
+  localStorage.setItem('voltixNotifState', JSON.stringify(notifs));
+  renderNotifications();
+}
+
+function markAllRead(){
+  let notifs = JSON.parse(localStorage.getItem('voltixNotifState') || '[]');
+  notifs.forEach(n => n.read = true);
+  localStorage.setItem('voltixNotifState', JSON.stringify(notifs));
+  renderNotifications();
+  showToast('All marked as read');
+}
+
+initVoltixApp('account', renderNotifications);
+
+const origUpdateBadgesNotif = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadgesNotif();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+</script>
+</body>
+  </html>
