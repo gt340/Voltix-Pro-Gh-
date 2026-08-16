@@ -39,18 +39,22 @@ function getCommissionForPrice(price){
 (async function initFirebase(){
   const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const {
-    getFirestore, collection, doc, setDoc, addDoc, deleteDoc, onSnapshot, getDocs, query
+    getFirestore, collection, doc, setDoc, addDoc, deleteDoc, getDoc, onSnapshot, getDocs, query
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+  const {
+    getStorage, ref, uploadBytes, getDownloadURL, deleteObject
+  } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
 
   const app = initializeApp(FIREBASE_CONFIG);
   const db = getFirestore(app);
   const auth = getAuth(app);
+  const storage = getStorage(app);
 
   VDB = {
-    /* products */
+    /* ===== products ===== */
     subscribeProducts(cb){
       return onSnapshot(collection(db,"products"), snap => {
         const list = [];
@@ -59,10 +63,14 @@ function getCommissionForPrice(price){
         cb(list);
       });
     },
+    async getProductById(id){
+      const snap = await getDoc(doc(db,"products",String(id)));
+      return snap.exists() ? { id:snap.id, ...snap.data() } : null;
+    },
     async saveProduct(data){
       const toSave = {...data};
       if(data.id){ const id=String(data.id); delete toSave.id; await setDoc(doc(db,"products",id),toSave,{merge:true}); return id; }
-      delete toSave.id; const ref = await addDoc(collection(db,"products"),toSave); return ref.id;
+      delete toSave.id; const ref2 = await addDoc(collection(db,"products"),toSave); return ref2.id;
     },
     async deleteProductById(id){ await deleteDoc(doc(db,"products",String(id))); },
     async seedIfEmpty(defaults){
@@ -70,19 +78,62 @@ function getCommissionForPrice(price){
       if(snap.empty){ for(const p of defaults) await setDoc(doc(db,"products",p.id),p); }
     },
 
-    /* store music */
-    async saveMusicUrl(url,name){ await setDoc(doc(db,"settings","store"),{musicUrl:url,musicName:name},{merge:true}); },
-    async removeMusicUrl(){ await setDoc(doc(db,"settings","store"),{musicUrl:null,musicName:null},{merge:true}); },
-    subscribeMusic(cb){ return onSnapshot(doc(db,"settings","store"), s => cb(s.exists()?s.data():{musicUrl:null,musicName:null})); },
+    /* ===== product image uploads (multiple) ===== */
+    async uploadProductImages(files){
+      const urls = [];
+      for(const file of files){
+        const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
+        const sRef = ref(storage, path);
+        await uploadBytes(sRef, file);
+        const url = await getDownloadURL(sRef);
+        urls.push(url);
+      }
+      return urls;
+    },
+    async deleteStorageFileByUrl(url){
+      try{ const sRef = ref(storage, url); await deleteObject(sRef); }
+      catch(e){ /* not a storage url or already gone — ignore */ }
+    },
 
-    /* referrals */
-    async addReferrer(data){ const ref = await addDoc(collection(db,"referrers"),{...data,createdAt:new Date().toISOString()}); return ref.id; },
+    /* ===== store music (multiple tracks) ===== */
+    async uploadMusicFiles(files){
+      const current = await this.getMusicTracks();
+      const newTracks = [];
+      for(const file of files){
+        const path = `music/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
+        const sRef = ref(storage, path);
+        await uploadBytes(sRef, file);
+        const url = await getDownloadURL(sRef);
+        newTracks.push({ url, name:file.name });
+      }
+      const merged = [...current, ...newTracks];
+      await setDoc(doc(db,"settings","store"),{ musicTracks: merged },{ merge:true });
+      return merged;
+    },
+    async getMusicTracks(){
+      const snap = await getDoc(doc(db,"settings","store"));
+      return snap.exists() && Array.isArray(snap.data().musicTracks) ? snap.data().musicTracks : [];
+    },
+    async removeMusicTrack(url){
+      const current = await this.getMusicTracks();
+      const updated = current.filter(t=>t.url!==url);
+      await setDoc(doc(db,"settings","store"),{ musicTracks: updated },{ merge:true });
+      this.deleteStorageFileByUrl(url);
+    },
+    subscribeMusic(cb){
+      return onSnapshot(doc(db,"settings","store"), s => {
+        cb(s.exists() && Array.isArray(s.data().musicTracks) ? s.data().musicTracks : []);
+      });
+    },
+
+    /* ===== referrals ===== */
+    async addReferrer(data){ const ref2 = await addDoc(collection(db,"referrers"),{...data,createdAt:new Date().toISOString()}); return ref2.id; },
     subscribeReferrers(cb){ return onSnapshot(collection(db,"referrers"), snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); l.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)); cb(l); }); },
-    async addReferralSale(data){ const ref = await addDoc(collection(db,"referralSales"),{...data,status:'pending',createdAt:new Date().toISOString()}); return ref.id; },
+    async addReferralSale(data){ const ref2 = await addDoc(collection(db,"referralSales"),{...data,status:'pending',createdAt:new Date().toISOString()}); return ref2.id; },
     subscribeReferralSales(cb){ return onSnapshot(collection(db,"referralSales"), snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); l.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)); cb(l); }); },
     async updateReferralSaleStatus(id,status){ await setDoc(doc(db,"referralSales",id),{status},{merge:true}); },
 
-    /* admin auth */
+    /* ===== admin auth ===== */
     adminLogin(email,pw){ return signInWithEmailAndPassword(auth,email,pw); },
     adminLogout(){ return signOut(auth); },
     watchAdminAuth(cb){ onAuthStateChanged(auth,u=>cb(u)); },
@@ -162,7 +213,8 @@ function showToast(msg){
 
 /* ===== PRODUCT CARD RENDERER ===== */
 function productCardHTML(p){
-  const img = p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.name}">` : `<span>${p.emoji||'🎧'}</span>`;
+  const firstImg = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+  const img = firstImg ? `<img src="${firstImg}" alt="${p.name}">` : `<span>${p.emoji||'🎧'}</span>`;
   const wishActive = isWishlisted(p.id) ? 'active' : '';
   const heart = isWishlisted(p.id) ? '♥' : '♡';
   return `
