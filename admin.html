@@ -39,8 +39,6 @@ body{padding-bottom:1rem;}
 .admin-icon-btn{background:rgba(255,255,255,.08);border:none;color:#fff;width:2.1rem;height:2.1rem;border-radius:.5rem;font-size:.9rem;}
 
 .file-drop{border:2px dashed rgba(14,165,233,.4);border-radius:.9rem;padding:1.5rem;text-align:center;background:rgba(14,165,233,.05);margin-bottom:.6rem;font-size:.82rem;}
-.file-preview{width:100%;max-height:160px;object-fit:contain;border-radius:.6rem;margin-top:.7rem;display:none;}
-.music-current{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:.8rem;padding:1rem;margin-top:1rem;font-size:.82rem;display:none;align-items:center;justify-content:space-between;}
 
 .referrer-row{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:.9rem;padding:.9rem 1rem;margin-bottom:.6rem;}
 .referrer-code-tag{font-family:monospace;font-size:.72rem;background:rgba(250,204,21,.15);color:var(--gold);padding:.3rem .6rem;border-radius:.4rem;font-weight:700;}
@@ -101,10 +99,10 @@ body{padding-bottom:1rem;}
     <form onsubmit="saveProductForm(event)">
       <input type="hidden" id="editingProductId" value="">
       <div class="admin-form-field">
-        <label>Product Photo</label>
-        <div class="file-drop" onclick="document.getElementById('productImageInput').click()">📁 Tap to choose a photo</div>
-        <input type="file" id="productImageInput" accept="image/*" style="display:none;" onchange="handleProductImage(event)">
-        <img id="productImagePreview" class="file-preview">
+        <label>Product Photos (choose multiple from your gallery)</label>
+        <div class="file-drop" onclick="document.getElementById('productImageInput').click()">📁 Tap to choose photos</div>
+        <input type="file" id="productImageInput" accept="image/*" multiple style="display:none;" onchange="handleProductImages(event)">
+        <div class="img-chip-grid" id="productImageChips"></div>
       </div>
       <div class="admin-form-field"><label>Name</label><input type="text" id="formName" required></div>
       <div class="admin-form-field"><label>Price (Ghc)</label><input type="number" id="formPrice" required></div>
@@ -113,10 +111,10 @@ body{padding-bottom:1rem;}
         <select id="formBadge" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;">
           <option value="badge-hot|Hot Deal">🔴 Hot Deal</option>
           <option value="badge-new|New">🔵 New</option>
-          <option value="badge-bestseller|Best Seller">🟡 Best Seller</option>
+          <option value="badge-best|Best Seller">🟡 Best Seller</option>
           <option value="badge-value|Best Value">🟢 Best Value</option>
-          <option value="badge-premium|Premium">🔷 Premium</option>
-          <option value="badge-gift|Gift Set">🟠 Gift Set</option>
+          <option value="badge-hot|Premium">🔷 Premium</option>
+          <option value="badge-new|Gift Set">🟠 Gift Set</option>
         </select>
       </div>
       <div class="admin-form-field"><label>Category</label>
@@ -133,13 +131,15 @@ body{padding-bottom:1rem;}
     </form>
   </div>
 
-  <!-- MUSIC -->
+  <!-- MUSIC — upload straight from phone file manager, multiple tracks -->
   <div class="admin-section" id="adminsec-music">
-    <form onsubmit="handleMusicUrlSave(event)">
-      <div class="admin-form-field"><label>Store Music Link (MP3 URL)</label><input type="url" id="musicUrlInput" placeholder="https://example.com/song.mp3"></div>
-      <button type="submit" class="admin-login-btn ripple">💾 Save Music Link</button>
-    </form>
-    <div class="music-current" id="musicCurrent"><span id="musicFileName">🎶 No music set</span><button type="button" class="admin-icon-btn" onclick="removeMusic()">🗑️</button></div>
+    <div class="admin-form-field">
+      <label>Store Music (choose multiple MP3s from your file manager)</label>
+      <div class="file-drop" onclick="document.getElementById('musicFileInput').click()">📁 Tap to choose audio files</div>
+      <input type="file" id="musicFileInput" accept="audio/*" multiple style="display:none;" onchange="handleMusicFiles(event)">
+      <div class="upload-progress" id="musicUploadProgress">⏳ Uploading...</div>
+    </div>
+    <div id="musicTrackList"></div>
   </div>
 
   <!-- REFERRERS -->
@@ -155,7 +155,8 @@ body{padding-bottom:1rem;}
 
 <script src="app.js"></script>
 <script>
-let pendingProductImageFile = null;
+let currentImages = [];      // URLs already saved on the product being edited
+let newImageFiles = [];      // File objects picked but not yet uploaded
 
 function handleAdminLoginSubmit(e){
   e.preventDefault();
@@ -195,9 +196,11 @@ document.getElementById('adminTabs').addEventListener('click', e=>{
 function renderAdminProductList(){
   const list = document.getElementById('adminProductList');
   if(!list) return;
-  list.innerHTML = allProducts.map(p => `
+  list.innerHTML = allProducts.map(p => {
+    const thumb = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+    return `
     <div class="admin-product-row">
-      <div class="admin-thumb">${p.imageUrl ? `<img src="${p.imageUrl}">` : (p.emoji||'🎧')}</div>
+      <div class="admin-thumb">${thumb ? `<img src="${thumb}">` : (p.emoji||'🎧')}</div>
       <div class="admin-row-info">
         <div class="admin-row-name">${p.name}</div>
         <div class="admin-row-price">Ghc${p.price} ${p.oldPrice?'· was Ghc'+p.oldPrice:''}</div>
@@ -206,8 +209,40 @@ function renderAdminProductList(){
         <button class="admin-icon-btn" onclick="editProduct('${p.id}')">✏️</button>
         <button class="admin-icon-btn" onclick="deleteProduct('${p.id}')">🗑️</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
+
+/* ===== MULTI-IMAGE HANDLING ===== */
+function renderImageChips(){
+  const box = document.getElementById('productImageChips');
+  const savedChips = currentImages.map(url => `
+    <div class="img-chip">
+      <img src="${url}">
+      <button type="button" class="img-chip-del" onclick="removeExistingImage('${url}')">✕</button>
+    </div>`).join('');
+  const newChips = newImageFiles.map((file,i) => `
+    <div class="img-chip">
+      <img src="${URL.createObjectURL(file)}">
+      <button type="button" class="img-chip-del" onclick="removeNewImage(${i})">✕</button>
+    </div>`).join('');
+  box.innerHTML = savedChips + newChips;
+}
+function handleProductImages(e){
+  const files = Array.from(e.target.files || []);
+  newImageFiles = newImageFiles.concat(files);
+  renderImageChips();
+  e.target.value = '';
+}
+function removeExistingImage(url){
+  currentImages = currentImages.filter(u => u !== url);
+  renderImageChips();
+}
+function removeNewImage(index){
+  newImageFiles.splice(index,1);
+  renderImageChips();
+}
+
 function editProduct(id){
   const p = allProducts.find(x=>String(x.id)===String(id));
   if(!p) return;
@@ -218,9 +253,9 @@ function editProduct(id){
   document.getElementById('formSpecs').value = p.specs||'';
   document.getElementById('formBadge').value = (p.badgeClass||'badge-hot')+'|'+(p.badge||'Hot Deal');
   document.getElementById('formCategory').value = p.category||'ring-clip';
-  pendingProductImageFile = null;
-  const preview = document.getElementById('productImagePreview');
-  if(p.imageUrl){ preview.src = p.imageUrl; preview.style.display='block'; } else { preview.style.display='none'; }
+  currentImages = (p.images && p.images.length) ? [...p.images] : (p.imageUrl ? [p.imageUrl] : []);
+  newImageFiles = [];
+  renderImageChips();
   document.getElementById('saveProductBtn').textContent = '💾 Update Product';
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab==='add'));
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.toggle('active', s.id==='adminsec-add'));
@@ -229,34 +264,15 @@ function deleteProduct(id){
   if(!confirm('Remove this product?')) return;
   VDB.deleteProductById(id).catch(err=>alert('Failed: '+err.message));
 }
-function handleProductImage(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ev=>{
-    const img = new Image();
-    img.onload = ()=>{
-      const maxDim=500; let w=img.width,h=img.height;
-      if(w>h && w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;} else if(h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
-      const canvas=document.createElement('canvas'); canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      pendingProductImageFile = canvas.toDataURL('image/jpeg',0.6);
-      const preview=document.getElementById('productImagePreview');
-      preview.src=pendingProductImageFile; preview.style.display='block';
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-}
 function resetProductForm(){
   document.getElementById('editingProductId').value='';
   document.getElementById('formName').value='';
   document.getElementById('formPrice').value='';
   document.getElementById('formOldPrice').value='';
   document.getElementById('formSpecs').value='';
-  document.getElementById('productImagePreview').style.display='none';
-  document.getElementById('productImageInput').value='';
-  pendingProductImageFile=null;
+  currentImages = [];
+  newImageFiles = [];
+  renderImageChips();
   document.getElementById('saveProductBtn').textContent='💾 Save Product';
 }
 function saveProductForm(e){
@@ -269,35 +285,65 @@ function saveProductForm(e){
   const category = document.getElementById('formCategory').value;
   const [badgeClass, badge] = document.getElementById('formBadge').value.split('|');
   const existing = id ? allProducts.find(p=>String(p.id)===String(id)) : null;
-  const productData = { id: id||null, name, price, oldPrice, specs, badgeClass, badge, category, emoji: existing?.emoji||'🎧', imageUrl: pendingProductImageFile || existing?.imageUrl || null };
+
   const btn = document.getElementById('saveProductBtn');
   btn.textContent='⏳ Saving...'; btn.disabled=true;
-  VDB.saveProduct(productData).then(()=>{
+
+  const uploadPromise = newImageFiles.length ? VDB.uploadProductImages(newImageFiles) : Promise.resolve([]);
+  uploadPromise.then(newUrls=>{
+    const images = [...currentImages, ...newUrls];
+    const productData = {
+      id: id||null, name, price, oldPrice, specs, badgeClass, badge, category,
+      emoji: existing?.emoji||'🎧',
+      images,
+      imageUrl: images[0] || null
+    };
+    return VDB.saveProduct(productData);
+  }).then(()=>{
     resetProductForm();
     document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab==='products'));
     document.querySelectorAll('.admin-section').forEach(s=>s.classList.toggle('active', s.id==='adminsec-products'));
-  }).catch(err=>alert('Failed: '+err.message)).finally(()=>{btn.disabled=false;});
+  }).catch(err=>alert('Failed: '+err.message)).finally(()=>{ btn.disabled=false; });
 }
 
-function refreshMusicPanel(currentMusicUrl, musicName){
-  const box = document.getElementById('musicCurrent');
-  if(currentMusicUrl){
-    document.getElementById('musicFileName').textContent = '🎶 ' + (musicName||'Store music set');
-    box.style.display='flex';
-  } else { box.style.display='none'; }
-}
-function handleMusicUrlSave(e){
-  e.preventDefault();
-  const url = document.getElementById('musicUrlInput').value;
-  if(!url){ alert('Paste an MP3 link first.'); return; }
-  VDB.saveMusicUrl(url,'Store music').then(()=>{
-    document.getElementById('musicUrlInput').value='';
-    showToast('Music link saved!');
+/* ===== MULTI-TRACK MUSIC HANDLING ===== */
+function handleMusicFiles(e){
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+  const progress = document.getElementById('musicUploadProgress');
+  progress.style.display = 'block';
+  VDB.uploadMusicFiles(files).then(()=>{
+    progress.style.display = 'none';
+    e.target.value = '';
+    showToast('Music uploaded!');
+  }).catch(err=>{
+    progress.style.display = 'none';
+    alert('Upload failed: ' + err.message);
   });
 }
-function removeMusic(){
-  if(!confirm('Remove store music?')) return;
-  VDB.removeMusicUrl();
+function renderMusicTracks(tracks){
+  const box = document.getElementById('musicTrackList');
+  if(!box) return;
+  if(!tracks || tracks.length===0){
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:1rem 0;">No tracks uploaded yet.</p>';
+    return;
+  }
+  box.innerHTML = tracks.map(t => `
+    <div class="track-row">
+      <button type="button" class="track-play-btn" onclick="previewTrack('${t.url}')">▶</button>
+      <span class="tname">${t.name}</span>
+      <button type="button" class="track-del-btn" onclick="deleteMusicTrack('${t.url}')">🗑️</button>
+    </div>`).join('');
+}
+let previewAudio = null;
+function previewTrack(url){
+  if(previewAudio){ previewAudio.pause(); }
+  previewAudio = new Audio(url);
+  previewAudio.play();
+}
+function deleteMusicTrack(url){
+  if(!confirm('Remove this track?')) return;
+  VDB.removeMusicTrack(url).catch(err=>alert('Failed: '+err.message));
 }
 
 function renderAdminReferrers(list){
@@ -331,7 +377,7 @@ function renderAdminSales(list){
 
 function initAdminDashboard(){
   VDB.subscribeProducts(list=>{ allProducts = list; renderAdminProductList(); });
-  VDB.subscribeMusic(data=>{ refreshMusicPanel(data.musicUrl, data.musicName); });
+  VDB.subscribeMusic(tracks=>{ renderMusicTracks(tracks); });
   VDB.subscribeReferrers(renderAdminReferrers);
   VDB.subscribeReferralSales(renderAdminSales);
 }
