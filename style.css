@@ -287,3 +287,11 @@ img{display:block;max-width:100%;}
 /* ===== UTILS ===== */
 .mt-lg{margin-top:1.5rem;}
 .px-0{padding-left:0;padding-right:0;}
+
+.center-modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:170;padding:1rem;overflow-y:auto;}
+.center-modal.active{display:flex;}
+.modal-box{background:linear-gradient(135deg,var(--navy-mid),var(--navy-deep));border:1px solid rgba(14,165,233,.3);border-radius:1.5rem;padding:2rem;max-width:500px;width:100%;max-height:92vh;overflow-y:auto;}
+.modal-header{text-align:center;margin-bottom:1.5rem;padding-bottom:1.2rem;border-bottom:1px solid rgba(14,165,233,.2);}
+.modal-icon{font-size:2.5rem;margin-bottom:.7rem;}
+.modal-title{font-size:1.4rem;font-weight:900;margin-bottom:.4rem;background:linear-gradient(90deg,var(--blue-electric),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.modal-subtitle{color:var(--text-secondary);font-size:.82rem;}
