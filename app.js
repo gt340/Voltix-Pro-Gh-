@@ -230,6 +230,7 @@ function productCardHTML(p){
         <span class="pcard-price">Ghc${p.price}</span>
         ${p.oldPrice ? `<span class="pcard-oldprice">Ghc${p.oldPrice}</span>` : ''}
       </div>
+      <div style="font-size:.62rem;font-weight:800;color:var(--gold);margin-bottom:.5rem;">💸 Earn Ghc${getCommissionForPrice(p.price)} referring this</div>
       <button class="pcard-addbtn ripple" onclick="event.stopPropagation(); addToCart('${p.id}'); rippleFx(event);">Add to Cart</button>
     </div>`;
 }
