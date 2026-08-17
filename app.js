@@ -11,6 +11,32 @@ const FIREBASE_CONFIG = {
 
 const COMMISSION_TIERS = { 40:5, 120:7, 130:7, 220:10 };
 
+/* ===== CLOUDINARY (used for store music — Firebase Storage needs the
+   paid Blaze plan to accept uploads, which is why music uploads were
+   failing) =====
+   1. Create a free account at https://cloudinary.com
+   2. Copy your "Cloud name" from the dashboard
+   3. Settings → Upload → Add upload preset → Signing Mode: "Unsigned" → Save,
+      then copy that preset's name
+   4. Paste both below                                                    */
+const CLOUDINARY_CLOUD_NAME = 'Voltix Pro GH';
+const CLOUDINARY_UPLOAD_PRESET = '80dfc5af-5cf4-4fdf-9b24-f2834a2d4854';
+
+async function uploadFileToCloudinary(file){
+  // Cloudinary serves audio through its "video" resource-type pipeline
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(url, { method:'POST', body: formData });
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error('Cloudinary upload failed: ' + errText);
+  }
+  const data = await res.json();
+  return data.secure_url;
+}
+
 let VDB = null;
 let allProducts = [];
 let cart = JSON.parse(localStorage.getItem('voltixCart') || '[]');
@@ -95,15 +121,12 @@ function getCommissionForPrice(price){
       catch(e){ /* not a storage url or already gone — ignore */ }
     },
 
-    /* ===== store music (multiple tracks) ===== */
+    /* ===== store music (multiple tracks, hosted on Cloudinary) ===== */
     async uploadMusicFiles(files){
       const current = await this.getMusicTracks();
       const newTracks = [];
       for(const file of files){
-        const path = `music/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
-        const sRef = ref(storage, path);
-        await uploadBytes(sRef, file);
-        const url = await getDownloadURL(sRef);
+        const url = await uploadFileToCloudinary(file);
         newTracks.push({ url, name:file.name });
       }
       const merged = [...current, ...newTracks];
@@ -115,10 +138,13 @@ function getCommissionForPrice(price){
       return snap.exists() && Array.isArray(snap.data().musicTracks) ? snap.data().musicTracks : [];
     },
     async removeMusicTrack(url){
+      // Cloudinary deletion needs a signed request (API secret), which isn't
+      // safe to do from the browser — so this just drops the track from the
+      // site's list. The file itself stays in your Cloudinary media library
+      // (harmless, and you can delete it there manually if you want).
       const current = await this.getMusicTracks();
       const updated = current.filter(t=>t.url!==url);
       await setDoc(doc(db,"settings","store"),{ musicTracks: updated },{ merge:true });
-      this.deleteStorageFileByUrl(url);
     },
     subscribeMusic(cb){
       return onSnapshot(doc(db,"settings","store"), s => {
