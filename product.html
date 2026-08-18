@@ -44,11 +44,16 @@ let pdpProduct = null;
 let pdpImages = [];
 let pdpActiveIndex = 0;
 let pdpQty = 1;
+let pdpVariants = [];
+let pdpVariantIndex = 0;
+let pdpAnimating = false;
+let pdpTouchStartX = 0;
 
 function initProductPage(){
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
   if(!id){ window.location.href = 'shop.html'; return; }
+  const wantedVariant = params.get('variant');
 
   function load(){
     VDB.getProductById(id).then(p=>{
@@ -57,7 +62,13 @@ function initProductPage(){
         return;
       }
       pdpProduct = p;
-      pdpImages = (p.images && p.images.length) ? p.images : (p.imageUrl ? [p.imageUrl] : []);
+      allProducts = [p];
+      pdpVariants = p.variants || [];
+      pdpVariantIndex = 0;
+      if(wantedVariant){
+        const idx = pdpVariants.findIndex(v=>v.id===wantedVariant);
+        if(idx >= 0) pdpVariantIndex = idx;
+      }
       trackRecentlyViewed(id);
       renderProductPage();
       updateNavBadges();
@@ -66,37 +77,88 @@ function initProductPage(){
   if(VDB) load(); else window.addEventListener('vdb-ready', load);
 }
 
+function pdpActiveVariant(){
+  return pdpVariants.length ? pdpVariants[pdpVariantIndex] : null;
+}
+function pdpCurrentImages(){
+  const v = pdpActiveVariant();
+  if(v && v.images && v.images.length) return v.images;
+  const p = pdpProduct;
+  return (p.images && p.images.length) ? p.images : (p.imageUrl ? [p.imageUrl] : []);
+}
+function pdpStockBadgeHTML(v){
+  if(!v || v.stock===null || v.stock===undefined) return '';
+  if(v.stock===0) return `<span class="pdp-stock-badge pdp-stock-out">Out of Stock</span>`;
+  if(v.stock<=5) return `<span class="pdp-stock-badge pdp-stock-low">Only ${v.stock} left</span>`;
+  return `<span class="pdp-stock-badge pdp-stock-in">In Stock</span>`;
+}
+
 function renderProductPage(){
   const p = pdpProduct;
+  const v = pdpActiveVariant();
   const wishActive = isWishlisted(p.id);
+  const images = pdpCurrentImages();
+  pdpImages = images;
+  pdpActiveIndex = 0;
 
-  const gallerySlides = pdpImages.length
-    ? pdpImages.map(url => `<div class="pdp-gallery-slide"><img src="${url}" alt="${p.name}"></div>`).join('')
+  const displayName = v ? `${p.name} — ${v.name}` : p.name;
+  const displayPrice = (v && v.price!=null) ? v.price : p.price;
+  const displayOldPrice = (v && v.compareAtPrice!=null) ? v.compareAtPrice : p.oldPrice;
+  const displaySku = v ? (v.sku||'') : (p.sku||'');
+  const outOfStock = !!(v && v.stock===0);
+
+  const gallerySlides = images.length
+    ? images.map(url => `<div class="pdp-gallery-slide"><img src="${url}" alt="${displayName}"></div>`).join('')
     : `<div class="pdp-gallery-slide">${p.emoji||'🎧'}</div>`;
 
-  const dots = pdpImages.length > 1
-    ? `<div class="pdp-dots">${pdpImages.map((_,i)=>`<span class="pdp-dot ${i===0?'active':''}" data-i="${i}"></span>`).join('')}</div>`
+  const dots = images.length > 1
+    ? `<div class="pdp-dots">${images.map((_,i)=>`<span class="pdp-dot ${i===0?'active':''}" data-i="${i}"></span>`).join('')}</div>`
+    : '';
+  const thumbs = images.length > 1
+    ? `<div class="pdp-thumbs">${images.map((url,i)=>`<button type="button" class="pdp-thumb ${i===0?'active':''}" data-i="${i}" onclick="pdpGoToSlide(${i})"><img src="${url}"></button>`).join('')}</div>`
     : '';
 
-  const thumbs = pdpImages.length > 1
-    ? `<div class="pdp-thumbs">${pdpImages.map((url,i)=>`<button type="button" class="pdp-thumb ${i===0?'active':''}" data-i="${i}" onclick="pdpGoToSlide(${i})"><img src="${url}"></button>`).join('')}</div>`
-    : '';
+  let variantArrows = '', variantSwatches = '', variantPreview = '';
+  if(pdpVariants.length > 1){
+    const nextIdx = (pdpVariantIndex + 1) % pdpVariants.length;
+    const nextV = pdpVariants[nextIdx];
+    const nextImg = (nextV.images && nextV.images[0]) || '';
+    variantArrows = `
+      <button type="button" class="pdp-variant-arrow prev" aria-label="Previous colour" onclick="pdpChangeVariant(-1)">‹</button>
+      <button type="button" class="pdp-variant-arrow next" aria-label="Next colour" onclick="pdpChangeVariant(1)">›</button>`;
+    variantPreview = `
+      <div class="pdp-variant-preview-label">${v.name} — selected</div>
+      ${nextImg ? `<div class="pdp-variant-preview" title="Next: ${nextV.name}"><img src="${nextImg}" alt="${nextV.name}"></div>` : ''}`;
+    variantSwatches = `
+      <div class="pdp-variant-swatches" role="group" aria-label="Choose your colour">
+        ${pdpVariants.map((vv,i)=>`
+          <button type="button" class="pdp-swatch-item ${i===pdpVariantIndex?'active':''}" aria-label="Select ${vv.name}" aria-pressed="${i===pdpVariantIndex}" onclick="pdpSelectVariant(${i})">
+            <span class="pdp-swatch-dot" style="background:${vv.colorHex||'#111'};"></span>
+            ${vv.name}
+          </button>`).join('')}
+      </div>`;
+  }
 
   document.getElementById('pdpRoot').innerHTML = `
     <div class="section" style="padding-top:1rem;padding-bottom:6.5rem;">
-      <div class="pdp-gallery" id="pdpGallery">
+      <div class="pdp-gallery pdp-variant-fade" id="pdpGallery" style="position:relative;">
         <div class="pdp-gallery-track" id="pdpGalleryTrack">${gallerySlides}</div>
         ${dots}
+        ${variantArrows}
+        ${variantPreview}
       </div>
       ${thumbs}
+      ${variantSwatches}
       <div class="pdp-body">
         <div class="pdp-badge-wrap">${p.badge ? `<span class="pcard-badge ${p.badgeClass||''}">${p.badge}</span>` : ''}</div>
-        <h1 class="pdp-name">${p.name}</h1>
+        ${pdpStockBadgeHTML(v)}
+        <h1 class="pdp-name">${displayName}</h1>
         <div class="pdp-rating">★★★★★ <span class="count">(${p.reviewCount||Math.floor(Math.random()*80)+20} reviews)</span></div>
         <div class="pdp-price-row">
-          <span class="pdp-price">Ghc${p.price}</span>
-          ${p.oldPrice ? `<span class="pdp-oldprice">Ghc${p.oldPrice}</span>` : ''}
+          <span class="pdp-price">Ghc${displayPrice}</span>
+          ${displayOldPrice ? `<span class="pdp-oldprice">Ghc${displayOldPrice}</span>` : ''}
         </div>
+        ${displaySku ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.8rem;">SKU: ${displaySku}</div>` : ''}
         <div class="glass-card pdp-specs-card">
           <h4>Details</h4>
           <p>${p.specs || 'Premium sound quality, built for everyday use.'}</p>
@@ -111,19 +173,26 @@ function renderProductPage(){
           <span class="pdp-trust-chip">🚚 1-3 Day Delivery</span>
           <span class="pdp-trust-chip">✅ 7-Day Warranty</span>
           <span class="pdp-trust-chip">💳 Secure Payment</span>
-          <span class="pdp-trust-chip" style="color:var(--gold);border-color:rgba(250,204,21,.35);background:rgba(250,204,21,.08);">💸 Earn Ghc${getCommissionForPrice(p.price)} — Refer &amp; Earn</span>
+          <span class="pdp-trust-chip" style="color:var(--gold);border-color:rgba(250,204,21,.35);background:rgba(250,204,21,.08);">💸 Earn Ghc${getCommissionForPrice(displayPrice)} — Refer &amp; Earn</span>
         </div>
+        <button type="button" class="pdp-addbtn ripple" style="width:100%;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#4ade80;margin-bottom:.8rem;" onclick="pdpBuyNow(event)" ${outOfStock?'disabled':''}>⚡ Buy Now</button>
       </div>
     </div>
     <div class="pdp-sticky-bar">
       <button type="button" class="pdp-wish-btn ${wishActive?'active':''}" id="pdpWishBtn" onclick="pdpToggleWishlist()">${wishActive?'♥':'♡'}</button>
-      <button type="button" class="pdp-addbtn ripple" onclick="pdpAddToCart(event)">🛒 Add to Cart</button>
+      <button type="button" class="pdp-wa-btn" aria-label="Chat on WhatsApp about this product" onclick="pdpWhatsApp()">💬</button>
+      <button type="button" class="pdp-addbtn ripple" onclick="pdpAddToCart(event)" ${outOfStock?'disabled':''}>${outOfStock?'Out of Stock':'🛒 Add to Cart'}</button>
     </div>
   `;
 
   const track = document.getElementById('pdpGalleryTrack');
-  if(track && pdpImages.length > 1){
+  if(track && images.length > 1){
     track.addEventListener('scroll', pdpOnGalleryScroll);
+  }
+  const galleryEl = document.getElementById('pdpGallery');
+  if(galleryEl && pdpVariants.length > 1){
+    galleryEl.addEventListener('touchstart', pdpTouchStart, {passive:true});
+    galleryEl.addEventListener('touchend', pdpTouchEnd, {passive:true});
   }
 }
 
@@ -140,20 +209,85 @@ function pdpGoToSlide(i){
   track.scrollTo({ left: i * track.clientWidth, behavior:'smooth' });
 }
 
+/* ===== COLOUR VARIANT SWITCHING ===== */
+function pdpChangeVariant(direction){
+  if(pdpAnimating || pdpVariants.length < 2) return;
+  let next = pdpVariantIndex + direction;
+  if(next < 0) next = pdpVariants.length - 1;
+  if(next >= pdpVariants.length) next = 0;
+  pdpApplyVariantChange(next);
+}
+function pdpSelectVariant(index){
+  if(pdpAnimating || index === pdpVariantIndex) return;
+  pdpApplyVariantChange(index);
+}
+function pdpApplyVariantChange(index){
+  pdpAnimating = true;
+  const gallery = document.getElementById('pdpGallery');
+  if(gallery) gallery.classList.add('pdp-fading');
+  setTimeout(()=>{
+    pdpVariantIndex = index;
+    pdpQty = 1;
+    renderProductPage();
+    pdpUpdateUrlState();
+    requestAnimationFrame(()=>{
+      const g = document.getElementById('pdpGallery');
+      if(g) g.classList.remove('pdp-fading');
+      pdpAnimating = false;
+    });
+  }, 260);
+}
+function pdpUpdateUrlState(){
+  const v = pdpActiveVariant();
+  const params = new URLSearchParams(window.location.search);
+  if(v) params.set('variant', v.id); else params.delete('variant');
+  history.replaceState(null, '', window.location.pathname + '?' + params.toString());
+}
+function pdpTouchStart(e){ pdpTouchStartX = e.changedTouches[0].clientX; }
+function pdpTouchEnd(e){
+  const dx = e.changedTouches[0].clientX - pdpTouchStartX;
+  if(Math.abs(dx) < 40) return;
+  if(dx < 0) pdpChangeVariant(1); else pdpChangeVariant(-1);
+}
+document.addEventListener('keydown', e=>{
+  if(pdpVariants.length < 2) return;
+  if(e.key === 'ArrowRight') pdpChangeVariant(1);
+  if(e.key === 'ArrowLeft') pdpChangeVariant(-1);
+});
+
 function pdpChangeQty(delta){
   pdpQty = Math.max(1, pdpQty + delta);
   document.getElementById('pdpQtyVal').textContent = pdpQty;
 }
+
+/* ===== VARIANT-AWARE CART — delegates to the shared addToCart() in app.js,
+   which now understands variants (same lineId scheme site-wide). ===== */
 function pdpAddToCart(e){
-  for(let i=0;i<pdpQty;i++) addToCart(pdpProduct.id, 1);
+  const v = pdpActiveVariant();
+  if(v && v.stock===0) return;
+  addToCart(pdpProduct.id, pdpQty, v);
   rippleFx(e);
   setTimeout(()=>{ window.location.href = 'cart.html'; }, 450);
+}
+function pdpBuyNow(e){
+  const v = pdpActiveVariant();
+  if(v && v.stock===0) return;
+  cart = [];
+  addToCart(pdpProduct.id, pdpQty, v);
+  rippleFx(e);
+  window.location.href = 'cart.html';
 }
 function pdpToggleWishlist(){
   toggleWishlist(pdpProduct.id);
   const btn = document.getElementById('pdpWishBtn');
   btn.classList.toggle('active', isWishlisted(pdpProduct.id));
   btn.textContent = isWishlisted(pdpProduct.id) ? '♥' : '♡';
+}
+function pdpWhatsApp(){
+  const v = pdpActiveVariant();
+  const variantText = v ? ` in ${v.name}` : '';
+  const message = `Hello Voltix Pro GH, I am interested in the ${pdpProduct.name}${variantText}. Please confirm availability.`;
+  window.open(`https://wa.me/233536193862?text=${encodeURIComponent(message)}`, '_blank');
 }
 
 /* ===== STORE MUSIC (plays through all uploaded tracks) ===== */
