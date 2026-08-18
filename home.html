@@ -322,7 +322,7 @@ footer{border-top:1px solid rgba(255,255,255,.1);padding:3rem 1rem;background:li
   </div>
 </header>
 
-<audio id="storeAudio" loop></audio>
+<audio id="storeAudio"></audio>
 
 <!-- CART OVERLAY -->
 <div class="cart-overlay" id="cartOverlay" onclick="if(event.target===this) toggleCart()"></div>
@@ -363,7 +363,7 @@ footer{border-top:1px solid rgba(255,255,255,.1);padding:3rem 1rem;background:li
         <span class="qty-display" id="detailQty">1</span>
         <button class="qty-btn" onclick="changeDetailQty(1)">+</button>
       </div>
-      <button class="detail-add-btn" onclick="addDetailToCart()">🛒 Add to Cart</button>
+      <button class="detail-add-btn" id="detailAddBtn" onclick="addDetailToCart()">🛒 Add to Cart</button>
     </div>
   </div>
 </div>
@@ -560,16 +560,14 @@ footer{border-top:1px solid rgba(255,255,255,.1);padding:3rem 1rem;background:li
     <!-- MUSIC UPLOAD -->
     <div class="admin-section" id="adminsection-music">
       <div class="form-group">
-        <label class="form-label">🎵 Upload Store Music (from your gallery / files)</label>
+        <label class="form-label">🎵 Upload Store Music (choose multiple MP3s from your file manager)</label>
         <div class="file-drop" onclick="document.getElementById('musicInput').click()">
-          📁 Tap to choose an audio file (MP3)
+          📁 Tap to choose audio files
         </div>
-        <input type="file" id="musicInput" accept="audio/*" style="display:none;" onchange="handleMusicUpload(event)">
-        <div class="music-current" id="musicCurrent">
-          <span id="musicFileName">🎶 No music uploaded</span>
-          <button type="button" class="admin-icon-btn del" onclick="removeMusic()">🗑️</button>
-        </div>
-        <div class="admin-note">Uploaded music plays when visitors tap "🎵 Play Store Music" in the header. Keep files small (under ~3MB) since it's stored on-device.</div>
+        <input type="file" id="musicInput" accept="audio/*" multiple style="display:none;" onchange="handleMusicUpload(event)">
+        <div id="musicUploadProgress" style="font-size:.75rem;color:#38bdf8;margin-top:.5rem;display:none;">⏳ Uploading...</div>
+        <div id="musicTrackList" style="margin-top:1rem;"></div>
+        <div class="admin-note">Uploaded tracks play when visitors tap "🎵 Play Store Music" in the header and cycle automatically. Shared across the whole site.</div>
       </div>
     </div>
   </div>
@@ -710,88 +708,226 @@ footer{border-top:1px solid rgba(255,255,255,.1);padding:3rem 1rem;background:li
   </div>
 </footer>
 
-<script>
-/* ---------- DEFAULT PRODUCTS ---------- */
-const DEFAULT_PRODUCTS = [
-  { id:1, name:'Berlin Open-Ear Pro', price:130, oldPrice:180, emoji:'🎵', image:null, badge:'Hot Deal', badgeClass:'badge-hot', specs:'Futuristic Open-Ear Design • Robot Charging Case • 5-Year Warranty • Bluetooth 5.4' },
-  { id:2, name:'Ultrapods Max - White', price:120, oldPrice:160, emoji:'🎧', image:null, badge:'New', badgeClass:'badge-new', specs:'Transparent LED Display Case • Noise Cancelling • Hi-Res Audio • Bluetooth 5.3' },
-  { id:3, name:'Ultrapods Max - Blue', price:120, oldPrice:160, emoji:'🌊', image:null, badge:'New', badgeClass:'badge-new', specs:'Sky Blue Transparent LED Case • Noise Cancelling • Hi-Res Audio • Bluetooth 5.3' },
-  { id:4, name:'Ultrapods Max - Black', price:120, oldPrice:160, emoji:'⚫', image:null, badge:'Best Seller', badgeClass:'badge-bestseller', specs:'Smoked Black Case • Noise Cancelling • Hi-Res Audio • Bluetooth 5.3' },
-  { id:5, name:'RingClip Pro - Black', price:40, oldPrice:65, emoji:'💎', image:null, badge:'Best Value', badgeClass:'badge-value', specs:'Lightweight Ring-Clip Ear Hook • Perfect for Calls • Bluetooth 5.2' },
-  { id:6, name:'RingClip Pro - White', price:40, oldPrice:65, emoji:'✨', image:null, badge:'Best Value', badgeClass:'badge-value', specs:'White Ring-Clip Ear Hook • Perfect for Calls • Bluetooth 5.2' },
-  { id:7, name:'SportHook Elite', price:220, oldPrice:290, emoji:'⚡', image:null, badge:'Premium', badgeClass:'badge-premium', specs:'Over-Ear Sport Hooks • 48h Battery • LED Mirror Case • IPX6 Sweat Proof' },
-  { id:8, name:'ProSuite Bundle', price:220, oldPrice:300, emoji:'📦', image:null, badge:'Gift Set', badgeClass:'badge-gift', specs:'6 Earbud Styles in One Box • LED Display Case • Noise Cancelling • Perfect Gift' }
-];
+<!-- Firestore + Cloudinary data layer, shared with product.html / admin.html / app.js -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, addDoc, deleteDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+  authDomain: "voltix-pro-dc363.firebaseapp.com",
+  projectId: "voltix-pro-dc363",
+  storageBucket: "voltix-pro-dc363.firebasestorage.app",
+  messagingSenderId: "778425016855",
+  appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252"
+};
+
+// Same values you filled in on app.js — paste them here too
+const CLOUDINARY_CLOUD_NAME = 'gi28yswe';
+const CLOUDINARY_UPLOAD_PRESET = 'Voltix Pro GH';
+
+async function uploadFileToCloudinary(file, onProgress){
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
+  if(CLOUDINARY_CLOUD_NAME === 'YOUR_CLOUD_NAME' || CLOUDINARY_UPLOAD_PRESET === 'YOUR_UPLOAD_PRESET'){
+    throw new Error('Cloudinary is not configured yet — paste your real Cloud name and unsigned upload preset near the top of this script.');
+  }
+  return new Promise((resolve, reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.timeout = 60000;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    xhr.upload.onprogress = (e)=>{
+      if(onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = ()=>{
+      if(xhr.status >= 200 && xhr.status < 300){
+        try{ resolve(JSON.parse(xhr.responseText).secure_url); }
+        catch(e){ reject(new Error('Cloudinary returned an unexpected response.')); }
+      } else {
+        let msg = `Cloudinary upload failed (HTTP ${xhr.status}).`;
+        try{
+          const parsed = JSON.parse(xhr.responseText);
+          if(parsed?.error?.message) msg = 'Cloudinary: ' + parsed.error.message;
+        } catch(e){}
+        if(xhr.status === 400 && /preset/i.test(msg)) msg += ' Check the upload preset name is exact and Signing Mode is "Unsigned".';
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = ()=> reject(new Error('Network error while uploading to Cloudinary — check your connection and try again.'));
+    xhr.ontimeout = ()=> reject(new Error('Upload timed out after 60s — the file may be too large or the connection too slow.'));
+    xhr.send(formData);
+  });
+}
+
+const fbApp = initializeApp(FIREBASE_CONFIG);
+const db = getFirestore(fbApp);
+const storage = getStorage(fbApp);
+
+window.HDB = {
+  subscribeProducts(cb){
+    return onSnapshot(collection(db,"products"), snap=>{
+      const list=[];
+      snap.forEach(d=>list.push({id:d.id,...d.data()}));
+      list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+      cb(list);
+    });
+  },
+  async saveProduct(data){
+    const toSave = {...data};
+    if(data.id){ const id=String(data.id); delete toSave.id; await setDoc(doc(db,"products",id),toSave,{merge:true}); return id; }
+    delete toSave.id;
+    const ref2 = await addDoc(collection(db,"products"),toSave);
+    return ref2.id;
+  },
+  async deleteProductById(id){ await deleteDoc(doc(db,"products",String(id))); },
+  async uploadImage(file){
+    const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
+    const sRef = ref(storage, path);
+    try{
+      await Promise.race([
+        uploadBytes(sRef, file),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('timed out after 45s')), 45000))
+      ]);
+      return await getDownloadURL(sRef);
+    } catch(err){
+      const code = err.code ? ` (${err.code})` : '';
+      const hint = (err.code==='storage/unauthorized' || /timed out/i.test(err.message))
+        ? ' — check Firebase Console → Storage → Rules allows writes, and that you are logged into Admin.'
+        : '';
+      throw new Error(`Failed to upload "${file.name}"${code}: ${err.message}${hint}`);
+    }
+  },
+  subscribeMusic(cb){
+    return onSnapshot(doc(db,"settings","store"), s=>{
+      cb(s.exists() && Array.isArray(s.data().musicTracks) ? s.data().musicTracks : []);
+    });
+  },
+  async uploadMusicFiles(files, onProgress){
+    const snap = await getDoc(doc(db,"settings","store"));
+    const current = snap.exists() && Array.isArray(snap.data().musicTracks) ? snap.data().musicTracks : [];
+    const newTracks = [];
+    for(const file of files){
+      try{
+        const url = await uploadFileToCloudinary(file, onProgress);
+        newTracks.push({ url, name:file.name });
+      } catch(err){
+        throw new Error(`Failed to upload "${file.name}": ${err.message}`);
+      }
+    }
+    const merged = [...current, ...newTracks];
+    await setDoc(doc(db,"settings","store"),{ musicTracks: merged },{ merge:true });
+    return merged;
+  },
+  async removeMusicTrack(url){
+    const snap = await getDoc(doc(db,"settings","store"));
+    const current = snap.exists() && Array.isArray(snap.data().musicTracks) ? snap.data().musicTracks : [];
+    const updated = current.filter(t=>t.url!==url);
+    await setDoc(doc(db,"settings","store"),{ musicTracks: updated },{ merge:true });
+  }
+};
+window.dispatchEvent(new Event('hdb-ready'));
+</script>
+
+<script>
 const ADMIN_PASSWORD = 'voltix2024';
 
-let products = loadProducts();
+let products = [];
 let cart = JSON.parse(localStorage.getItem('voltixCart') || '[]');
 let currentPaymentMethod = 'card';
 let currentUser = JSON.parse(localStorage.getItem('voltixUser') || 'null');
 let activeDetailProduct = null;
 let detailQty = 1;
-let editingImageData = null;
+let pendingImageFile = null;   // newly-picked photo, uploaded to Storage on Save
+let musicTracks = [];
+let musicTrackIndex = 0;
 
-/* ---------- PRODUCTS STORAGE ---------- */
-function loadProducts(){
-  const saved = localStorage.getItem('voltixProducts');
-  return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
-}
-function saveProducts(){
-  localStorage.setItem('voltixProducts', JSON.stringify(products));
+/* ---------- LIVE DATA FEEDS (Firestore products + Cloudinary music) ---------- */
+function initFirebaseFeeds(){
+  function apply(){
+    window.HDB.subscribeProducts(list=>{
+      products = list;
+      renderProducts();
+      renderAdminProductList();
+    });
+    window.HDB.subscribeMusic(tracks=>{
+      musicTracks = tracks;
+      renderMusicTrackList();
+    });
+  }
+  if(window.HDB) apply(); else window.addEventListener('hdb-ready', apply);
 }
 
 /* ---------- RENDER PRODUCTS ---------- */
 function renderProducts(){
   const grid = document.getElementById('productsGrid');
-  grid.innerHTML = products.map(p => `
-    <div class="product-card" onclick="openDetailModal(${p.id})">
+  grid.innerHTML = products.map(p => {
+    const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+    const hasVariants = p.variants && p.variants.length > 1;
+    const footerBtn = hasVariants
+      ? `<button class="add-btn" onclick="event.stopPropagation(); window.location.href='product.html?id=${encodeURIComponent(p.id)}';">🎨 Choose Colour</button>`
+      : `<button class="add-btn" onclick="event.stopPropagation(); addToCart('${p.id}')">Add to Cart</button>`;
+    return `
+    <div class="product-card" onclick="openDetailModal('${p.id}')">
       <div class="product-image">
-        ${p.image ? `<img src="${p.image}" alt="${p.name}">` : p.emoji}
+        ${img ? `<img src="${img}" alt="${p.name}">` : (p.emoji||'🎧')}
         <div class="product-badge ${p.badgeClass||''}">${p.badge||''}</div>
       </div>
       <h3 class="product-name">${p.name}</h3>
-      <p class="product-specs">${p.specs}</p>
+      ${hasVariants ? `<div style="font-size:.68rem;font-weight:800;color:#38bdf8;margin-bottom:.4rem;">🎨 ${p.variants.length} colours available</div>` : ''}
+      <p class="product-specs">${p.specs||''}</p>
       <div class="price-row">
         <div class="product-price">Ghc${p.price}</div>
         ${p.oldPrice ? `<div class="product-old-price">Ghc${p.oldPrice}</div>` : ''}
       </div>
       <div class="product-footer">
-        <button class="add-btn" onclick="event.stopPropagation(); addToCart(${p.id})">Add to Cart</button>
+        ${footerBtn}
       </div>
       <div class="tap-hint">👆 Tap to view</div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 /* ---------- PRODUCT DETAIL MODAL ---------- */
 function openDetailModal(id){
-  const p = products.find(x => x.id === id);
+  const p = products.find(x => String(x.id) === String(id));
   if(!p) return;
   activeDetailProduct = p;
   detailQty = 1;
   document.getElementById('detailQty').textContent = detailQty;
 
+  const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
   const imgWrap = document.getElementById('detailImageWrap');
-  document.getElementById('detailEmoji').textContent = p.image ? '' : p.emoji;
+  document.getElementById('detailEmoji').textContent = img ? '' : (p.emoji||'🎧');
   const existingImg = imgWrap.querySelector('img.detail-real-img');
   if(existingImg) existingImg.remove();
-  if(p.image){
-    const img = document.createElement('img');
-    img.src = p.image;
-    img.className = 'detail-real-img';
-    img.style.position='absolute'; img.style.inset='0'; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; img.style.zIndex='1';
-    imgWrap.insertBefore(img, imgWrap.firstChild);
+  if(img){
+    const imgEl = document.createElement('img');
+    imgEl.src = img;
+    imgEl.className = 'detail-real-img';
+    imgEl.style.position='absolute'; imgEl.style.inset='0'; imgEl.style.width='100%'; imgEl.style.height='100%'; imgEl.style.objectFit='cover'; imgEl.style.zIndex='1';
+    imgWrap.insertBefore(imgEl, imgWrap.firstChild);
   }
 
   document.getElementById('detailBadgeWrap').innerHTML = `<span class="product-badge ${p.badgeClass||''}" style="position:static;display:inline-block;">${p.badge||''}</span>`;
   document.getElementById('detailName').textContent = p.name;
-  document.getElementById('detailSpecs').textContent = p.specs;
+  document.getElementById('detailSpecs').textContent = p.specs||'';
   document.getElementById('detailPrice').textContent = 'Ghc' + p.price;
   document.getElementById('detailOldPrice').textContent = p.oldPrice ? 'Ghc' + p.oldPrice : '';
 
-  document.getElementById('detailDownloadBtn').style.display = p.image ? 'flex' : 'none';
+  document.getElementById('detailDownloadBtn').style.display = img ? 'flex' : 'none';
+
+  const hasVariants = p.variants && p.variants.length > 1;
+  const addBtn = document.getElementById('detailAddBtn');
+  if(hasVariants){
+    addBtn.textContent = '🎨 Choose Colour & Buy →';
+    addBtn.onclick = () => { window.location.href = 'product.html?id=' + encodeURIComponent(p.id); };
+  } else {
+    addBtn.textContent = '🛒 Add to Cart';
+    addBtn.onclick = addDetailToCart;
+  }
 
   document.getElementById('detailModal').classList.add('active');
 }
@@ -809,28 +945,60 @@ function addDetailToCart(){
   closeDetailModal();
   toggleCart();
 }
-function downloadProductImage(){
-  if(!activeDetailProduct || !activeDetailProduct.image) return;
-  const a = document.createElement('a');
-  a.href = activeDetailProduct.image;
-  a.download = activeDetailProduct.name.replace(/\s+/g,'_') + '.jpg';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+async function downloadProductImage(){
+  const img = activeDetailProduct && ((activeDetailProduct.images && activeDetailProduct.images.length) ? activeDetailProduct.images[0] : activeDetailProduct.imageUrl);
+  if(!img) return;
+  try{
+    const res = await fetch(img);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = activeDetailProduct.name.replace(/\s+/g,'_') + '.jpg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch(err){
+    window.open(img, '_blank');
+  }
 }
 
-/* ---------- CART ---------- */
-function addToCart(id, silent){
-  const product = products.find(p => p.id === id);
-  const existing = cart.find(item => item.id === id);
-  if(existing){ existing.qty++; } else { cart.push({ ...product, qty:1 }); }
+/* ---------- CART ----------
+   Cart line items use a composite `lineId` so the same product in two
+   different colours becomes two separate cart lines: `${productId}::${variantId}`
+   for a variant, or just the product id when there's no variant selected.
+   This localStorage shape (key: voltixCart) is shared with product.html/cart.html. */
+function addToCart(id, silent, variant){
+  const product = products.find(p => String(p.id) === String(id));
+  if(!product) return;
+  const lineId = variant ? `${id}::${variant.id}` : String(id);
+  const existing = cart.find(item => (item.lineId||item.id) === lineId);
+  if(existing){
+    existing.qty++;
+  } else {
+    const img = variant
+      ? (variant.images && variant.images[0])
+      : ((product.images && product.images[0]) || product.imageUrl);
+    cart.push({
+      id: String(id),
+      lineId,
+      variantId: variant ? variant.id : null,
+      variantName: variant ? variant.name : null,
+      sku: variant ? (variant.sku||null) : (product.sku||null),
+      name: variant ? `${product.name} — ${variant.name}` : product.name,
+      price: variant ? variant.price : product.price,
+      image: img || null,
+      qty: 1
+    });
+  }
   updateCart();
   if(!silent) toggleCart();
 }
-function removeFromCart(id){ cart = cart.filter(item => item.id !== id); updateCart(); }
-function updateQty(id, qty){
-  const item = cart.find(i => i.id === id);
-  if(item){ if(qty<=0) removeFromCart(id); else { item.qty = qty; updateCart(); } }
+function removeFromCart(lineId){ cart = cart.filter(item => (item.lineId||item.id) !== lineId); updateCart(); }
+function updateQty(lineId, qty){
+  const item = cart.find(i => (i.lineId||i.id) === lineId);
+  if(item){ if(qty<=0) removeFromCart(lineId); else { item.qty = qty; updateCart(); } }
 }
 function updateCart(){
   const count = cart.reduce((s,i)=>s+i.qty,0);
@@ -839,18 +1007,21 @@ function updateCart(){
   if(count>0){ countEl.textContent = count; countEl.style.display='flex'; } else { countEl.style.display='none'; }
   document.getElementById('cartTotal').textContent = `Ghc${total}`;
   const itemsEl = document.getElementById('cartItems');
-  itemsEl.innerHTML = cart.length===0 ? '<div class="empty-cart">Your cart is empty</div>' : cart.map(item => `
+  itemsEl.innerHTML = cart.length===0 ? '<div class="empty-cart">Your cart is empty</div>' : cart.map(item => {
+    const lid = item.lineId || item.id;
+    return `
     <div class="cart-item">
       <div class="cart-item-header">
-        <div><div class="cart-item-name">${item.name}</div><div class="cart-item-price">Ghc${item.price}</div></div>
-        <button class="remove-btn" onclick="removeFromCart(${item.id})">✕</button>
+        <div><div class="cart-item-name">${item.name}${item.variantName?` <span style="opacity:.6;font-weight:600;">(${item.variantName})</span>`:''}</div><div class="cart-item-price">Ghc${item.price}</div></div>
+        <button class="remove-btn" onclick="removeFromCart('${lid}')">✕</button>
       </div>
       <div class="cart-qty">
-        <button class="qty-btn" onclick="updateQty(${item.id}, ${item.qty - 1})">−</button>
+        <button class="qty-btn" onclick="updateQty('${lid}', ${item.qty - 1})">−</button>
         <span style="flex:1;text-align:center;">${item.qty}</span>
-        <button class="qty-btn" onclick="updateQty(${item.id}, ${item.qty + 1})">+</button>
+        <button class="qty-btn" onclick="updateQty('${lid}', ${item.qty + 1})">+</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   localStorage.setItem('voltixCart', JSON.stringify(cart));
 }
 function toggleCart(){
@@ -974,22 +1145,26 @@ function closeConfirmation(){
 }
 function closeCenterModal(id){ document.getElementById(id).classList.remove('active'); }
 
-/* ---------- STORE MUSIC ---------- */
+/* ---------- STORE MUSIC (shared Cloudinary playlist, cycles through tracks) ---------- */
 let musicPlaying = false;
-function loadMusicIntoPlayer(){
-  const musicData = localStorage.getItem('voltixMusic');
-  const audio = document.getElementById('storeAudio');
-  if(musicData) audio.src = musicData;
-}
 function toggleMusic(){
-  const musicData = localStorage.getItem('voltixMusic');
-  const btn = document.getElementById('musicBtn');
-  if(!musicData){ alert('No store music uploaded yet. Go to Admin Dashboard → Store Music to upload one.'); return; }
   const audio = document.getElementById('storeAudio');
-  if(!audio.src) audio.src = musicData;
-  if(musicPlaying){ audio.pause(); btn.textContent='🎵 Play Store Music'; musicPlaying=false; }
-  else { audio.play(); btn.textContent='⏸ Pause Music'; musicPlaying=true; }
+  const btn = document.getElementById('musicBtn');
+  if(!musicTracks.length){ alert('No store music uploaded yet. Go to Admin Dashboard → Store Music to upload one.'); return; }
+  if(musicPlaying){
+    audio.pause(); btn.textContent='🎵 Play Store Music'; musicPlaying=false;
+  } else {
+    if(!audio.src) audio.src = musicTracks[musicTrackIndex].url;
+    audio.play(); btn.textContent='⏸ Pause Music'; musicPlaying=true;
+  }
 }
+document.getElementById('storeAudio').addEventListener('ended', ()=>{
+  if(!musicTracks.length) return;
+  musicTrackIndex = (musicTrackIndex + 1) % musicTracks.length;
+  const audio = document.getElementById('storeAudio');
+  audio.src = musicTracks[musicTrackIndex].url;
+  audio.play();
+});
 
 /* ---------- ADMIN ---------- */
 function openAdminLoginModal(){ document.getElementById('adminLoginModal').classList.add('active'); }
@@ -1006,7 +1181,7 @@ function handleAdminLogin(e){
 }
 function openAdminDashboard(){
   renderAdminProductList();
-  refreshMusicPanel();
+  renderMusicTrackList();
   switchAdminTab('products');
   document.getElementById('adminDashModal').classList.add('active');
 }
@@ -1018,21 +1193,24 @@ function switchAdminTab(tab){
 }
 function renderAdminProductList(){
   const list = document.getElementById('adminProductList');
-  list.innerHTML = products.map(p => `
+  list.innerHTML = products.map(p => {
+    const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+    return `
     <div class="admin-product-row">
-      <div class="admin-thumb">${p.image ? `<img src="${p.image}">` : p.emoji}</div>
+      <div class="admin-thumb">${img ? `<img src="${img}">` : (p.emoji||'🎧')}</div>
       <div class="admin-row-info">
-        <div class="admin-row-name">${p.name}</div>
+        <div class="admin-row-name">${p.name}${p.variants&&p.variants.length?` <span style="opacity:.55;font-weight:600;">(${p.variants.length} colours)</span>`:''}</div>
         <div class="admin-row-price">Ghc${p.price} ${p.oldPrice ? '· was Ghc'+p.oldPrice : ''}</div>
       </div>
       <div class="admin-row-btns">
-        <button class="admin-icon-btn edit" onclick="editProduct(${p.id})">✏️</button>
-        <button class="admin-icon-btn del" onclick="deleteProduct(${p.id})">🗑️</button>
+        <button class="admin-icon-btn edit" onclick="editProduct('${p.id}')">✏️</button>
+        <button class="admin-icon-btn del" onclick="deleteProduct('${p.id}')">🗑️</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function editProduct(id){
-  const p = products.find(x => x.id === id);
+  const p = products.find(x => String(x.id) === String(id));
   if(!p) return;
   document.getElementById('editingProductId').value = p.id;
   document.getElementById('formName').value = p.name;
@@ -1041,27 +1219,25 @@ function editProduct(id){
   document.getElementById('formSpecs').value = p.specs || '';
   const badgeVal = (p.badgeClass||'badge-hot') + '|' + (p.badge||'Hot Deal');
   document.getElementById('formBadge').value = badgeVal;
-  editingImageData = p.image || null;
+  pendingImageFile = null;
+  const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
   const preview = document.getElementById('productImagePreview');
-  if(p.image){ preview.src = p.image; preview.style.display='block'; } else { preview.style.display='none'; }
+  if(img){ preview.src = img; preview.style.display='block'; } else { preview.style.display='none'; }
   document.getElementById('saveProductBtn').textContent = '💾 Update Product';
   switchAdminTab('add');
 }
 function deleteProduct(id){
   if(!confirm('Remove this product from your store?')) return;
-  products = products.filter(p => p.id !== id);
-  saveProducts();
-  renderAdminProductList();
-  renderProducts();
+  window.HDB.deleteProductById(id).catch(err=>alert('Failed: '+err.message));
 }
 function handleProductImage(e){
   const file = e.target.files[0];
   if(!file) return;
+  pendingImageFile = file;
   const reader = new FileReader();
   reader.onload = function(ev){
-    editingImageData = ev.target.result;
     const preview = document.getElementById('productImagePreview');
-    preview.src = editingImageData;
+    preview.src = ev.target.result;
     preview.style.display = 'block';
   };
   reader.readAsDataURL(file);
@@ -1075,10 +1251,10 @@ function resetProductForm(){
   document.getElementById('formBadge').selectedIndex = 0;
   document.getElementById('productImagePreview').style.display = 'none';
   document.getElementById('productImageInput').value = '';
-  editingImageData = null;
+  pendingImageFile = null;
   document.getElementById('saveProductBtn').textContent = '💾 Save Product';
 }
-function saveProductForm(e){
+async function saveProductForm(e){
   e.preventDefault();
   const id = document.getElementById('editingProductId').value;
   const name = document.getElementById('formName').value;
@@ -1086,64 +1262,73 @@ function saveProductForm(e){
   const oldPrice = document.getElementById('formOldPrice').value ? parseFloat(document.getElementById('formOldPrice').value) : null;
   const specs = document.getElementById('formSpecs').value;
   const [badgeClass, badge] = document.getElementById('formBadge').value.split('|');
+  const existing = id ? products.find(x => String(x.id) === String(id)) : null;
 
-  if(id){
-    const p = products.find(x => x.id === parseInt(id));
-    if(p){
-      p.name=name; p.price=price; p.oldPrice=oldPrice; p.specs=specs;
-      p.badgeClass=badgeClass; p.badge=badge;
-      if(editingImageData) p.image = editingImageData;
+  const btn = document.getElementById('saveProductBtn');
+  btn.textContent = '⏳ Saving...'; btn.disabled = true;
+
+  try{
+    let images = existing?.images || (existing?.imageUrl ? [existing.imageUrl] : []);
+    if(pendingImageFile){
+      const url = await window.HDB.uploadImage(pendingImageFile);
+      images = [url];
     }
-  } else {
-    const newId = products.length ? Math.max(...products.map(p=>p.id))+1 : 1;
-    products.push({ id:newId, name, price, oldPrice, specs, badgeClass, badge, emoji:'🎧', image: editingImageData });
+    const productData = {
+      id: id || null, name, price, oldPrice, specs, badgeClass, badge,
+      emoji: existing?.emoji || '🎧',
+      images,
+      imageUrl: images[0] || null,
+      variants: existing?.variants || []   // colour variants are managed on the product page for now
+    };
+    await window.HDB.saveProduct(productData);
+    resetProductForm();
+    switchAdminTab('products');
+  } catch(err){
+    alert('Failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = existing ? '💾 Update Product' : '💾 Save Product';
   }
-  saveProducts();
-  renderProducts();
-  renderAdminProductList();
-  resetProductForm();
-  switchAdminTab('products');
 }
 
-/* MUSIC ADMIN */
-function refreshMusicPanel(){
-  const musicData = localStorage.getItem('voltixMusic');
-  const musicName = localStorage.getItem('voltixMusicName');
-  const currentBox = document.getElementById('musicCurrent');
-  if(musicData){
-    document.getElementById('musicFileName').textContent = '🎶 ' + (musicName || 'Store music uploaded');
-    currentBox.style.display = 'flex';
-  } else {
-    currentBox.style.display = 'none';
+/* MUSIC ADMIN (Cloudinary-hosted tracks, shared list in Firestore) */
+function renderMusicTrackList(){
+  const box = document.getElementById('musicTrackList');
+  if(!box) return;
+  if(!musicTracks.length){
+    box.innerHTML = '<p style="color:rgba(255,255,255,.4);font-size:.8rem;text-align:center;padding:1rem 0;">No tracks uploaded yet.</p>';
+    return;
   }
+  box.innerHTML = musicTracks.map(t => `
+    <div style="display:flex;align-items:center;gap:.7rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:.7rem;padding:.7rem .9rem;margin-bottom:.5rem;">
+      <span style="flex:1;font-size:.8rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.name}</span>
+      <button type="button" class="admin-icon-btn del" onclick="removeMusicTrackHandler('${t.url}')">🗑️</button>
+    </div>`).join('');
 }
 function handleMusicUpload(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev){
-    localStorage.setItem('voltixMusic', ev.target.result);
-    localStorage.setItem('voltixMusicName', file.name);
-    document.getElementById('storeAudio').src = ev.target.result;
-    refreshMusicPanel();
-    alert('✅ Store music uploaded! Visitors can now play it from the header button.');
-  };
-  reader.readAsDataURL(file);
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+  const progress = document.getElementById('musicUploadProgress');
+  progress.style.display = 'block';
+  progress.textContent = '⏳ Uploading... 0%';
+  window.HDB.uploadMusicFiles(files, pct=>{ progress.textContent = `⏳ Uploading... ${pct}%`; }).then(()=>{
+    progress.style.display = 'none';
+    e.target.value = '';
+  }).catch(err=>{
+    progress.style.display = 'none';
+    alert('Upload failed: ' + err.message);
+  });
 }
-function removeMusic(){
-  if(!confirm('Remove store music?')) return;
-  localStorage.removeItem('voltixMusic');
-  localStorage.removeItem('voltixMusicName');
-  document.getElementById('storeAudio').src = '';
-  refreshMusicPanel();
+function removeMusicTrackHandler(url){
+  if(!confirm('Remove this track?')) return;
+  window.HDB.removeMusicTrack(url).catch(err=>alert('Failed: '+err.message));
 }
 
 /* ---------- INIT ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-  renderProducts();
   updateCart();
   updateLoginUI();
-  loadMusicIntoPlayer();
+  initFirebaseFeeds();
 });
 </script>
 </body>
