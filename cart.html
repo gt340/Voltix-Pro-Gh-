@@ -60,7 +60,9 @@
 .summary-row{display:flex;justify-content:space-between;padding:.5rem 0;font-size:.85rem;color:var(--text-secondary);}
 .summary-row.discount{color:#4ade80;}
 .summary-row.total{border-top:1px solid rgba(255,255,255,.12);margin-top:.5rem;padding-top:.9rem;font-size:1.1rem;font-weight:900;color:#fff;}
-.summary-row.total .amt{background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}</style>
+.summary-row.total .amt{background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.pd-buynow-btn{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:900;font-size:.95rem;padding:1.1rem;border-radius:1rem;border:none;box-shadow:0 10px 30px rgba(14,165,233,.4);}
+</style>
 </head>
 <body>
 
@@ -160,37 +162,41 @@ function renderCartPage(){
   emptyEl.style.display = 'none';
   contentEl.style.display = 'block';
 
-  listEl.innerHTML = cart.map(item => `
-    <div class="cart-item-card" id="cartcard-${item.id}">
-      <button class="ci-remove" onclick="removeCartItem('${item.id}')">✕</button>
-      <div class="ci-img">${item.imageUrl ? `<img src="${item.imageUrl}">` : (item.emoji||'🎧')}</div>
+  listEl.innerHTML = cart.map(item => {
+    const lid = item.lineId || item.id;
+    const subLine = item.variantName ? `Colour: ${item.variantName}` : (item.sku ? `SKU: ${item.sku}` : '');
+    return `
+    <div class="cart-item-card" id="cartcard-${lid}">
+      <button class="ci-remove" onclick="removeCartItem('${lid}')">✕</button>
+      <div class="ci-img">${item.image ? `<img src="${item.image}">` : (item.emoji||'🎧')}</div>
       <div class="ci-info">
         <div class="ci-name">${item.name}</div>
-        <div class="ci-specs">${item.specs||''}</div>
+        ${subLine ? `<div class="ci-specs">${subLine}</div>` : ''}
         <div class="ci-bottom">
           <span class="ci-price">Ghc${item.price * item.qty}</span>
           <div class="ci-qty">
-            <button onclick="cartQtyChange('${item.id}', -1)">−</button>
+            <button onclick="cartQtyChange('${lid}', -1)">−</button>
             <span class="val">${item.qty}</span>
-            <button onclick="cartQtyChange('${item.id}', 1)">+</button>
+            <button onclick="cartQtyChange('${lid}', 1)">+</button>
           </div>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   updateSummary();
 }
 
-function cartQtyChange(id, delta){
-  const item = cart.find(i=>String(i.id)===String(id));
+function cartQtyChange(lineId, delta){
+  const item = cart.find(i=>(i.lineId||i.id)===lineId);
   if(!item) return;
-  updateCartQty(id, item.qty + delta);
+  updateCartQty(lineId, item.qty + delta);
 }
 
-function removeCartItem(id){
-  const card = document.getElementById('cartcard-'+id);
+function removeCartItem(lineId){
+  const card = document.getElementById('cartcard-'+lineId);
   if(card) card.classList.add('removing');
-  setTimeout(()=>{ removeFromCart(id); renderCartPage(); }, 280);
+  setTimeout(()=>{ removeFromCart(lineId); renderCartPage(); }, 280);
 }
 
 function selectDelivery(method, price, el){
