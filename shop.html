@@ -99,7 +99,9 @@
 <div class="compare-bar" id="compareBar">
   <span id="compareCountText">0 selected</span>
   <button class="compare-btn" onclick="openCompareModal()">Compare</button>
-</div><!-- FILTER BOTTOM SHEET -->
+</div>
+
+<!-- FILTER BOTTOM SHEET -->
 <div class="sheet-overlay" id="filterOverlay" onclick="closeSheet('filterSheet')"></div>
 <div class="bottom-sheet" id="filterSheet">
   <div class="sheet-handle"></div>
@@ -164,13 +166,14 @@
     <div class="qv-img" id="qvImg"></div>
     <div id="qvBadge"></div>
     <h3 id="qvName" style="font-size:1.2rem;font-weight:900;margin:.6rem 0 .4rem;"></h3>
+    <div id="qvVariantHint" style="font-size:.7rem;font-weight:800;color:var(--blue-electric);margin-bottom:.4rem;display:none;"></div>
     <p id="qvSpecs" style="font-size:.8rem;color:var(--text-secondary);line-height:1.6;margin-bottom:1rem;"></p>
     <div style="display:flex;align-items:baseline;gap:.6rem;margin-bottom:1.3rem;">
       <span id="qvPrice" style="font-size:1.6rem;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;"></span>
       <span id="qvOldPrice" style="font-size:.9rem;color:var(--text-muted);text-decoration:line-through;"></span>
     </div>
     <div style="display:flex;gap:.7rem;">
-      <button class="sheet-apply-btn ripple" style="margin:0;" onclick="qvAddToCart()">🛒 Add to Cart</button>
+      <button class="sheet-apply-btn ripple" id="qvAddBtn" style="margin:0;" onclick="qvAddToCart()">🛒 Add to Cart</button>
       <button class="fs-btn" style="flex:0 0 auto;padding:0 1.2rem;" onclick="closeQuickView()">✕</button>
     </div>
     <a id="qvFullDetails" href="#" style="display:block;text-align:center;margin-top:1rem;font-size:.8rem;color:var(--blue-electric);font-weight:700;">View Full Details →</a>
@@ -195,7 +198,10 @@ function goToProductQuickView(id, e){
   if(e) e.stopPropagation();
   const p = allProducts.find(x=>String(x.id)===String(id));
   if(!p) return;
-  document.getElementById('qvImg').innerHTML = p.imageUrl ? `<img src="${p.imageUrl}">` : (p.emoji||'🎧');
+  const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+  const hasVariants = p.variants && p.variants.length > 1;
+
+  document.getElementById('qvImg').innerHTML = img ? `<img src="${img}">` : (p.emoji||'🎧');
   document.getElementById('qvBadge').innerHTML = p.badge ? `<span class="pcard-badge ${p.badgeClass||''}" style="position:static;display:inline-block;">${p.badge}</span>` : '';
   document.getElementById('qvName').textContent = p.name;
   document.getElementById('qvSpecs').textContent = p.specs||'';
@@ -203,11 +209,28 @@ function goToProductQuickView(id, e){
   document.getElementById('qvOldPrice').textContent = p.oldPrice ? 'Ghc'+p.oldPrice : '';
   document.getElementById('qvFullDetails').href = 'product.html?id='+encodeURIComponent(id);
   document.getElementById('quickViewModal').dataset.pid = id;
+
+  const hint = document.getElementById('qvVariantHint');
+  const addBtn = document.getElementById('qvAddBtn');
+  if(hasVariants){
+    hint.style.display = 'block';
+    hint.textContent = `🎨 ${p.variants.length} colours available`;
+    addBtn.textContent = '🎨 Choose Colour';
+  } else {
+    hint.style.display = 'none';
+    addBtn.textContent = '🛒 Add to Cart';
+  }
+
   document.getElementById('quickViewModal').classList.add('active');
 }
 function closeQuickView(){ document.getElementById('quickViewModal').classList.remove('active'); }
 function qvAddToCart(){
   const id = document.getElementById('quickViewModal').dataset.pid;
+  const p = allProducts.find(x=>String(x.id)===String(id));
+  if(p && p.variants && p.variants.length > 1){
+    window.location.href = 'product.html?id='+encodeURIComponent(id);
+    return;
+  }
   addToCart(id);
   closeQuickView();
 }
@@ -279,35 +302,37 @@ function sortProducts(list){
   return arr;
 }
 
-function shopProductCardHTML(p){
-  const base = productCardHTML(p);
-  return base.replace('class="wish-toggle', `onclick="event.stopPropagation();" class="compare-check-wrap"></div><input type="checkbox" class="compare-check" data-id="${p.id}" onclick="event.stopPropagation(); toggleCompare('${p.id}', this)"><div class="wish-toggle`)
-             .replace('onclick="goToProduct', `onclick="goToProductQuickView('${p.id}',event); return false;" data-longpress="goToProduct`);
-}
-
 function renderShopGrid(){
   const filtered = sortProducts(allProducts.filter(matchesAllFilters));
   document.getElementById('resultsCount').textContent = `${filtered.length} products found`;
   const toShow = filtered.slice(0, visibleCount);
-  document.getElementById('shopGrid').innerHTML = toShow.map(p => `
+  document.getElementById('shopGrid').innerHTML = toShow.map(p => {
+    const hasVariants = p.variants && p.variants.length > 1;
+    const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+    const addBtnHTML = hasVariants
+      ? `<button class="pcard-addbtn ripple" style="flex:1;" onclick="event.stopPropagation(); window.location.href='product.html?id=${encodeURIComponent(p.id)}';">🎨 Choose Colour</button>`
+      : `<button class="pcard-addbtn ripple" style="flex:1;" onclick="event.stopPropagation(); addToCart('${p.id}');">Add to Cart</button>`;
+    return `
     <div class="glass-card pcard" style="position:relative;" onclick="goToProduct('${p.id}')">
       <input type="checkbox" class="compare-check" data-id="${p.id}" onclick="event.stopPropagation(); toggleCompare('${p.id}', this)">
       <div class="pcard-img">
         ${p.badge?`<span class="pcard-badge ${p.badgeClass||''}">${p.badge}</span>`:''}
         <button class="wish-toggle ${isWishlisted(p.id)?'active':''}" data-id="${p.id}" onclick="event.stopPropagation(); toggleWishlist('${p.id}')">${isWishlisted(p.id)?'♥':'♡'}</button>
-        ${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}">`:`<span>${p.emoji||'🎧'}</span>`}
+        ${img?`<img src="${img}" alt="${p.name}">`:`<span>${p.emoji||'🎧'}</span>`}
       </div>
       <div class="pcard-name">${p.name}</div>
+      ${hasVariants?`<div style="font-size:.6rem;font-weight:800;color:var(--blue-electric);margin-bottom:.2rem;">🎨 ${p.variants.length} colours</div>`:''}
       <div class="pcard-rating">★★★★★ <span class="count">(${p.reviewCount||Math.floor(Math.random()*80)+20})</span></div>
       <div class="pcard-price-row">
         <span class="pcard-price">Ghc${p.price}</span>
         ${p.oldPrice?`<span class="pcard-oldprice">Ghc${p.oldPrice}</span>`:''}
       </div>
       <div style="display:flex;gap:.4rem;">
-        <button class="pcard-addbtn ripple" style="flex:1;" onclick="event.stopPropagation(); addToCart('${p.id}');">Add to Cart</button>
+        ${addBtnHTML}
         <button class="fs-btn" style="flex:0 0 auto;padding:.5rem .6rem;font-size:.7rem;" onclick="event.stopPropagation(); goToProductQuickView('${p.id}')">👁️</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   document.getElementById('loadMoreBtn').style.display = filtered.length > visibleCount ? 'block' : 'none';
 }
 function loadMoreProducts(){ visibleCount += 8; renderShopGrid(); }
@@ -327,8 +352,9 @@ function openCompareModal(){
   const items = compareList.map(id=>allProducts.find(p=>String(p.id)===String(id))).filter(Boolean);
   let html = '<div class="qv-content"><div class="sheet-handle"></div><h3 style="font-size:1.1rem;font-weight:900;margin-bottom:1rem;">Compare Products</h3>';
   items.forEach(p=>{
+    const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
     html += `<div style="display:flex;gap:.8rem;padding:.9rem 0;border-bottom:1px solid rgba(255,255,255,.08);">
-      <div style="width:60px;height:60px;border-radius:.7rem;background:rgba(14,165,233,.15);display:flex;align-items:center;justify-content:center;font-size:1.6rem;overflow:hidden;flex-shrink:0;">${p.imageUrl?`<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover;">`:(p.emoji||'🎧')}</div>
+      <div style="width:60px;height:60px;border-radius:.7rem;background:rgba(14,165,233,.15);display:flex;align-items:center;justify-content:center;font-size:1.6rem;overflow:hidden;flex-shrink:0;">${img?`<img src="${img}" style="width:100%;height:100%;object-fit:cover;">`:(p.emoji||'🎧')}</div>
       <div><b style="font-size:.85rem;">${p.name}</b><div style="font-size:.75rem;color:var(--text-secondary);margin-top:.2rem;">${p.specs||''}</div><div style="font-size:1rem;font-weight:900;color:var(--gold);margin-top:.3rem;">Ghc${p.price}</div></div>
     </div>`;
   });
