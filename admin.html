@@ -126,6 +126,12 @@ body{padding-bottom:1rem;}
         </select>
       </div>
       <div class="admin-form-field"><label>Specs</label><input type="text" id="formSpecs" placeholder="Noise Cancelling • Bluetooth 5.3 • 48h Battery"></div>
+      <div class="admin-form-field">
+        <label>🎨 Colour Variants (optional — powers the carousel on the product page)</label>
+        <div id="variantList"></div>
+        <button type="button" class="admin-logout-btn" style="width:100%;color:#60a5fa;background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.3);" onclick="addVariantRow()">➕ Add Colour Variant</button>
+        <div class="admin-note">Each colour needs its own real photo(s) — no filters or tinting. Leave empty if this product only comes in one colour.</div>
+      </div>
       <button type="submit" class="admin-login-btn ripple" id="saveProductBtn">💾 Save Product</button>
       <button type="button" class="admin-logout-btn" style="width:100%;margin-top:.7rem;color:#fff;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);" onclick="resetProductForm()">Clear Form</button>
     </form>
@@ -157,6 +163,8 @@ body{padding-bottom:1rem;}
 <script>
 let currentImages = [];      // URLs already saved on the product being edited
 let newImageFiles = [];      // File objects picked but not yet uploaded
+let currentVariants = [];    // colour variants on the product being edited
+let variantPendingFiles = {};// { [variantId]: File[] } — new photos per variant, not yet uploaded
 
 function handleAdminLoginSubmit(e){
   e.preventDefault();
@@ -243,6 +251,73 @@ function removeNewImage(index){
   renderImageChips();
 }
 
+/* ===== COLOUR VARIANT HANDLING ===== */
+function renderVariantList(){
+  const box = document.getElementById('variantList');
+  if(!box) return;
+  if(!currentVariants.length){
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:.78rem;padding:.5rem 0;">No colour variants yet — this product will show as single-colour.</p>';
+    return;
+  }
+  box.innerHTML = currentVariants.map(v => {
+    const savedChips = (v.images||[]).map(url => `
+      <div class="img-chip"><img src="${url}"><button type="button" class="img-chip-del" onclick="removeVariantSavedImage('${v.id}','${url}')">✕</button></div>`).join('');
+    const pendingChips = (variantPendingFiles[v.id]||[]).map((file,i) => `
+      <div class="img-chip"><img src="${URL.createObjectURL(file)}"><button type="button" class="img-chip-del" onclick="removeVariantPendingImage('${v.id}',${i})">✕</button></div>`).join('');
+    const fieldStyle = "background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem .8rem;border-radius:.6rem;font-size:.82rem;";
+    return `
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:.9rem;padding:.9rem;margin-bottom:.8rem;background:rgba(255,255,255,.03);">
+      <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.6rem;">
+        <input type="color" value="${v.colorHex||'#111111'}" onchange="updateVariantField('${v.id}','colorHex',this.value)" style="width:2.4rem;height:2.4rem;border:none;border-radius:.5rem;background:none;padding:0;flex-shrink:0;">
+        <input type="text" placeholder="Colour name (e.g. Black)" value="${v.name||''}" oninput="updateVariantField('${v.id}','name',this.value)" style="flex:1;${fieldStyle}">
+        <button type="button" class="admin-icon-btn" onclick="removeVariantRow('${v.id}')">🗑️</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.6rem;">
+        <input type="number" placeholder="Price (Ghc)" value="${v.price??''}" oninput="updateVariantField('${v.id}','price',this.value)" style="${fieldStyle}">
+        <input type="number" placeholder="Old price" value="${v.compareAtPrice??''}" oninput="updateVariantField('${v.id}','compareAtPrice',this.value)" style="${fieldStyle}">
+        <input type="number" placeholder="Stock" value="${v.stock??''}" oninput="updateVariantField('${v.id}','stock',this.value)" style="${fieldStyle}">
+        <input type="text" placeholder="SKU" value="${v.sku||''}" oninput="updateVariantField('${v.id}','sku',this.value)" style="${fieldStyle}">
+      </div>
+      <div class="file-drop" style="padding:.8rem;font-size:.72rem;" onclick="document.getElementById('variantImgInput-${v.id}').click()">📁 Tap to add real photos for this colour</div>
+      <input type="file" id="variantImgInput-${v.id}" accept="image/*" multiple style="display:none;" onchange="handleVariantImages('${v.id}', event)">
+      <div class="img-chip-grid">${savedChips}${pendingChips}</div>
+    </div>`;
+  }).join('');
+}
+function addVariantRow(){
+  const id = 'v_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  currentVariants.push({ id, name:'', colorHex:'#111111', price:null, compareAtPrice:null, stock:null, sku:'', images:[] });
+  variantPendingFiles[id] = [];
+  renderVariantList();
+}
+function removeVariantRow(id){
+  currentVariants = currentVariants.filter(v=>v.id!==id);
+  delete variantPendingFiles[id];
+  renderVariantList();
+}
+function updateVariantField(id, field, value){
+  const v = currentVariants.find(x=>x.id===id);
+  if(!v) return;
+  v[field] = (field==='price'||field==='compareAtPrice'||field==='stock')
+    ? (value===''? null : parseFloat(value))
+    : value;
+}
+function handleVariantImages(id, e){
+  const files = Array.from(e.target.files || []);
+  variantPendingFiles[id] = (variantPendingFiles[id]||[]).concat(files);
+  renderVariantList();
+}
+function removeVariantPendingImage(id, index){
+  variantPendingFiles[id].splice(index,1);
+  renderVariantList();
+}
+function removeVariantSavedImage(id, url){
+  const v = currentVariants.find(x=>x.id===id);
+  if(!v) return;
+  v.images = (v.images||[]).filter(u=>u!==url);
+  renderVariantList();
+}
+
 function editProduct(id){
   const p = allProducts.find(x=>String(x.id)===String(id));
   if(!p) return;
@@ -256,6 +331,10 @@ function editProduct(id){
   currentImages = (p.images && p.images.length) ? [...p.images] : (p.imageUrl ? [p.imageUrl] : []);
   newImageFiles = [];
   renderImageChips();
+  currentVariants = (p.variants||[]).map(v=>({...v, images: [...(v.images||[])]}));
+  variantPendingFiles = {};
+  currentVariants.forEach(v=>{ variantPendingFiles[v.id] = []; });
+  renderVariantList();
   document.getElementById('saveProductBtn').textContent = '💾 Update Product';
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab==='add'));
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.toggle('active', s.id==='adminsec-add'));
@@ -273,6 +352,9 @@ function resetProductForm(){
   currentImages = [];
   newImageFiles = [];
   renderImageChips();
+  currentVariants = [];
+  variantPendingFiles = {};
+  renderVariantList();
   document.getElementById('saveProductBtn').textContent='💾 Save Product';
 }
 function saveProductForm(e){
@@ -290,13 +372,32 @@ function saveProductForm(e){
   btn.textContent='⏳ Saving...'; btn.disabled=true;
 
   const uploadPromise = newImageFiles.length ? VDB.uploadProductImages(newImageFiles) : Promise.resolve([]);
-  uploadPromise.then(newUrls=>{
+  uploadPromise.then(async newUrls=>{
     const images = [...currentImages, ...newUrls];
+
+    const variants = [];
+    for(const v of currentVariants){
+      if(!v.name) continue; // skip incomplete rows
+      const pending = variantPendingFiles[v.id] || [];
+      const uploadedUrls = pending.length ? await VDB.uploadProductImages(pending) : [];
+      variants.push({
+        id: v.id,
+        name: v.name,
+        colorHex: v.colorHex || '#111111',
+        price: (v.price===null || v.price===undefined) ? price : v.price,
+        compareAtPrice: v.compareAtPrice ?? null,
+        stock: v.stock ?? null,
+        sku: v.sku || '',
+        images: [...(v.images||[]), ...uploadedUrls]
+      });
+    }
+
     const productData = {
       id: id||null, name, price, oldPrice, specs, badgeClass, badge, category,
       emoji: existing?.emoji||'🎧',
       images,
-      imageUrl: images[0] || null
+      imageUrl: images[0] || null,
+      variants
     };
     return VDB.saveProduct(productData);
   }).then(()=>{
@@ -312,7 +413,8 @@ function handleMusicFiles(e){
   if(!files.length) return;
   const progress = document.getElementById('musicUploadProgress');
   progress.style.display = 'block';
-  VDB.uploadMusicFiles(files).then(()=>{
+  progress.textContent = '⏳ Uploading... 0%';
+  VDB.uploadMusicFiles(files, pct=>{ progress.textContent = `⏳ Uploading... ${pct}%`; }).then(()=>{
     progress.style.display = 'none';
     e.target.value = '';
     showToast('Music uploaded!');
@@ -376,6 +478,7 @@ function renderAdminSales(list){
 }
 
 function initAdminDashboard(){
+  renderVariantList();
   VDB.subscribeProducts(list=>{ allProducts = list; renderAdminProductList(); });
   VDB.subscribeMusic(tracks=>{ renderMusicTracks(tracks); });
   VDB.subscribeReferrers(renderAdminReferrers);
