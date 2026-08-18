@@ -19,22 +19,44 @@ const COMMISSION_TIERS = { 40:5, 120:7, 130:7, 220:10 };
    3. Settings → Upload → Add upload preset → Signing Mode: "Unsigned" → Save,
       then copy that preset's name
    4. Paste both below                                                    */
-const CLOUDINARY_CLOUD_NAME = 'Voltix Pro GH';
-const CLOUDINARY_UPLOAD_PRESET = '80dfc5af-5cf4-4fdf-9b24-f2834a2d4854';
+const CLOUDINARY_CLOUD_NAME = 'gi28yswe';
+const CLOUDINARY_UPLOAD_PRESET = 'Voltix Pro GH';
 
-async function uploadFileToCloudinary(file){
+async function uploadFileToCloudinary(file, onProgress){
   // Cloudinary serves audio through its "video" resource-type pipeline
   const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(url, { method:'POST', body: formData });
-  if(!res.ok){
-    const errText = await res.text();
-    throw new Error('Cloudinary upload failed: ' + errText);
+  if(CLOUDINARY_CLOUD_NAME === 'YOUR_CLOUD_NAME' || CLOUDINARY_UPLOAD_PRESET === 'YOUR_UPLOAD_PRESET'){
+    throw new Error('Cloudinary is not configured yet — paste your real Cloud name and unsigned upload preset into CLOUDINARY_CLOUD_NAME / CLOUDINARY_UPLOAD_PRESET near the top of app.js.');
   }
-  const data = await res.json();
-  return data.secure_url;
+  return new Promise((resolve, reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.timeout = 60000; // 60s — fails fast instead of hanging forever on a bad connection
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    xhr.upload.onprogress = (e)=>{
+      if(onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = ()=>{
+      if(xhr.status >= 200 && xhr.status < 300){
+        try{ resolve(JSON.parse(xhr.responseText).secure_url); }
+        catch(e){ reject(new Error('Cloudinary returned an unexpected response.')); }
+      } else {
+        let msg = `Cloudinary upload failed (HTTP ${xhr.status}).`;
+        try{
+          const parsed = JSON.parse(xhr.responseText);
+          if(parsed?.error?.message) msg = 'Cloudinary: ' + parsed.error.message;
+        } catch(e){ /* ignore parse failure, use generic message */ }
+        if(xhr.status === 400 && /preset/i.test(msg)) msg += ' Check that the upload preset name is exact and its Signing Mode is set to "Unsigned".';
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = ()=> reject(new Error('Network error while uploading to Cloudinary — check your connection and try again.'));
+    xhr.ontimeout = ()=> reject(new Error('Upload timed out after 60s — the file may be too large or the connection too slow. Try a smaller file or a stronger connection.'));
+    xhr.send(formData);
+  });
 }
 
 let VDB = null;
@@ -110,9 +132,20 @@ function getCommissionForPrice(price){
       for(const file of files){
         const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
         const sRef = ref(storage, path);
-        await uploadBytes(sRef, file);
-        const url = await getDownloadURL(sRef);
-        urls.push(url);
+        try{
+          await Promise.race([
+            uploadBytes(sRef, file),
+            new Promise((_,reject)=>setTimeout(()=>reject(new Error('timed out after 45s')), 45000))
+          ]);
+          const url = await getDownloadURL(sRef);
+          urls.push(url);
+        } catch(err){
+          const code = err.code ? ` (${err.code})` : '';
+          const hint = (err.code==='storage/unauthorized' || /timed out/i.test(err.message))
+            ? ' — check Firebase Console → Storage → Rules allows writes, and that you are logged into Admin.'
+            : '';
+          throw new Error(`Failed to upload "${file.name}"${code}: ${err.message}${hint}`);
+        }
       }
       return urls;
     },
@@ -122,12 +155,16 @@ function getCommissionForPrice(price){
     },
 
     /* ===== store music (multiple tracks, hosted on Cloudinary) ===== */
-    async uploadMusicFiles(files){
+    async uploadMusicFiles(files, onProgress){
       const current = await this.getMusicTracks();
       const newTracks = [];
       for(const file of files){
-        const url = await uploadFileToCloudinary(file);
-        newTracks.push({ url, name:file.name });
+        try{
+          const url = await uploadFileToCloudinary(file, onProgress);
+          newTracks.push({ url, name:file.name });
+        } catch(err){
+          throw new Error(`Failed to upload "${file.name}": ${err.message}`);
+        }
       }
       const merged = [...current, ...newTracks];
       await setDoc(doc(db,"settings","store"),{ musicTracks: merged },{ merge:true });
@@ -174,23 +211,45 @@ function getCommissionForPrice(price){
 /* ===== CART ===== */
 function cartCount(){ return cart.reduce((s,i)=>s+i.qty,0); }
 function cartTotal(){ return cart.reduce((s,i)=>s+(i.price*i.qty),0); }
-function addToCart(id, qty=1){
+/* Cart lines use a composite `lineId` so the same product in two different
+   colours becomes two separate cart lines: `${productId}::${variantId}` for
+   a variant, or just the product id when there's no variant. Shared shape
+   (localStorage key: voltixCart) across home.html / product.html / cart.html. */
+function addToCart(id, qty=1, variant=null){
   const p = allProducts.find(x=>String(x.id)===String(id));
   if(!p) return;
-  const existing = cart.find(i=>String(i.id)===String(id));
-  if(existing) existing.qty += qty; else cart.push({...p, qty});
+  const lineId = variant ? `${id}::${variant.id}` : String(id);
+  const existing = cart.find(i=>(i.lineId||i.id)===lineId);
+  if(existing){
+    existing.qty += qty;
+  } else {
+    const img = variant
+      ? (variant.images && variant.images[0])
+      : ((p.images && p.images[0]) || p.imageUrl);
+    cart.push({
+      id: String(id),
+      lineId,
+      variantId: variant ? variant.id : null,
+      variantName: variant ? variant.name : null,
+      sku: variant ? (variant.sku||null) : (p.sku||null),
+      name: variant ? `${p.name} — ${variant.name}` : p.name,
+      price: variant ? variant.price : p.price,
+      image: img || null,
+      qty
+    });
+  }
   saveCart();
-  showToast(`Added ${p.name} to cart`);
+  showToast(`Added ${variant ? variant.name+' ' : ''}${p.name} to cart`);
   updateNavBadges();
 }
-function updateCartQty(id, qty){
-  const item = cart.find(i=>String(i.id)===String(id));
+function updateCartQty(lineId, qty){
+  const item = cart.find(i=>(i.lineId||i.id)===lineId);
   if(!item) return;
-  if(qty<=0){ cart = cart.filter(i=>String(i.id)!==String(id)); } else { item.qty = qty; }
+  if(qty<=0){ cart = cart.filter(i=>(i.lineId||i.id)!==lineId); } else { item.qty = qty; }
   saveCart(); updateNavBadges();
   if(typeof renderCartPage==='function') renderCartPage();
 }
-function removeFromCart(id){ updateCartQty(id,0); }
+function removeFromCart(lineId){ updateCartQty(lineId,0); }
 function saveCart(){ localStorage.setItem('voltixCart', JSON.stringify(cart)); }
 
 /* ===== WISHLIST ===== */
@@ -243,6 +302,10 @@ function productCardHTML(p){
   const img = firstImg ? `<img src="${firstImg}" alt="${p.name}">` : `<span>${p.emoji||'🎧'}</span>`;
   const wishActive = isWishlisted(p.id) ? 'active' : '';
   const heart = isWishlisted(p.id) ? '♥' : '♡';
+  const hasVariants = p.variants && p.variants.length > 1;
+  const addBtnHTML = hasVariants
+    ? `<button class="pcard-addbtn ripple" onclick="event.stopPropagation(); goToProduct('${p.id}');">🎨 Choose Colour</button>`
+    : `<button class="pcard-addbtn ripple" onclick="event.stopPropagation(); addToCart('${p.id}'); rippleFx(event);">Add to Cart</button>`;
   return `
     <div class="glass-card pcard" onclick="goToProduct('${p.id}')">
       <div class="pcard-img">
@@ -251,13 +314,14 @@ function productCardHTML(p){
         ${img}
       </div>
       <div class="pcard-name">${p.name}</div>
+      ${hasVariants ? `<div style="font-size:.6rem;font-weight:800;color:var(--blue-electric);margin-bottom:.2rem;">🎨 ${p.variants.length} colours</div>` : ''}
       <div class="pcard-rating">★★★★★ <span class="count">(${(p.reviewCount||Math.floor(Math.random()*80)+20)})</span></div>
       <div class="pcard-price-row">
         <span class="pcard-price">Ghc${p.price}</span>
         ${p.oldPrice ? `<span class="pcard-oldprice">Ghc${p.oldPrice}</span>` : ''}
       </div>
       <div style="font-size:.62rem;font-weight:800;color:var(--gold);margin-bottom:.5rem;">💸 Earn Ghc${getCommissionForPrice(p.price)} referring this</div>
-      <button class="pcard-addbtn ripple" onclick="event.stopPropagation(); addToCart('${p.id}'); rippleFx(event);">Add to Cart</button>
+      ${addBtnHTML}
     </div>`;
 }
 function goToProduct(id){
