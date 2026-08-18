@@ -735,7 +735,7 @@ async function uploadFileToCloudinary(file, onProgress){
   return new Promise((resolve, reject)=>{
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url, true);
-    xhr.timeout = 60000;
+    xhr.timeout = 180000; // 3 min — mobile MP3 uploads on weak signal need real headroom
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
@@ -757,7 +757,7 @@ async function uploadFileToCloudinary(file, onProgress){
       }
     };
     xhr.onerror = ()=> reject(new Error('Network error while uploading to Cloudinary — check your connection and try again.'));
-    xhr.ontimeout = ()=> reject(new Error('Upload timed out after 60s — the file may be too large or the connection too slow.'));
+    xhr.ontimeout = ()=> reject(new Error('Upload timed out after 3 minutes — try a smaller MP3 (under ~10MB) or a stronger connection.'));
     xhr.send(formData);
   });
 }
