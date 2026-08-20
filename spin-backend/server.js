@@ -171,5 +171,11 @@ app.post('/api/paystack-webhook', async (req,res)=>{
 
 app.get('/', (req,res)=> res.send('Voltix Spin Backend running'));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log(`Spin backend running on port ${PORT}`));
+// Vercel runs this as a serverless function, so we export the app instead
+// of calling app.listen(). Locally/on Render, PORT will be set and it still
+// listens normally — this works either way.
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`Spin backend running on port ${PORT}`));
+}
+module.exports = app;
