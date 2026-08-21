@@ -107,7 +107,16 @@ body{background:#0a0a0a;}
   <div class="wheel-pointer"></div>
   <img class="wheel-disc" id="wheelDisc" src="https://res.cloudinary.com/gi28yswe/image/upload/v1787315750/grok_1787314566690_u3wtyd.jpg" alt="Spin wheel">
 </div>
-
+<div style="padding:0 1.1rem 2rem;text-align:center;">
+  <div style="font-size:.82rem;color:rgba(255,255,255,.6);margin-bottom:.9rem;">Share &amp; earn 40 coins — your friend gets 40 too when they buy coins!</div>
+  <div style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;">
+    <button class="buy-coins-btn ripple" style="background:linear-gradient(135deg,#25D366,#1ea952);" onclick="shareSpinLink('whatsapp')">💬 WhatsApp</button>
+    <button class="buy-coins-btn ripple" style="background:linear-gradient(135deg,#1877f2,#0d5dbf);" onclick="shareSpinLink('facebook')">📘 Facebook</button>
+    <button class="buy-coins-btn ripple" style="background:linear-gradient(135deg,#000,#333);" onclick="shareSpinLink('twitter')">🐦 X</button>
+    <button class="buy-coins-btn ripple" style="background:linear-gradient(135deg,#26a5e4,#0088cc);" onclick="shareSpinLink('telegram')">✈️ Telegram</button>
+    <button class="buy-coins-btn ripple" style="background:rgba(255,255,255,.1);" onclick="shareSpinLink('copy')">🔗 Copy Link</button>
+  </div>
+</div>
 <div class="spin-btn-row">
   <button class="spin-cta-btn ripple" id="spinBtn" onclick="handleSpinClick()">🎡 SPIN — 20 Coins</button>
   <div class="spin-cost-note">20 coins per spin · 100 coins = GHc10</div>
