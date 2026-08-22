@@ -373,14 +373,19 @@ function animateWheelToPrize(data){
   const targetAngle = 360*5 + (360 - (idx*SEG_ANGLE + SEG_ANGLE/2));
   const disc = document.getElementById('wheelDisc');
   disc.style.transform = `rotate(${targetAngle}deg)`;
+
   setTimeout(()=>{
-    showPrizeResult(data);
+    // Always reset state FIRST, so a display error can never leave the button stuck
     spinning = false;
     document.getElementById('spinBtn').disabled = false;
     loadCoinBalance();
+    try{
+      showPrizeResult(data);
+    } catch(e){
+      console.error('showPrizeResult failed:', e);
+    }
   }, 4600);
 }
-
 function announceResult(text){
   if('speechSynthesis' in window){
     try{
