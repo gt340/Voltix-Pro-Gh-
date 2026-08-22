@@ -322,7 +322,7 @@ function openBuyCoinsModal(){
 function buyCoinsWithPaystack(){
   if(!currentUser) return;
   const handler = PaystackPop.setup({
-    key: 'pk_test_2a5af3e6c5e20b46f27b26b0c7e3e4d5',
+    key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
     email: currentUser.phone + '@voltix.com',
     amount: Math.round(selectedCoinPack.price * 100),
     currency: 'GHS',
