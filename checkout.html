@@ -216,7 +216,7 @@ function placeOrder(){
     btn.disabled = true;
     btn.textContent = 'Processing...';
     const handler = PaystackPop.setup({
-      key:  pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
+      key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
       email: phone.replace(/\D/g,'') + '@voltix.com',
       amount: total * 100,
       currency: 'GHS',
