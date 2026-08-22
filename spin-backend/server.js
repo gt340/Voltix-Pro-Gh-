@@ -129,11 +129,18 @@ app.post('/api/spin', async (req,res)=>{
   const wallet = walletSnap.exists ? walletSnap.data() : { coins: 0, totalSpend: 0 };
 
   const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-  const spinsToday = await db.collection('spins')
-    .where('phone','==',phone)
-    .where('createdAt','>=', startOfDay.toISOString())
-    .get();
-  if(spinsToday.size >= DAILY_SPIN_CAP) return res.status(429).json({ error:'Daily spin limit reached' });
+  let spinsTodayCount = 0;
+  try{
+    const spinsToday = await db.collection('spins')
+      .where('phone','==',phone)
+      .where('createdAt','>=', startOfDay.toISOString())
+      .get();
+    spinsTodayCount = spinsToday.size;
+  } catch(err){
+    console.error('Daily spin count query failed (likely missing index):', err.message);
+    // Fail open rather than blocking every spin if this query ever breaks again
+  }
+  if(spinsTodayCount >= DAILY_SPIN_CAP) return res.status(429).json({ error:'Daily spin limit reached' });
   if(wallet.coins < SPIN_COST) return res.status(400).json({ error:'Not enough coins' });
 
   const finalNetwork = network || wallet.network || 'MTN';
