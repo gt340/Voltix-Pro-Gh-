@@ -339,7 +339,7 @@ document.getElementById('payNowBtn').addEventListener('click', function(){
   btn.textContent = 'Processing...';
 
   const handler = PaystackPop.setup({
-    key: 'pk_live_YOUR_REAL_KEY_HERE', // ← confirm this is your real live public key
+    key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96', // ← confirm this is your real live public key
     email: currentUser.phone + '@voltix.com',
     amount: Math.round(selectedCoinPack.price * 100),
     currency: 'GHS',
