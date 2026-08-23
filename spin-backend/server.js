@@ -22,6 +22,7 @@ const RELOADLY_CLIENT_SECRET = process.env.RELOADLY_CLIENT_SECRET;
 const SPIN_COST = 20;
 const DAILY_SPIN_CAP = 10;
 
+// ---------- EARPOD SPEND TIERS ----------
 const EARPOD_TIERS = [
   { id:'earpod_single',    name:'Single Earpod',    value:40,  unlockSpend:80,  freeShipSpend:120 },
   { id:'earpod_ultrapods', name:'Ultrapods',        value:120, unlockSpend:150, freeShipSpend:180 },
@@ -36,6 +37,7 @@ function getEligibleEarpodTier(totalSpend){
   return eligible;
 }
 
+// ---------- PRIZE TABLE ----------
 const PRIZES = [
   { id:'none',        weight:30, type:'none' },
   { id:'coins5',      weight:20, type:'coins',   value:5 },
@@ -234,7 +236,81 @@ app.post('/api/buy-coins', async (req,res)=>{
   res.json({ status:'pending' });
 });
 
-// ---------- PAYSTACK WEBHOOK ----------
+// ---------- VERIFY & CREDIT — primary crediting path, independent of the webhook ----------
+app.post('/api/verify-purchase', async (req,res)=>{
+  const { reference } = req.body;
+  if(!reference) return res.status(400).json({ error:'reference required' });
+
+  try{
+    const verifyRes = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+    });
+    const data = verifyRes.data.data;
+
+    if(data.status !== 'success'){
+      return res.status(400).json({ error: 'Payment not successful', status: data.status });
+    }
+
+    const purchaseRef = db.collection('coinPurchases').doc(reference);
+    const purchaseSnap = await purchaseRef.get();
+    if(!purchaseSnap.exists){
+      return res.status(404).json({ error: 'Purchase record not found' });
+    }
+    const purchase = purchaseSnap.data();
+
+    if(purchase.status === 'confirmed'){
+      const walletSnap = await db.collection('wallets').doc(purchase.phone).get();
+      return res.json({ status:'already_confirmed', coins: walletSnap.exists ? walletSnap.data().coins : 0 });
+    }
+
+    const { phone, coins, priceGHC, spinRefCode } = purchase;
+    const walletRef = db.collection('wallets').doc(phone);
+    const walletSnap = await walletRef.get();
+    const wasFirstPurchase = !walletSnap.exists || !walletSnap.data().hasPurchasedBefore;
+
+    await walletRef.set({
+      coins: admin.firestore.FieldValue.increment(coins),
+      totalSpend: admin.firestore.FieldValue.increment(priceGHC || 0),
+      hasPurchasedBefore: true
+    }, { merge:true });
+    await purchaseRef.update({ status:'confirmed', confirmedAt: new Date().toISOString() });
+
+    if(wasFirstPurchase && (priceGHC || 0) >= 10 && spinRefCode){
+      const codeSnap = await db.collection('spinReferralCodes').doc(spinRefCode).get();
+      if(codeSnap.exists){
+        const referrerPhone = codeSnap.data().phone;
+        if(referrerPhone !== phone){
+          const existingReward = await db.collection('spinReferrals')
+            .where('referredPhone','==',phone).where('status','==','rewarded').get();
+          if(existingReward.empty){
+            const referrerWalletRef = db.collection('wallets').doc(referrerPhone);
+            await referrerWalletRef.set({ coins: admin.firestore.FieldValue.increment(40) }, { merge:true });
+            await walletRef.set({ coins: admin.firestore.FieldValue.increment(40) }, { merge:true });
+
+            const referrerSnap = await referrerWalletRef.get();
+            const referredSnap = await walletRef.get();
+            const referrerName = referrerSnap.exists ? (referrerSnap.data().name || 'Unknown') : 'Unknown';
+            const referredName = purchase.name || (referredSnap.exists ? referredSnap.data().name : null) || 'Unknown';
+
+            await db.collection('spinReferrals').add({
+              referrerPhone, referrerName, referredPhone: phone, referredName,
+              coinsAwarded: 40, status:'rewarded', rewardedAt: new Date().toISOString()
+            });
+          }
+        }
+      }
+    }
+
+    const finalWalletSnap = await walletRef.get();
+    res.json({ status:'confirmed', coins: finalWalletSnap.data().coins || 0 });
+  } catch(err){
+    console.error('Verify purchase failed:', err.message);
+    res.status(500).json({ error: 'Verification failed', detail: err.message });
+  }
+});
+
+// ---------- PAYSTACK WEBHOOK — kept as a backup path in case verify-purchase
+// is ever skipped (e.g. browser closed mid-flow) ----------
 app.post('/api/paystack-webhook', async (req,res)=>{
   const signature = req.headers['x-paystack-signature'];
   const hash = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY).update(req.body).digest('hex');
@@ -246,7 +322,7 @@ app.post('/api/paystack-webhook', async (req,res)=>{
     const purchaseRef = db.collection('coinPurchases').doc(ref);
     const purchaseSnap = await purchaseRef.get();
     if(purchaseSnap.exists && purchaseSnap.data().status === 'pending'){
-      const { phone, coins, priceGHC, spinRefCode } = purchaseSnap.data();
+      const { phone, coins, priceGHC, spinRefCode, name } = purchaseSnap.data();
       const walletRef = db.collection('wallets').doc(phone);
       const walletSnap = await walletRef.get();
       const wasFirstPurchase = !walletSnap.exists || !walletSnap.data().hasPurchasedBefore;
@@ -273,7 +349,7 @@ app.post('/api/paystack-webhook', async (req,res)=>{
               const referrerSnap = await referrerWalletRef.get();
               const referredSnap = await walletRef.get();
               const referrerName = referrerSnap.exists ? (referrerSnap.data().name || 'Unknown') : 'Unknown';
-              const referredName = purchaseSnap.data().name || (referredSnap.exists ? referredSnap.data().name : null) || 'Unknown';
+              const referredName = name || (referredSnap.exists ? referredSnap.data().name : null) || 'Unknown';
 
               await db.collection('spinReferrals').add({
                 referrerPhone, referrerName, referredPhone: phone, referredName,
