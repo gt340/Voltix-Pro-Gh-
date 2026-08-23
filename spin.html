@@ -244,6 +244,13 @@ document.querySelectorAll('.share-btn').forEach(btn=>{
 });
 
 /* ---------- FREE STARTER SPIN ---------- */
+async function recoverPendingPurchase(){
+  const pending = localStorage.getItem('voltixPendingCoinPurchase');
+  if(!pending || !currentUser) return;
+  const { reference, coins, priceGHC } = JSON.parse(pending);
+  showToast('Checking your last payment...');
+  await completeCoinPurchase(reference, coins, priceGHC);
+   }
 async function claimFreeSpinIfEligible(){
   if(!currentUser) return;
   try{
@@ -338,21 +345,27 @@ document.getElementById('payNowBtn').addEventListener('click', function(){
   btn.disabled = true;
   btn.textContent = 'Processing...';
 
-  // Safety net: if Paystack never responds, don't leave the button stuck.
+  const reference = 'COINS-' + Math.floor((Math.random()*9000000)+1000000);
+
+  // Save this BEFORE opening Paystack — if the page reloads mid-payment
+  // (common with Mobile Money's USSD/OTP flow), we can still recover.
+  localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify({
+    reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price
+  }));
+
   const stuckTimer = setTimeout(()=>{
     btn.disabled = false;
     btn.textContent = '💳 Pay Now';
-    showToast('Payment window did not respond — please try again');
   }, 15000);
 
   let handler;
   try{
     handler = PaystackPop.setup({
-      key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96', // starts with pk_live_ — confirm this is filled in correctly
+      key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
       email: currentUser.phone + '@voltix.com',
       amount: Math.round(selectedCoinPack.price * 100),
       currency: 'GHS',
-      ref: 'COINS-' + Math.floor((Math.random()*9000000)+1000000),
+      ref: reference,
       onClose: function(){
         clearTimeout(stuckTimer);
         btn.disabled = false;
@@ -360,34 +373,9 @@ document.getElementById('payNowBtn').addEventListener('click', function(){
       },
       onSuccess: async function(transaction){
         clearTimeout(stuckTimer);
-        try{
-          await fetch(BUY_COINS_URL, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              phone: currentUser.phone, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price,
-              ref: transaction.reference, spinRefCode: localStorage.getItem('voltixSpinRefCode'),
-              name: currentUser.name
-            })
-          });
-          const verifyRes = await fetch(VERIFY_PURCHASE_URL, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ reference: transaction.reference })
-          });
-          const verifyData = await verifyRes.json();
-
-          document.getElementById('buyCoinsModal').classList.remove('active');
-          if(verifyRes.ok){
-            showToast(`${selectedCoinPack.coins} coins added! Balance: ${verifyData.coins}`);
-          } else {
-            showToast('Payment received but crediting failed — contact support with reference ' + transaction.reference);
-          }
-          loadCoinBalance();
-        } catch(err){
-          showToast('Something went wrong — contact support with reference ' + transaction.reference);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = '💳 Pay Now';
-        }
+        await completeCoinPurchase(transaction.reference, selectedCoinPack.coins, selectedCoinPack.price);
+        btn.disabled = false;
+        btn.textContent = '💳 Pay Now';
       }
     });
     handler.openIframe();
@@ -398,6 +386,38 @@ document.getElementById('payNowBtn').addEventListener('click', function(){
     showToast('Could not open payment window — check your key configuration');
   }
 });
+
+// Shared logic used both by onSuccess (normal case) AND by the page-load
+// recovery check below (when Paystack's mobile flow reloaded the page).
+async function completeCoinPurchase(reference, coins, priceGHC){
+  try{
+    await fetch(BUY_COINS_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        phone: currentUser.phone, coins, priceGHC,
+        ref: reference, spinRefCode: localStorage.getItem('voltixSpinRefCode'),
+        name: currentUser.name
+      })
+    });
+    const verifyRes = await fetch(VERIFY_PURCHASE_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ reference })
+    });
+    const verifyData = await verifyRes.json();
+
+    document.getElementById('buyCoinsModal').classList.remove('active');
+    localStorage.removeItem('voltixPendingCoinPurchase');
+
+    if(verifyRes.ok){
+      showToast(`${coins} coins added! Balance: ${verifyData.coins}`);
+    } else {
+      showToast('Payment received but crediting failed — contact support with reference ' + reference);
+    }
+    loadCoinBalance();
+  } catch(err){
+    showToast('Something went wrong — contact support with reference ' + reference);
+  }
+  }
 
 /* ---------- SPIN ---------- */
 document.getElementById('spinBtn').addEventListener('click', function(){
@@ -519,6 +539,7 @@ initVoltixApp('shop', function(){
   loadCoinBalance();
   loadMySpinReferralCode();
   claimFreeSpinIfEligible();
+  recoverPendingPurchase();
 });
 
 const origUpdateBadgesSpin = updateNavBadges;
