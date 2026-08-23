@@ -91,11 +91,16 @@ body{padding-bottom:1rem;}
     <button class="admin-tab" data-tab="sales">🧾 Sales</button>
     <button class="admin-tab" data-tab="spinwinners">🎡 Spin Winners</button>
     <button class="admin-tab" data-tab="spinreferrals">🤝 Spin Referrals</button>
+    <button class="admin-tab" data-tab="orders">📋 Orders</button>
   </div>
 
   <!-- PRODUCTS -->
   <div class="admin-section active" id="adminsec-products">
     <div id="adminProductList"></div>
+  </div>
+
+  <div class="admin-section" id="adminsec-orders">
+  <div id="adminOrdersList"></div>
   </div>
 
   <!-- ADD/EDIT -->
@@ -285,6 +290,33 @@ function renderAdminProductList(){
     </div>`;
   }).join('');
 }
+
+function renderAdminOrders(list){
+  const box = document.getElementById('adminOrdersList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">No orders yet.</p>'; return; }
+  box.innerHTML = list.map(o => `
+    <div class="admin-sale-card">
+      <div class="admin-sale-top">
+        <b style="font-size:.85rem;">${o.ref || o.id}</b>
+        <span class="admin-status-pill status-${(o.status||'Processing').toLowerCase()==='delivered'?'paid':'pending'}">${o.status||'Processing'}</span>
+      </div>
+      <div class="admin-sale-detail">
+        👤 ${o.customer?.name||'-'} · 📱 ${o.customer?.phone||'-'}<br>
+        📍 ${o.customer?.address||''} ${o.customer?.city||''}<br>
+        📦 ${(o.items||[]).map(i=>`${i.name} x${i.qty}`).join(', ')}<br>
+        💳 ${o.paymentMethod||'-'} · 🕐 ${new Date(o.createdAt).toLocaleString('en-GB')}
+      </div>
+      <div class="admin-sale-commission">Total: Ghc${o.total}</div>
+      <select class="order-status-select" onchange="VDB.updateOrderStatus('${o.id}', this.value)">
+        <option value="Processing" ${o.status==='Processing'?'selected':''}>Processing</option>
+        <option value="Packed" ${o.status==='Packed'?'selected':''}>Packed</option>
+        <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
+        <option value="Delivered" ${o.status==='Delivered'?'selected':''}>Delivered</option>
+        <option value="Cancelled" ${o.status==='Cancelled'?'selected':''}>Cancelled</option>
+      </select>
+    </div>`).join('');
+  }
 
 function renderImageChips(){
   const box = document.getElementById('productImageChips');
