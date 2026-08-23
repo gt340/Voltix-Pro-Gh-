@@ -365,6 +365,48 @@ document.getElementById('payNowBtn').addEventListener('click', function(){
         });
         const verifyData = await verifyRes.json();
 
+        document.getElementById('payNowBtn').addEventListener('click', function(){
+  if(!currentUser) return;
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  // Safety net: if Paystack never responds (bad key, popup blocked, etc.),
+  // don't leave the button stuck forever.
+  const stuckTimer = setTimeout(()=>{
+    btn.disabled = false;
+    btn.textContent = '💳 Pay Now';
+    showToast('Payment window did not open — please try again');
+  }, 15000);
+
+  const handler = PaystackPop.setup({
+    key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96', // starts with pk_live_
+    email: currentUser.phone + '@voltix.com',
+    amount: Math.round(selectedCoinPack.price * 100),
+    currency: 'GHS',
+    ref: 'COINS-' + Math.floor((Math.random()*9000000)+1000000),
+    onClose: function(){
+      clearTimeout(stuckTimer);
+      btn.disabled = false;
+      btn.textContent = '💳 Pay Now';
+    },
+    onSuccess: async function(transaction){
+      clearTimeout(stuckTimer);
+      try{
+        await fetch(BUY_COINS_URL, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            phone: currentUser.phone, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price,
+            ref: transaction.reference, spinRefCode: localStorage.getItem('voltixSpinRefCode'),
+            name: currentUser.name
+          })
+        });
+        const verifyRes = await fetch(VERIFY_PURCHASE_URL, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ reference: transaction.reference })
+        });
+        const verifyData = await verifyRes.json();
+
         document.getElementById('buyCoinsModal').classList.remove('active');
         if(verifyRes.ok){
           showToast(`${selectedCoinPack.coins} coins added! Balance: ${verifyData.coins}`);
@@ -380,9 +422,16 @@ document.getElementById('payNowBtn').addEventListener('click', function(){
       }
     }
   });
-  handler.openIframe();
+  try{
+    handler.openIframe();
+  } catch(err){
+    clearTimeout(stuckTimer);
+    btn.disabled = false;
+    btn.textContent = '💳 Pay Now';
+    showToast('Could not open payment window — check your key configuration');
+  }
 });
-
+        
 /* ---------- SPIN ---------- */
 document.getElementById('spinBtn').addEventListener('click', function(){
   if(!currentUser){ showToast('Please login first'); window.location.href='account.html'; return; }
