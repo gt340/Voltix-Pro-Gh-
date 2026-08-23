@@ -246,6 +246,11 @@ function completeOrder(name, phone, region, city, address, total, paymentMethod)
   orders.unshift(order);
   localStorage.setItem('voltixOrders', JSON.stringify(orders));
   localStorage.setItem('voltixLastOrder', JSON.stringify(order));
+  // Save the real order to Firestore so admin sees it and invoices can be generated
+  VDB.saveOrder(order).then(firestoreId => {
+  order.firestoreId = firestoreId;
+  localStorage.setItem('voltixLastOrder', JSON.stringify(order));
+}).catch(err => console.error('Failed to save order to Firestore:', err));
 
   // referral commission tracking (if referred)
   const pendingRef = localStorage.getItem('voltixPendingRefCode');
