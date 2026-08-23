@@ -318,6 +318,19 @@ function selectCoinPack(el){
 function openBuyCoinsModal(){
   if(!currentUser){ showToast('Please login first'); window.location.href='account.html'; return; }
   document.getElementById('buyCoinsModal').classList.add('active');
+  /* Reliable modal close + scroll-back — defined locally so nothing else can block it */
+function closePrizeModalAndReturn(){
+  const modal = document.getElementById('prizeResultModal');
+  if(modal) modal.classList.remove('active');
+  const wheel = document.querySelector('.wheel-wrap');
+  if(wheel) wheel.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+function closeBuyCoinsModalAndReturn(){
+  const modal = document.getElementById('buyCoinsModal');
+  if(modal) modal.classList.remove('active');
+  const wheel = document.querySelector('.wheel-wrap');
+  if(wheel) wheel.scrollIntoView({ behavior:'smooth', block:'center' });
+                                         }
 }
 function buyCoinsWithPaystack(){
   if(!currentUser) return;
