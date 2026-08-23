@@ -148,7 +148,7 @@ body{background:#0a0a0a;}
       <div class="coin-pack" data-coins="500" data-price="45" onclick="selectCoinPack(this)"><span class="cp-coins">500 Coins <span style="color:#4ade80;font-size:.7rem;">+10% bonus</span></span><span class="cp-price">GHc45</span></div>
     </div>
     <button type="button" class="modal-btn btn-primary ripple" style="width:100%;" onclick="buyCoinsWithPaystack()">💳 Pay Now</button>
-    <button type="button" class="modal-btn btn-cancel" style="width:100%;margin-top:.7rem;" onclick="closeCenterModal('buyCoinsModal')">Cancel</button>
+    <button type="button" class="modal-btn btn-cancel" style="width:100%;margin-top:.7rem;" onclick="closeBuyCoinsModalAndReturn()">Cancel</button>
   </div>
 </div>
 
@@ -160,7 +160,7 @@ body{background:#0a0a0a;}
     <div class="prize-result-name" id="prizeResultName">-</div>
     <div id="prizeShippingNote" style="display:none;"></div>
     <p class="modal-subtitle" id="prizeResultDesc" style="margin-bottom:1.3rem;"></p>
-    <button type="button" class="modal-btn btn-primary ripple" style="width:100%;" onclick="closeCenterModal('prizeResultModal')">Awesome!</button>
+    <button type="button" class="modal-btn btn-primary ripple" style="width:100%;" onclick="closePrizeModalAndReturn()">⬅ Awesome!</button>
   </div>
 </div>
 
@@ -336,7 +336,7 @@ function buyCoinsWithPaystack(){
           name: currentUser.name
         })
       }).then(()=>{
-        closeCenterModal('buyCoinsModal');
+        closeBuyCoinsModalAndReturn();
         showToast(`${selectedCoinPack.coins} coins added!`);
         loadCoinBalance();
       });
