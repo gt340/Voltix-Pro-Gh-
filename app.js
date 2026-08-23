@@ -153,7 +153,29 @@ function shareProductCard(id, e){
     return `Failed to upload "${file.name}"${code}: ${err.message}${hint}`;
   }
 
-  VDB = {
+  VDB = {  
+async saveOrder(data){
+  const toSave = { ...data, createdAt: new Date().toISOString() };
+  const ref2 = await addDoc(collection(db,"orders"), toSave);
+  return ref2.id;
+},
+subscribeOrders(cb){
+  return onSnapshot(collection(db,"orders"), snap=>{
+    const list=[]; snap.forEach(d=>list.push({id:d.id,...d.data()}));
+    list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    cb(list);
+  });
+},
+async getOrdersByPhone(phone){
+  const snap = await getDocs(query(collection(db,"orders")));
+  const list = [];
+  snap.forEach(d=>{ const data=d.data(); if(data.customer?.phone===phone) list.push({id:d.id,...data}); });
+  list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  return list;
+},
+async updateOrderStatus(id, status){
+  await setDoc(doc(db,"orders",id), { status }, { merge:true });
+},
     subscribeProducts(cb){
       return onSnapshot(collection(db,"products"), snap => {
         const list = [];
