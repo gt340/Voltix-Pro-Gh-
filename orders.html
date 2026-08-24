@@ -27,6 +27,7 @@
 .status-packed{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
 .status-shipped{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
 .status-delivered{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.status-cancelled{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
 
 .order-items-preview{display:flex;gap:.6rem;margin-bottom:.9rem;overflow-x:auto;}
 .oi-thumb{width:52px;height:52px;border-radius:.6rem;background:linear-gradient(150deg,rgba(14,165,233,.2),rgba(30,64,175,.12));display:flex;align-items:center;justify-content:center;font-size:1.4rem;overflow:hidden;flex:0 0 auto;}
@@ -34,10 +35,11 @@
 .order-summary-line{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--text-secondary);margin-bottom:.9rem;}
 .order-summary-line b{color:var(--gold);font-weight:900;font-size:.95rem;}
 
-.order-card-btns{display:flex;gap:.6rem;}
-.order-card-btns button, .order-card-btns a{flex:1;text-align:center;font-size:.72rem;font-weight:800;padding:.7rem;border-radius:.7rem;border:none;}
+.order-card-btns{display:flex;gap:.6rem;flex-wrap:wrap;}
+.order-card-btns button, .order-card-btns a{flex:1;min-width:100px;text-align:center;font-size:.72rem;font-weight:800;padding:.7rem;border-radius:.7rem;border:none;}
 .btn-track{background:rgba(14,165,233,.15);border:1px solid rgba(14,165,233,.35);color:var(--blue-electric);}
 .btn-reorder{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;}
+.btn-invoice{background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.35);color:var(--gold);}
 
 .order-detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;display:none;}
 .order-detail-overlay.active{display:block;}
@@ -156,7 +158,8 @@ function renderOrdersList(){
         <b>Ghc${order.total}</b>
       </div>
       <div class="order-card-btns">
-        <button class="btn-track ripple" onclick="openOrderDetail(${allOrders.indexOf(order)})">📍 Track Order</button>
+        <button class="btn-track ripple" onclick="openOrderDetail(${allOrders.indexOf(order)})">📍 Track</button>
+        <button class="btn-invoice ripple" onclick="downloadInvoice(${allOrders.indexOf(order)})">🧾 Invoice</button>
         <button class="btn-reorder ripple" onclick="reorderItems(${allOrders.indexOf(order)})">🔄 Reorder</button>
       </div>
     </div>`).join('');
@@ -216,6 +219,59 @@ function reorderItems(idx){
   showToast('Items added to cart!');
 }
 
+/* ===== INVOICE DOWNLOAD (Phase 1) ===== */
+function downloadInvoice(idx){
+  const order = allOrders[idx];
+  if(!order) return;
+
+  const itemsRows = order.items.map(i => `
+    <tr>
+      <td style="padding:.6rem;border-bottom:1px solid #eee;">${i.name}</td>
+      <td style="padding:.6rem;border-bottom:1px solid #eee;text-align:center;">${i.qty}</td>
+      <td style="padding:.6rem;border-bottom:1px solid #eee;text-align:right;">Ghc${i.price}</td>
+      <td style="padding:.6rem;border-bottom:1px solid #eee;text-align:right;">Ghc${i.price*i.qty}</td>
+    </tr>`).join('');
+
+  const invoiceHTML = `
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice ${order.ref}</title>
+<style>
+body{font-family:Arial,sans-serif;padding:2rem;color:#111;max-width:700px;margin:0 auto;}
+h1{color:#0ea5e9;}
+table{width:100%;border-collapse:collapse;margin-top:1.5rem;}
+th{text-align:left;padding:.6rem;background:#0ea5e9;color:#fff;}
+th:nth-child(2){text-align:center;} th:nth-child(3),th:nth-child(4){text-align:right;}
+.total-row{font-weight:900;font-size:1.1rem;}
+.header-row{display:flex;justify-content:space-between;margin-bottom:2rem;}
+@media print{ body{padding:0;} }
+</style></head>
+<body>
+  <div class="header-row">
+    <div><h1>⚡ VOLTIX PRO GH</h1><p>Ghana's #1 Premium Earpods Store</p></div>
+    <div style="text-align:right;"><h2>INVOICE</h2><p>${order.ref}</p><p>${new Date(order.date).toLocaleDateString('en-GB')}</p></div>
+  </div>
+  <p><b>Customer:</b> ${order.customer.name}<br>
+  <b>Phone:</b> ${order.customer.phone}<br>
+  <b>Delivery Address:</b> ${order.customer.address}, ${order.customer.city}</p>
+  <table>
+    <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead>
+    <tbody>${itemsRows}</tbody>
+    <tfoot><tr class="total-row"><td colspan="3" style="text-align:right;padding:.8rem .6rem;">Total</td><td style="text-align:right;padding:.8rem .6rem;">Ghc${order.total}</td></tr></tfoot>
+  </table>
+  <p style="margin-top:2rem;">Payment Method: ${order.paymentMethod}<br>Status: ${order.status}</p>
+  <p style="margin-top:2rem;color:#888;font-size:.85rem;">Thank you for shopping with Voltix Pro GH — A Trust God Company Brand.</p>
+</body></html>`;
+
+  const blob = new Blob([invoiceHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Invoice-${order.ref}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 initVoltixApp('account', renderOrdersList);
 
 const origUpdateBadgesOrd = updateNavBadges;
@@ -227,4 +283,4 @@ updateNavBadges = function(){
 updateNavBadges();
 </script>
 </body>
-</html>
+                                                                         </html>
