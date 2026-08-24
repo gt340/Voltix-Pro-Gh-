@@ -76,7 +76,7 @@
   <div class="co-group"><label>Delivery Address</label><textarea id="coAddress" rows="2" placeholder="House number, street, landmark..." required></textarea></div>
 </div>
 
-<!-- DELIVERY METHOD (read-only summary from cart) -->
+<!-- DELIVERY METHOD -->
 <div class="co-section">
   <h4>🚚 Delivery Method</h4>
   <div class="co-summary-row"><span id="coDeliveryLabel">Standard Delivery (1-3 days)</span><span id="coDeliveryPrice">Free</span></div>
@@ -216,7 +216,7 @@ function placeOrder(){
     btn.disabled = true;
     btn.textContent = 'Processing...';
     const handler = PaystackPop.setup({
-      key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
+      key: 'pk_test_2a5af3e6c5e20b46f27b26b0c7e3e4d5',
       email: phone.replace(/\D/g,'') + '@voltix.com',
       amount: total * 100,
       currency: 'GHS',
@@ -246,11 +246,16 @@ function completeOrder(name, phone, region, city, address, total, paymentMethod)
   orders.unshift(order);
   localStorage.setItem('voltixOrders', JSON.stringify(orders));
   localStorage.setItem('voltixLastOrder', JSON.stringify(order));
-  // Save the real order to Firestore so admin sees it and invoices can be generated
+
+  // Save the real order to Firestore so admin sees it centrally and invoices can be generated
   VDB.saveOrder(order).then(firestoreId => {
-  order.firestoreId = firestoreId;
-  localStorage.setItem('voltixLastOrder', JSON.stringify(order));
-}).catch(err => console.error('Failed to save order to Firestore:', err));
+    order.firestoreId = firestoreId;
+    localStorage.setItem('voltixLastOrder', JSON.stringify(order));
+    let refreshedOrders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
+    const match = refreshedOrders.find(o => o.ref === refNum);
+    if(match) match.firestoreId = firestoreId;
+    localStorage.setItem('voltixOrders', JSON.stringify(refreshedOrders));
+  }).catch(err => console.error('Failed to save order to Firestore:', err));
 
   // referral commission tracking (if referred)
   const pendingRef = localStorage.getItem('voltixPendingRefCode');
@@ -283,4 +288,4 @@ updateNavBadges = function(){
 updateNavBadges();
 </script>
 </body>
-</html>
+                                                                                                </html>
