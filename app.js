@@ -154,6 +154,30 @@ function shareProductCard(id, e){
   }
 
   VDB = {
+    async saveCategory(data){
+      const toSave = { ...data };
+      if(data.id){ 
+        const id = String(data.id); 
+        delete toSave.id; 
+        await setDoc(doc(db,"categories",id), toSave, { merge: true }); 
+        return id; 
+      }
+      delete toSave.id;
+      const ref2 = await addDoc(collection(db,"categories"), toSave);
+      return ref2.id;
+    },
+    subscribeCategories(cb){
+      return onSnapshot(collection(db,"categories"), snap => {
+        const list = []; 
+        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+        cb(list);
+      });
+    },
+    async deleteCategoryById(id){ 
+      await deleteDoc(doc(db,"categories", String(id))); 
+    },
+
     subscribeProducts(cb){
       return onSnapshot(collection(db,"products"), snap => {
         const list = [];
@@ -289,7 +313,7 @@ function shareProductCard(id, e){
       });
     },
 
-    /* ===== PHASE 1: ORDERS ===== */
+    /* ===== ORDERS ===== */
     async saveOrder(data){
       const toSave = { ...data, createdAt: new Date().toISOString() };
       const ref2 = await addDoc(collection(db,"orders"), toSave);
