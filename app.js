@@ -202,18 +202,18 @@ function shareProductCard(id, e){
     },
 
     async uploadProductImages(files, onFileProgress){
-      const urls = [];
-      for(let i=0;i<files.length;i++){
-        const file = files[i];
-        const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
-        try{
-          const url = await uploadFileToStorage(path, file, pct=>{ if(onFileProgress) onFileProgress(i, pct, file.name); });
-          urls.push(url);
-        } catch(err){
-          throw new Error(storageErrorMessage(file, err));
-        }
-      }
-      return urls;
+  const urls = [];
+  for(let i=0;i<files.length;i++){
+    const file = files[i];
+    try{
+      const url = await uploadFileToCloudinary(file, pct=>{ if(onFileProgress) onFileProgress(i, pct, file.name); });
+      urls.push(url);
+    } catch(err){
+      throw new Error(`Failed to upload "${file.name}": ${err.message}`);
+    }
+  }
+  return urls;
+},
     },
     async deleteStorageFileByUrl(url){
       try{ const sRef = ref(storage, url); await deleteObject(sRef); }
