@@ -7,10 +7,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-/* product.html uses its own sticky Add-to-Cart bar at the bottom instead
-   of the shared bottom-nav, so the two fixed bars never stack and hide
-   each other (that was hiding the Add to Cart button before). */
 body{ padding-bottom:0; }
+.pdp-status-badge{display:inline-block;font-size:.7rem;font-weight:800;padding:.35rem .85rem;border-radius:999px;margin-bottom:.7rem;text-transform:uppercase;}
+.pdp-status-in{background:rgba(34,197,94,.15);color:#4ade80;}
+.pdp-status-low{background:rgba(250,204,21,.15);color:var(--gold);}
+.pdp-status-out{background:rgba(239,68,68,.15);color:#f87171;}
+.pdp-status-soon{background:rgba(168,85,247,.15);color:#c084fc;}
+.pdp-specs-table{width:100%;border-collapse:collapse;margin-bottom:1.3rem;}
+.pdp-specs-table tr{border-bottom:1px solid rgba(255,255,255,.07);}
+.pdp-specs-table tr:last-child{border-bottom:none;}
+.pdp-specs-table td{padding:.7rem 0;font-size:.82rem;}
+.pdp-specs-table td:first-child{color:var(--text-muted);font-weight:700;width:40%;}
+.pdp-specs-table td:last-child{color:#fff;font-weight:600;}
+.pdp-features-list{list-style:none;margin-bottom:1.3rem;}
+.pdp-features-list li{display:flex;align-items:flex-start;gap:.6rem;font-size:.84rem;color:var(--text-secondary);padding:.5rem 0;line-height:1.5;}
+.pdp-features-list li::before{content:'✓';color:var(--gold);font-weight:900;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -44,7 +55,7 @@ body{ padding-bottom:0; }
   </div>
 </div>
 
-<!-- REFERRAL SIGNUP MODAL — shown once, the first time someone taps "Refer & Earn" -->
+<!-- REFERRAL SIGNUP MODAL -->
 <div class="center-modal" id="referralSignupModal">
   <div class="modal-box">
     <div class="modal-header">
@@ -65,7 +76,7 @@ body{ padding-bottom:0; }
   </div>
 </div>
 
-<!-- SHARE SHEET MODAL — fallback for browsers without the native share sheet -->
+<!-- SHARE SHEET MODAL -->
 <div class="center-modal" id="shareSheetModal">
   <div class="modal-box">
     <div class="modal-header">
@@ -140,6 +151,52 @@ function pdpStockBadgeHTML(v){
   return `<span class="pdp-stock-badge pdp-stock-in">In Stock</span>`;
 }
 
+/* ===== PHASE 2: PRODUCT-LEVEL STOCK/STATUS ===== */
+function pdpGetAvailability(){
+  const p = pdpProduct;
+  const v = pdpActiveVariant();
+
+  // Variant-level stock takes priority if this product has variants
+  if(v && v.stock !== null && v.stock !== undefined){
+    if(v.stock <= 0) return { available:false, badge:'pdp-status-out', label:'Out of Stock' };
+    if(v.stock <= 5) return { available:true, badge:'pdp-status-low', label:`Low Stock — ${v.stock} left` };
+    return { available:true, badge:'pdp-status-in', label:'In Stock' };
+  }
+
+  if(p.status === 'coming-soon') return { available:false, badge:'pdp-status-soon', label:'Coming Soon' };
+  if(p.status === 'inactive' || p.status === 'out-of-stock') return { available:false, badge:'pdp-status-out', label:'Out of Stock' };
+
+  if(p.stock !== null && p.stock !== undefined){
+    const threshold = p.lowStockThreshold ?? 5;
+    if(p.stock <= 0) return { available:false, badge:'pdp-status-out', label:'Out of Stock' };
+    if(p.stock <= threshold) return { available:true, badge:'pdp-status-low', label:`Low Stock — ${p.stock} left` };
+    return { available:true, badge:'pdp-status-in', label:'In Stock' };
+  }
+
+  return { available:true, badge:'pdp-status-in', label:'In Stock' }; // no stock tracking set up — assume available
+}
+
+function pdpSpecsTableHTML(){
+  const specs = pdpProduct.specifications;
+  if(!Array.isArray(specs) || !specs.length) return '';
+  const rows = specs.map(s => `<tr><td>${s.key}</td><td>${s.value}</td></tr>`).join('');
+  return `
+    <div class="glass-card pdp-specs-card">
+      <h4>Specifications</h4>
+      <table class="pdp-specs-table">${rows}</table>
+    </div>`;
+}
+function pdpFeaturesListHTML(){
+  const features = pdpProduct.features;
+  if(!Array.isArray(features) || !features.length) return '';
+  const items = features.map(f => `<li>${f}</li>`).join('');
+  return `
+    <div class="glass-card pdp-specs-card">
+      <h4>Features</h4>
+      <ul class="pdp-features-list">${items}</ul>
+    </div>`;
+}
+
 function renderProductPage(){
   const p = pdpProduct;
   const v = pdpActiveVariant();
@@ -152,7 +209,8 @@ function renderProductPage(){
   const displayPrice = (v && v.price!=null) ? v.price : p.price;
   const displayOldPrice = (v && v.compareAtPrice!=null) ? v.compareAtPrice : p.oldPrice;
   const displaySku = v ? (v.sku||'') : (p.sku||'');
-  const outOfStock = !!(v && v.stock===0);
+  const availability = pdpGetAvailability();
+  const outOfStock = !availability.available;
 
   const gallerySlides = images.length
     ? images.map(url => `<div class="pdp-gallery-slide">${mediaTagHTML(url, displayName)}</div>`).join('')
@@ -198,7 +256,7 @@ function renderProductPage(){
       ${variantSwatches}
       <div class="pdp-body">
         <div class="pdp-badge-wrap">${p.badge ? `<span class="pcard-badge ${p.badgeClass||''}">${p.badge}</span>` : ''}</div>
-        ${pdpStockBadgeHTML(v)}
+        <span class="pdp-status-badge ${availability.badge}">${availability.label}</span>
         <h1 class="pdp-name">${displayName}</h1>
         <div class="pdp-rating">★★★★★ <span class="count">(${p.reviewCount||Math.floor(Math.random()*80)+20} reviews)</span></div>
         <div class="pdp-price-row">
@@ -210,6 +268,8 @@ function renderProductPage(){
           <h4>Details</h4>
           <p>${p.specs || 'Premium sound quality, built for everyday use.'}</p>
         </div>
+        ${pdpSpecsTableHTML()}
+        ${pdpFeaturesListHTML()}
         <div class="pdp-qty-row">
           <span class="lbl">Quantity</span>
           <button type="button" class="pdp-qty-btn" onclick="pdpChangeQty(-1)">−</button>
@@ -222,13 +282,13 @@ function renderProductPage(){
           <span class="pdp-trust-chip">💳 Secure Payment</span>
           <button type="button" class="pdp-trust-chip" style="color:var(--gold);border-color:rgba(250,204,21,.35);background:rgba(250,204,21,.08);cursor:pointer;" onclick="pdpShareReferral()">💸 Earn Ghc${getCommissionForPrice(displayPrice)} — Refer &amp; Earn</button>
         </div>
-        <button type="button" class="pdp-addbtn ripple" style="width:100%;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#4ade80;margin-bottom:.8rem;" onclick="pdpBuyNow(event)" ${outOfStock?'disabled':''}>⚡ Buy Now</button>
+        <button type="button" class="pdp-addbtn ripple" style="width:100%;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#4ade80;margin-bottom:.8rem;" onclick="pdpBuyNow(event)" ${outOfStock?'disabled':''}>${outOfStock ? availability.label : '⚡ Buy Now'}</button>
       </div>
     </div>
     <div class="pdp-sticky-bar">
       <button type="button" class="pdp-wish-btn ${wishActive?'active':''}" id="pdpWishBtn" onclick="pdpToggleWishlist()">${wishActive?'♥':'♡'}</button>
       <button type="button" class="pdp-wa-btn" aria-label="Chat on WhatsApp about this product" onclick="pdpWhatsApp()">💬</button>
-      <button type="button" class="pdp-addbtn ripple" onclick="pdpAddToCart(event)" ${outOfStock?'disabled':''}>${outOfStock?'Out of Stock':'🛒 Add to Cart'}</button>
+      <button type="button" class="pdp-addbtn ripple" onclick="pdpAddToCart(event)" ${outOfStock?'disabled':''}>${outOfStock?availability.label:'🛒 Add to Cart'}</button>
     </div>
   `;
 
@@ -256,7 +316,6 @@ function pdpGoToSlide(i){
   track.scrollTo({ left: i * track.clientWidth, behavior:'smooth' });
 }
 
-/* ===== COLOUR VARIANT SWITCHING ===== */
 function pdpChangeVariant(direction){
   if(pdpAnimating || pdpVariants.length < 2) return;
   let next = pdpVariantIndex + direction;
@@ -307,18 +366,18 @@ function pdpChangeQty(delta){
   document.getElementById('pdpQtyVal').textContent = pdpQty;
 }
 
-/* ===== VARIANT-AWARE CART — delegates to the shared addToCart() in app.js,
-   which now understands variants (same lineId scheme site-wide). ===== */
 function pdpAddToCart(e){
+  const availability = pdpGetAvailability();
+  if(!availability.available){ showToast(availability.label); return; }
   const v = pdpActiveVariant();
-  if(v && v.stock===0) return;
   addToCart(pdpProduct.id, pdpQty, v);
   rippleFx(e);
   setTimeout(()=>{ window.location.href = 'cart.html'; }, 450);
 }
 function pdpBuyNow(e){
+  const availability = pdpGetAvailability();
+  if(!availability.available){ showToast(availability.label); return; }
   const v = pdpActiveVariant();
-  if(v && v.stock===0) return;
   cart = [];
   addToCart(pdpProduct.id, pdpQty, v);
   rippleFx(e);
@@ -337,12 +396,6 @@ function pdpWhatsApp(){
   window.open(`https://wa.me/233536193862?text=${encodeURIComponent(message)}`, '_blank');
 }
 
-/* ===== SHARE-TO-EARN — builds a `?ref=CODE` link (captured on landing by the
-   existing captureRefCode() in app.js, and paid out via checkout.html's
-   addReferralSale) and hands it to the device's native share sheet so it can
-   go to WhatsApp, Facebook, Instagram, X, Telegram, SMS, email — everything
-   installed, not just one hardcoded platform. Falls back to explicit
-   platform buttons + copy-link on browsers without navigator.share. ===== */
 function pdpGetMyReferrer(){
   return JSON.parse(localStorage.getItem('voltixMyReferrer') || 'null');
 }
@@ -416,4 +469,4 @@ initStoreMusic();
 initProductPage();
 </script>
 </body>
-</html>
+                                                         </html>
