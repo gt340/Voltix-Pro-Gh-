@@ -314,6 +314,13 @@ function shareProductCard(id, e){
     async updateOrderStatus(id, status){
       await setDoc(doc(db,"orders",id), { status }, { merge:true });
     },
+    
+    async getOrderByRef(ref){
+      const snap = await getDocs(query(collection(db,"orders")));
+      let found = null;
+      snap.forEach(d=>{ if(d.data().ref===ref) found = {id:d.id,...d.data()}; });
+     return found;
+    }
 
     /* ===== CATEGORIES ===== */
     async saveCategory(data){
