@@ -113,6 +113,25 @@
 <script src="app.js"></script>
 <script>
 let allOrders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
+
+async function syncOrderStatusesFromFirestore(){
+  if(!currentUser || !VDB) return;
+  try{
+    const realOrders = await VDB.getOrdersByPhone(currentUser.phone);
+    let changed = false;
+    allOrders.forEach(local => {
+      const real = realOrders.find(r => r.ref === local.ref);
+      if(real && real.status !== local.status){
+        local.status = real.status;
+        changed = true;
+      }
+    });
+    if(changed){
+      localStorage.setItem('voltixOrders', JSON.stringify(allOrders));
+      renderOrdersList();
+    }
+  } catch(e){ console.error('Status sync failed:', e); }
+}
 let activeOrderFilter = 'all';
 
 const STATUS_STEPS = ['Processing', 'Packed', 'Shipped', 'Delivered'];
@@ -272,7 +291,7 @@ th:nth-child(2){text-align:center;} th:nth-child(3),th:nth-child(4){text-align:r
   URL.revokeObjectURL(url);
 }
 
-initVoltixApp('account', renderOrdersList);
+initVoltixApp('account', function(){ renderOrdersList(); syncOrderStatusesFromFirestore(); });
 
 const origUpdateBadgesOrd = updateNavBadges;
 updateNavBadges = function(){
