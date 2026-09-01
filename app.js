@@ -195,6 +195,16 @@ function shareProductCard(id, e){
       catch(e){}
     },
 
+    async uploadShowcaseVideo(file, onProgress){
+  // Cloudinary's /video/upload endpoint (already used for images/audio in this app)
+  // handles mp4/webm natively — no separate pipeline needed.
+  try{
+    return await uploadFileToCloudinary(file, onProgress);
+  } catch(err){
+    throw new Error(`Failed to upload showcase video: ${err.message}`);
+  }
+},
+
     async uploadHeroMedia(file, onProgress){
       const type = file.type.startsWith('video/') ? 'video' : 'image';
       const path = `hero/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
