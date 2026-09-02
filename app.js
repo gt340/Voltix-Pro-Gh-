@@ -25,14 +25,16 @@ const CLOUDINARY_CLOUD_NAME = 'gi28yswe';
 const CLOUDINARY_UPLOAD_PRESET = 'Voltix Pro GH';
 
 async function uploadFileToCloudinary(file, onProgress){
-  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
+  const isImage = file.type.startsWith('image/');
+  const resourceType = isImage ? 'image' : 'video'; // audio also goes through the video pipeline
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
   if(CLOUDINARY_CLOUD_NAME === 'YOUR_CLOUD_NAME' || CLOUDINARY_UPLOAD_PRESET === 'YOUR_UPLOAD_PRESET'){
     throw new Error('Cloudinary is not configured yet — paste your real Cloud name and unsigned upload preset into CLOUDINARY_CLOUD_NAME / CLOUDINARY_UPLOAD_PRESET near the top of app.js.');
   }
   return new Promise((resolve, reject)=>{
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url, true);
-    xhr.timeout = 180000;
+    xhr.timeout = isImage ? 90000 : 180000;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
@@ -55,11 +57,10 @@ async function uploadFileToCloudinary(file, onProgress){
       }
     };
     xhr.onerror = ()=> reject(new Error('Network error while uploading to Cloudinary — check your connection and try again.'));
-    xhr.ontimeout = ()=> reject(new Error('Upload timed out after 3 minutes — try a smaller MP3 (under ~10MB) or a stronger connection.'));
+    xhr.ontimeout = ()=> reject(new Error(`Upload timed out after ${Math.round(xhr.timeout/1000)}s — try a smaller file or a stronger connection.`));
     xhr.send(formData);
   });
 }
-
 let VDB = null;
 let allProducts = [];
 let cart = JSON.parse(localStorage.getItem('voltixCart') || '[]');
