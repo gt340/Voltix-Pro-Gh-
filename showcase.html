@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Product Showcase — Voltix Pro GH</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+html,body{height:100%;overflow:hidden;background:#000;}
+body{padding-bottom:0;}
+
+.sc-root{position:fixed;inset:0;background:#000;overflow:hidden;}
+
+/* TOP BAR */
+.sc-topbar{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;gap:.8rem;padding:1rem 1.1rem;background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);}
+.sc-back-btn{width:2.3rem;height:2.3rem;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:1.1rem;flex-shrink:0;}
+
+/* PRODUCT NAME NAV */
+.sc-nav-scroll{display:flex;gap:1.3rem;overflow-x:auto;flex:1;-ms-overflow-style:none;scrollbar-width:none;padding:0 .2rem;}
+.sc-nav-scroll::-webkit-scrollbar{display:none;}
+.sc-nav-item{flex:0 0 auto;background:none;border:none;color:rgba(255,255,255,.45);font-weight:800;font-size:.95rem;padding:.3rem 0;white-space:nowrap;position:relative;}
+.sc-nav-item.active{color:#fff;}
+.sc-nav-item.active::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:2px;background:var(--gold);border-radius:2px;}
+
+/* SLIDE TRACK */
+.sc-track{position:absolute;inset:0;display:flex;height:100%;transition:transform .5s cubic-bezier(.22,1,.36,1);touch-action:pan-y;}
+.sc-slide{flex:0 0 100%;height:100%;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+
+/* BACKGROUND */
+.sc-bg{position:absolute;inset:0;z-index:0;transition:background 1s ease;}
+
+/* VIDEO / MEDIA */
+.sc-media-wrap{position:relative;width:min(85vw,420px);aspect-ratio:1;z-index:2;border-radius:1.5rem;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);margin-top:-2rem;}
+.sc-media-wrap video,.sc-media-wrap img{width:100%;height:100%;object-fit:cover;}
+.sc-tap-to-play{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);color:#fff;font-size:2.5rem;cursor:pointer;}
+.sc-tap-to-play.show{display:flex;}
+
+/* PRODUCT INFO */
+.sc-info{position:relative;z-index:2;text-align:center;padding:1.2rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom));width:100%;max-width:480px;}
+.sc-price{font-size:2.1rem;font-weight:900;background:linear-gradient(90deg,var(--gold),#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.4rem;}
+.sc-name{font-size:1.5rem;font-weight:900;color:#fff;margin-bottom:.5rem;}
+.sc-summary{font-size:.85rem;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:1.2rem;}
+
+/* VARIANT SWATCHES */
+.sc-swatch-row{display:flex;gap:.7rem;justify-content:center;margin-bottom:1.2rem;}
+.sc-swatch{width:2rem;height:2rem;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px rgba(255,255,255,.25);}
+.sc-swatch.active{border-color:var(--gold);box-shadow:0 0 0 3px rgba(250,204,21,.3);}
+
+/* CTAs */
+.sc-cta-buy-row{margin-bottom:.7rem;}
+.sc-cta-row{display:flex;gap:.7rem;}
+.sc-cta-btn{flex:1;padding:1rem;border-radius:1rem;border:none;font-weight:800;font-size:.9rem;}
+.sc-cta-primary{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;box-shadow:0 10px 28px rgba(14,165,233,.4);}
+.sc-cta-secondary{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);}
+.sc-cta-buy{width:100%;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:var(--navy-deep);box-shadow:0 10px 28px rgba(250,204,21,.35);}
+
+/* ARROWS (desktop) */
+.sc-arrow{position:absolute;top:45%;transform:translateY(-50%);z-index:20;width:2.8rem;height:2.8rem;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:1.3rem;display:none;}
+.sc-arrow.prev{left:1rem;}
+.sc-arrow.next{right:1rem;}
+@media(min-width:768px){ .sc-arrow{display:flex;align-items:center;justify-content:center;} }
+
+.sc-empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.6);text-align:center;padding:2rem;}
+</style>
+</head>
+<body>
+
+<div class="sc-root" id="scRoot">
+  <div class="sc-topbar">
+    <button class="sc-back-btn" onclick="history.back()" aria-label="Go back">←</button>
+    <nav class="sc-nav-scroll" id="scNav" role="tablist" aria-label="Product showcase navigation"></nav>
+  </div>
+
+  <button class="sc-arrow prev" id="scArrowPrev" aria-label="Previous product">‹</button>
+  <button class="sc-arrow next" id="scArrowNext" aria-label="Next product">›</button>
+
+  <div class="sc-track" id="scTrack"></div>
+
+  <div class="sc-empty-state" id="scEmptyState" style="display:none;">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">🎬</div>
+    <p>No products have 3D showcase media yet.<br>Add one from the admin dashboard.</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let scProducts = [];       // products that have showcaseVariants with at least one entry
+let scActiveIndex = 0;
+let scActiveVariantIndex = {}; // { productIndex: variantIndex }
+
+function scInit(){
+  VDB.subscribeProducts(list=>{
+    allProducts = list;
+    scProducts = list.filter(p => Array.isArray(p.showcaseVariants) && p.showcaseVariants.length > 0);
+    if(!scProducts.length){
+      document.getElementById('scEmptyState').style.display = 'flex';
+      return;
+    }
+    document.getElementById('scEmptyState').style.display = 'none';
+    scProducts.forEach((p,i)=>{ if(scActiveVariantIndex[i]===undefined) scActiveVariantIndex[i]=0; });
+    scRenderNav();
+    scRenderTrack();
+    scGoToSlide(scActiveIndex, true);
+  });
+}
+
+function scRenderNav(){
+  const nav = document.getElementById('scNav');
+  nav.innerHTML = scProducts.map((p,i)=>
+    `<button type="button" class="sc-nav-item ${i===scActiveIndex?'active':''}" role="tab" aria-selected="${i===scActiveIndex}" onclick="scGoToSlide(${i})">${p.name}</button>`
+  ).join('');
+}
+
+function scGetVariant(productIndex){
+  const p = scProducts[productIndex];
+  const vi = scActiveVariantIndex[productIndex] || 0;
+  return p.showcaseVariants[vi];
+}
+
+function scRenderTrack(){
+  const track = document.getElementById('scTrack');
+  track.innerHTML = scProducts.map((p,i)=>{
+    const v = scGetVariant(i);
+    const swatches = p.showcaseVariants.map((sv,vi)=>
+      `<button type="button" class="sc-swatch ${vi===(scActiveVariantIndex[i]||0)?'active':''}" style="background:${sv.colorHex||'#111'};" aria-label="Select ${sv.name}" onclick="scSelectVariant(${i},${vi})"></button>`
+    ).join('');
+    return `
+    <div class="sc-slide" data-index="${i}">
+      <div class="sc-bg" id="scBg-${i}" style="background:radial-gradient(circle at 50% 30%, ${scBgFor(v.colorHex)} 0%, #05050a 75%);"></div>
+      <div class="sc-media-wrap" id="scMediaWrap-${i}"></div>
+      <div class="sc-info">
+        <div class="sc-price">Ghc${p.price}</div>
+        <div class="sc-name">${p.name}${v.name?` — ${v.name}`:''}</div>
+        <div class="sc-summary">${p.specs || 'Premium sound, built for everyday use.'}</div>
+        ${p.showcaseVariants.length>1 ? `<div class="sc-swatch-row">${swatches}</div>` : ''}
+        <div class="sc-cta-buy-row">
+          <button type="button" class="sc-cta-btn sc-cta-buy" onclick="scBuyNow(${i})">⚡ Buy Now</button>
+        </div>
+        <div class="sc-cta-row">
+          <button type="button" class="sc-cta-btn sc-cta-secondary" onclick="scGoToProductPage(${i})">View Details</button>
+          <button type="button" class="sc-cta-btn sc-cta-primary" onclick="scAddToCart(${i})">🛒 Add to Cart</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  scProducts.forEach((_,i)=> scMountMedia(i));
+}
+
+/* Simple colour-family background — darkened toward the edges so the
+   product media sits in a premium, high-contrast "spotlight" rather
+   than a flat gradient. */
+function scBgFor(hex){
+  if(!hex) return '#1a1a1a';
+  return hex;
+}
+
+function scMountMedia(index){
+  const wrap = document.getElementById(`scMediaWrap-${index}`);
+  if(!wrap) return;
+  const v = scGetVariant(index);
+
+  if(v.video){
+    wrap.innerHTML = `
+      <video id="scVideo-${index}" src="${v.video}" poster="${v.poster||''}" muted loop playsinline preload="none"></video>
+      <div class="sc-tap-to-play" id="scTapPlay-${index}" onclick="scForcePlay(${index})">▶</div>`;
+  } else if(v.poster){
+    wrap.innerHTML = `<img src="${v.poster}" alt="${scProducts[index].name}">`;
+  } else {
+    wrap.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:4rem;background:#111;">🎧</div>`;
+  }
+}
+
+function scPlayActiveVideo(index){
+  const video = document.getElementById(`scVideo-${index}`);
+  if(!video) return;
+  video.preload = 'auto';
+  video.play().catch(()=>{
+    const tapPlay = document.getElementById(`scTapPlay-${index}`);
+    if(tapPlay) tapPlay.classList.add('show');
+  });
+}
+function scPauseVideo(index){
+  const video = document.getElementById(`scVideo-${index}`);
+  if(video){ video.pause(); video.preload = 'none'; }
+}
+function scForcePlay(index){
+  const video = document.getElementById(`scVideo-${index}`);
+  const tapPlay = document.getElementById(`scTapPlay-${index}`);
+  if(video){
+    video.play().then(()=>{ if(tapPlay) tapPlay.classList.remove('show'); }).catch(()=>{});
+  }
+}
+
+function scGoToSlide(index, isInitial){
+  if(index < 0 || index >= scProducts.length) return;
+  if(!isInitial) scPauseVideo(scActiveIndex);
+
+  scActiveIndex = index;
+  const track = document.getElementById('scTrack');
+  track.style.transform = `translateX(-${index * 100}%)`;
+
+  document.querySelectorAll('.sc-nav-item').forEach((el,i)=>{
+    el.classList.toggle('active', i===index);
+    el.setAttribute('aria-selected', i===index);
+  });
+  const activeNavEl = document.querySelectorAll('.sc-nav-item')[index];
+  if(activeNavEl) activeNavEl.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+
+  scPlayActiveVideo(index);
+  // Preload the next slide's video so switching feels instant, without
+  // loading every product's video at once.
+  const nextIdx = index + 1 < scProducts.length ? index + 1 : null;
+  if(nextIdx !== null){
+    const nextVideo = document.getElementById(`scVideo-${nextIdx}`);
+    if(nextVideo) nextVideo.preload = 'metadata';
+  }
+}
+
+function scSelectVariant(productIndex, variantIndex){
+  scActiveVariantIndex[productIndex] = variantIndex;
+  scPauseVideo(productIndex);
+  // Re-render just this slide's media + info without rebuilding the whole track
+  const p = scProducts[productIndex];
+  const v = scGetVariant(productIndex);
+  document.getElementById(`scBg-${productIndex}`).style.background = `radial-gradient(circle at 50% 30%, ${scBgFor(v.colorHex)} 0%, #05050a 75%)`;
+  scMountMedia(productIndex);
+  if(productIndex === scActiveIndex) scPlayActiveVideo(productIndex);
+
+  const slide = document.querySelector(`.sc-slide[data-index="${productIndex}"] .sc-name`);
+  if(slide) slide.textContent = `${p.name}${v.name?` — ${v.name}`:''}`;
+  document.querySelectorAll(`.sc-slide[data-index="${productIndex}"] .sc-swatch`).forEach((el,i)=>{
+    el.classList.toggle('active', i===variantIndex);
+  });
+}
+
+function scGoToProductPage(index){
+  const p = scProducts[index];
+  window.location.href = 'product.html?id=' + encodeURIComponent(p.id);
+}
+function scAddToCart(index){
+  const p = scProducts[index];
+  const v = scGetVariant(index);
+  const matchingVariant = (p.variants||[]).find(pv => pv.name === v.name);
+  addToCart(p.id, 1, matchingVariant || null);
+  setTimeout(()=>{ window.location.href = 'cart.html'; }, 450);
+}
+function scBuyNow(index){
+  const p = scProducts[index];
+  const v = scGetVariant(index);
+  const matchingVariant = (p.variants||[]).find(pv => pv.name === v.name);
+  addToCart(p.id, 1, matchingVariant || null);
+  window.location.href = 'checkout.html';
+}
+
+document.getElementById('scArrowPrev').addEventListener('click', ()=> scGoToSlide(scActiveIndex - 1));
+document.getElementById('scArrowNext').addEventListener('click', ()=> scGoToSlide(scActiveIndex + 1));
+
+document.addEventListener('keydown', e=>{
+  if(!scProducts.length) return;
+  if(e.key === 'ArrowRight') scGoToSlide(scActiveIndex + 1);
+  if(e.key === 'ArrowLeft') scGoToSlide(scActiveIndex - 1);
+});
+
+if(VDB) scInit(); else window.addEventListener('vdb-ready', scInit);
+updateNavBadges();
+</script>
+</body>
+  </html>
