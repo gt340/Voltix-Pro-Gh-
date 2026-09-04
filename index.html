@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Voltix Pro GH — Ghana's #1 Premium Earpods Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body{padding-bottom:0;}
+.splash-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:2.2rem 1.3rem 2.6rem;text-align:center;position:relative;overflow:hidden;}
+.splash-orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;}
+.splash-orb1{width:420px;height:420px;background:var(--blue-electric);opacity:.2;top:-120px;right:-120px;}
+.splash-orb2{width:380px;height:380px;background:var(--gold);opacity:.1;bottom:-100px;left:-100px;}
+.splash-presents{font-size:.75rem;font-weight:800;color:var(--gold);letter-spacing:.2em;text-transform:uppercase;margin-bottom:.6rem;position:relative;z-index:2;}
+.splash-brand{font-size:2.05rem;font-weight:900;line-height:1.15;margin-bottom:.55rem;position:relative;z-index:2;}
+.splash-tagline{font-size:.92rem;color:var(--text-secondary);max-width:340px;line-height:1.55;margin-bottom:1.3rem;position:relative;z-index:2;}
+
+/* ===== 3D VIEWER ===== */
+.viewer-card{position:relative;z-index:2;width:100%;max-width:400px;margin-bottom:1rem;}
+.viewer-pill{display:inline-flex;align-items:center;gap:.35rem;background:rgba(14,165,233,.12);border:1px solid rgba(14,165,233,.3);color:var(--blue-electric);font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:.3rem .75rem;border-radius:999px;margin-bottom:.6rem;}
+.viewer-frame{position:relative;width:100%;aspect-ratio:1/1;border-radius:var(--radius-lg);overflow:hidden;background:radial-gradient(circle at 50% 38%,rgba(14,165,233,.14),rgba(6,10,20,.4) 70%);border:1px solid rgba(255,255,255,.1);box-shadow:0 25px 60px rgba(0,0,0,.5);touch-action:none;}
+.viewer-frame canvas{display:block;width:100%;height:100%;}
+.viewer-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.7rem;color:var(--text-muted);font-size:.75rem;font-weight:700;background:rgba(6,10,20,.35);transition:opacity .4s;}
+.viewer-spinner{width:2.2rem;height:2.2rem;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:var(--blue-electric);animation:vspin .8s linear infinite;}
+@keyframes vspin{to{transform:rotate(360deg);}}
+.viewer-fallback-logo{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:18%;}
+.viewer-fallback-logo img{width:100%;border-radius:50%;box-shadow:0 0 60px rgba(14,165,233,.45);}
+.viewer-hint{font-size:.68rem;color:var(--text-muted);margin-top:.6rem;font-weight:600;}
+
+/* control dock */
+.v-dock{position:relative;z-index:2;width:100%;max-width:400px;background:var(--glass-bg);border:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:1.2rem;padding:.9rem .9rem 1rem;margin-bottom:1.4rem;box-shadow:var(--shadow-card);}
+.v-dock-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem;}
+.v-dock-row:last-child{margin-bottom:0;}
+.v-dock-label{font-size:.62rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;flex:0 0 auto;width:4.6rem;text-align:left;}
+.v-swatches{display:flex;gap:.55rem;flex:1;}
+.v-swatch{width:1.9rem;height:1.9rem;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px rgba(255,255,255,.18);flex:0 0 auto;}
+.v-swatch.active{border-color:var(--gold);box-shadow:0 0 0 3px rgba(250,204,21,.28);}
+.v-moods{display:flex;gap:.4rem;flex:1;}
+.v-mood-btn{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text-secondary);font-size:.66rem;font-weight:700;padding:.42rem .3rem;border-radius:.6rem;}
+.v-mood-btn.active{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border-color:transparent;}
+.v-slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:99px;background:rgba(255,255,255,.14);outline:none;}
+.v-slider::-webkit-slider-thumb{-webkit-appearance:none;width:1rem;height:1rem;border-radius:50%;background:var(--blue-electric);box-shadow:0 0 8px rgba(14,165,233,.6);cursor:pointer;}
+.v-slider::-moz-range-thumb{width:1rem;height:1rem;border-radius:50%;background:var(--blue-electric);border:none;box-shadow:0 0 8px rgba(14,165,233,.6);}
+.v-icon-row{display:flex;gap:.55rem;padding-top:.15rem;border-top:1px solid rgba(255,255,255,.07);margin-top:.15rem;padding-top:.7rem;}
+.v-icon-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:.2rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:#fff;padding:.55rem .3rem;border-radius:.7rem;font-size:.6rem;font-weight:700;}
+.v-icon-btn .ico{font-size:1.05rem;}
+.v-icon-btn.active{background:rgba(14,165,233,.2);border-color:rgba(14,165,233,.4);color:var(--blue-electric);}
+
+.splash-get-started{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border:none;padding:1.1rem 3rem;border-radius:1rem;font-weight:900;font-size:1.02rem;cursor:pointer;box-shadow:0 10px 30px rgba(14,165,233,.4);position:relative;z-index:2;letter-spacing:.02em;}
+.splash-get-started:active{transform:scale(.96);}
+.splash-badges{display:flex;gap:1.5rem;margin-top:1.6rem;flex-wrap:wrap;justify-content:center;position:relative;z-index:2;}
+.splash-badge{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--text-muted);font-weight:600;}
+
+@media (prefers-reduced-motion: reduce){ .viewer-spinner{animation:none;} }
+</style>
+</head>
+<body>
+
+<div class="splash-screen">
+  <div class="splash-orb splash-orb1"></div>
+  <div class="splash-orb splash-orb2"></div>
+
+  <div class="splash-presents">🇬🇭 Trust God Company Presents</div>
+  <h1 class="splash-brand"><span style="background:linear-gradient(90deg,var(--blue-electric),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Voltix Pro GH</span></h1>
+  <p class="splash-tagline">Ghana's #1 Premium Earpods Store — genuine quality, real prices, delivered nationwide.</p>
+
+  <div class="viewer-card">
+    <span class="viewer-pill">🖐️ Interactive Preview</span>
+    <div class="viewer-frame" id="viewerFrame">
+      <div class="viewer-loading" id="viewerLoading">
+        <div class="viewer-spinner"></div>
+        <span>Loading 3D preview…</span>
+      </div>
+      <div class="viewer-fallback-logo" id="viewerFallback">
+        <img src="logo.png" alt="Voltix Pro GH" onerror="this.parentElement.style.display='none'">
+      </div>
+    </div>
+    <div class="viewer-hint">Drag to rotate • Pinch or scroll to zoom</div>
+  </div>
+
+  <div class="v-dock">
+    <div class="v-dock-row">
+      <span class="v-dock-label">Finish</span>
+      <div class="v-swatches" id="vSwatches"></div>
+    </div>
+    <div class="v-dock-row">
+      <span class="v-dock-label">Lighting</span>
+      <div class="v-moods" id="vMoods"></div>
+    </div>
+    <div class="v-dock-row">
+      <span class="v-dock-label">Brightness</span>
+      <input type="range" class="v-slider" id="vBrightness" min="40" max="180" value="100">
+    </div>
+    <div class="v-icon-row">
+      <button type="button" class="v-icon-btn" id="vAutoRotateBtn"><span class="ico">🔄</span>Auto-Rotate</button>
+      <button type="button" class="v-icon-btn" id="vZoomOutBtn"><span class="ico">−</span>Zoom Out</button>
+      <button type="button" class="v-icon-btn" id="vZoomInBtn"><span class="ico">+</span>Zoom In</button>
+      <button type="button" class="v-icon-btn" id="vResetBtn"><span class="ico">🎯</span>Reset View</button>
+    </div>
+  </div>
+
+  <button class="splash-get-started ripple" onclick="window.location.href='shop.html'">⚡ Get Started</button>
+  <div class="splash-badges">
+    <span class="splash-badge">🔒 Secure Checkout</span>
+    <span class="splash-badge">🇬🇭 Made for Ghana</span>
+    <span class="splash-badge">✅ 100% Genuine</span>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const frame = document.getElementById('viewerFrame');
+const loadingEl = document.getElementById('viewerLoading');
+const fallbackEl = document.getElementById('viewerFallback');
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function showFallback(){
+  loadingEl.style.display = 'none';
+  fallbackEl.style.display = 'flex';
+}
+
+try{
+  if(!window.WebGLRenderingContext) throw new Error('WebGL unsupported');
+
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+  camera.position.set(0, 1.1, 5.4);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  renderer.domElement.style.touchAction = 'none';
+  frame.appendChild(renderer.domElement);
+
+  function fitRenderer(){
+    const w = frame.clientWidth, h = frame.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+  fitRenderer();
+  new ResizeObserver(fitRenderer).observe(frame);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 0.15, 0);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 3.2;
+  controls.maxDistance = 8.5;
+  controls.minPolarAngle = Math.PI * 0.18;
+  controls.maxPolarAngle = Math.PI * 0.82;
+  controls.autoRotate = false;
+  controls.autoRotateSpeed = 1.1;
+  controls.update();
+  controls.saveState();
+
+  /* ===== LIGHTS ===== */
+  const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+  scene.add(ambient);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
+  keyLight.position.set(3, 4, 3);
+  scene.add(keyLight);
+  const rimLight = new THREE.PointLight(0xfacc15, 1.1, 12);
+  rimLight.position.set(-3, 1.2, -2.5);
+  scene.add(rimLight);
+  const fillLight = new THREE.PointLight(0x0ea5e9, 0.7, 12);
+  fillLight.position.set(2.5, -1, -2);
+  scene.add(fillLight);
+
+  const MOODS = {
+    studio: { key:0xffffff, keyI:1.15, rimI:1.1, fillI:0.7, ambI:0.55 },
+    sunset: { key:0xffb27a, keyI:1.25, rimI:1.3, fillI:0.45, ambI:0.45 },
+    neon:   { key:0x8ab4ff, keyI:0.9,  rimI:1.5, fillI:1.2, ambI:0.4 }
+  };
+  let currentMood = 'studio';
+  let brightnessPct = 100;
+
+  function applyLighting(){
+    const m = MOODS[currentMood];
+    const b = brightnessPct / 100;
+    keyLight.color.set(m.key);
+    keyLight.intensity = m.keyI * b;
+    rimLight.intensity = m.rimI * b;
+    fillLight.intensity = m.fillI * b;
+    ambient.intensity = m.ambI * b;
+  }
+  applyLighting();
+
+  /* ===== EMBLEM MODEL ===== */
+  const modelGroup = new THREE.Group();
+  scene.add(modelGroup);
+
+  const VARIANTS = {
+    electric: { ring:0x0ea5e9, bolt:0xfacc15, base:0x0a1128, metalness:0.85, roughness:0.25 },
+    gold:     { ring:0xfacc15, bolt:0x0ea5e9, base:0x111827, metalness:0.9,  roughness:0.2  },
+    chrome:   { ring:0xd6dbe3, bolt:0x0ea5e9, base:0x0d0d10, metalness:1.0,  roughness:0.15 }
+  };
+  let currentVariant = 'electric';
+
+  const baseGeo = new THREE.CylinderGeometry(1.28, 1.28, 0.16, 64);
+  const baseMesh = new THREE.Mesh(baseGeo, new THREE.MeshStandardMaterial());
+  modelGroup.add(baseMesh);
+
+  const ringGeo = new THREE.TorusGeometry(1.32, 0.11, 32, 100);
+  const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshStandardMaterial());
+  ringMesh.rotation.x = Math.PI / 2;
+  ringMesh.position.y = 0.09;
+  modelGroup.add(ringMesh);
+
+  const boltShape = new THREE.Shape();
+  boltShape.moveTo(0.12, 1.0);
+  boltShape.lineTo(-0.5, 0.08);
+  boltShape.lineTo(-0.14, 0.08);
+  boltShape.lineTo(-0.36, -1.0);
+  boltShape.lineTo(0.5, -0.02);
+  boltShape.lineTo(0.16, -0.02);
+  boltShape.lineTo(0.12, 1.0);
+  const boltGeo = new THREE.ExtrudeGeometry(boltShape, { depth:0.22, bevelEnabled:true, bevelThickness:0.025, bevelSize:0.025, bevelSegments:2, curveSegments:8 });
+  boltGeo.center();
+  boltGeo.scale(0.85, 0.85, 0.85);
+  const boltMesh = new THREE.Mesh(boltGeo, new THREE.MeshStandardMaterial());
+  boltMesh.rotation.x = -Math.PI / 2 + 0.35;
+  boltMesh.position.y = 0.45;
+  boltMesh.position.z = 0.05;
+  modelGroup.add(boltMesh);
+
+  function applyVariant(){
+    const v = VARIANTS[currentVariant];
+    baseMesh.material.color.set(v.base);
+    baseMesh.material.metalness = 0.6;
+    baseMesh.material.roughness = 0.5;
+    ringMesh.material.color.set(v.ring);
+    ringMesh.material.metalness = v.metalness;
+    ringMesh.material.roughness = v.roughness;
+    boltMesh.material.color.set(v.bolt);
+    boltMesh.material.emissive.set(v.bolt);
+    boltMesh.material.emissiveIntensity = 0.4;
+    boltMesh.material.metalness = 0.3;
+    boltMesh.material.roughness = 0.3;
+  }
+  applyVariant();
+
+  /* ===== ORBITING BRAND NAME RING ===== */
+  const textRing = new THREE.Group();
+  scene.add(textRing);
+
+  function makeTextSprite(text, color, glow){
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 160;
+    const ctx = canvas.getContext('2d');
+    ctx.font = "900 84px Outfit, sans-serif";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 22;
+    ctx.fillStyle = color;
+    ctx.fillText(text, canvas.width/2, canvas.height/2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(1.5, 0.47, 1);
+    return sprite;
+  }
+
+  const ringWords = [
+    { t:'VOLTIX', c:'#ffffff', g:'rgba(14,165,233,0.85)' },
+    { t:'⚡',      c:'#facc15', g:'rgba(250,204,21,0.9)' },
+    { t:'PRO',    c:'#0ea5e9', g:'rgba(14,165,233,0.85)' },
+    { t:'⚡',      c:'#facc15', g:'rgba(250,204,21,0.9)' },
+    { t:'GH',     c:'#facc15', g:'rgba(250,204,21,0.9)' },
+    { t:'⚡',      c:'#0ea5e9', g:'rgba(14,165,233,0.85)' }
+  ];
+  const ringRadius = 2.15;
+  const ringSprites = ringWords.map((w, i) => {
+    const s = makeTextSprite(w.t, w.c, w.g);
+    const angle = (i / ringWords.length) * Math.PI * 2;
+    s.position.set(Math.cos(angle) * ringRadius, 0.25, Math.sin(angle) * ringRadius);
+    s.userData.angle = angle;
+    s.userData.bobSeed = i;
+    textRing.add(s);
+    return s;
+  });
+
+  /* ===== UI WIRING ===== */
+  const swatchWrap = document.getElementById('vSwatches');
+  Object.keys(VARIANTS).forEach(key => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'v-swatch' + (key === currentVariant ? ' active' : '');
+    btn.style.background = '#' + VARIANTS[key].ring.toString(16).padStart(6,'0');
+    btn.setAttribute('aria-label', key + ' finish');
+    btn.onclick = () => {
+      currentVariant = key;
+      applyVariant();
+      swatchWrap.querySelectorAll('.v-swatch').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    swatchWrap.appendChild(btn);
+  });
+
+  const moodWrap = document.getElementById('vMoods');
+  const moodLabels = { studio:'Studio', sunset:'Sunset', neon:'Neon' };
+  Object.keys(MOODS).forEach(key => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'v-mood-btn' + (key === currentMood ? ' active' : '');
+    btn.textContent = moodLabels[key];
+    btn.onclick = () => {
+      currentMood = key;
+      applyLighting();
+      moodWrap.querySelectorAll('.v-mood-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    moodWrap.appendChild(btn);
+  });
+
+  document.getElementById('vBrightness').addEventListener('input', e => {
+    brightnessPct = Number(e.target.value);
+    applyLighting();
+  });
+
+  const autoRotateBtn = document.getElementById('vAutoRotateBtn');
+  autoRotateBtn.onclick = () => {
+    controls.autoRotate = !controls.autoRotate;
+    autoRotateBtn.classList.toggle('active', controls.autoRotate);
+  };
+
+  function dolly(factor){
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const dist = THREE.MathUtils.clamp(dir.length() * factor, controls.minDistance, controls.maxDistance);
+    dir.setLength(dist);
+    camera.position.copy(controls.target).add(dir);
+    controls.update();
+  }
+  document.getElementById('vZoomInBtn').onclick = () => dolly(0.85);
+  document.getElementById('vZoomOutBtn').onclick = () => dolly(1.18);
+  document.getElementById('vResetBtn').onclick = () => {
+    controls.autoRotate = false;
+    autoRotateBtn.classList.remove('active');
+    controls.reset();
+  };
+
+  /* ===== RENDER LOOP ===== */
+  const clock = new THREE.Clock();
+  const modelSpinSpeed = reduceMotion ? 0 : 0.16;
+  const ringSpinSpeed = reduceMotion ? 0 : -0.24;
+
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const t = clock.elapsedTime;
+
+    modelGroup.rotation.y += modelSpinSpeed * dt;
+    textRing.rotation.y += ringSpinSpeed * dt;
+    ringSprites.forEach(s => { s.position.y = 0.25 + Math.sin(t * 0.9 + s.userData.bobSeed) * 0.06; });
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  loadingEl.style.opacity = '0';
+  setTimeout(() => { loadingEl.style.display = 'none'; }, 400);
+  animate();
+
+} catch(err){
+  console.error('3D viewer failed to initialize:', err);
+  showFallback();
+}
+</script>
+</body>
+</html>
