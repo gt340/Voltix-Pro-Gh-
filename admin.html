@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Admin Dashboard — Voltix Pro GH</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body{padding-bottom:1rem;}
+.admin-login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+.admin-login-card{width:100%;max-width:380px;padding:2rem;background:linear-gradient(150deg,rgba(255,255,255,.06),rgba(255,255,255,.015));border:1px solid rgba(255,255,255,.08);border-radius:1.3rem;text-align:center;}
+.admin-login-card .ic{font-size:2.6rem;margin-bottom:1rem;}
+.admin-login-card h2{font-size:1.3rem;font-weight:900;margin-bottom:.4rem;}
+.admin-login-card p{font-size:.82rem;color:var(--text-secondary);margin-bottom:1.5rem;}
+.admin-form-field{text-align:left;margin-bottom:1rem;}
+.admin-form-field label{display:block;font-size:.68rem;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem;}
+.admin-form-field input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;}
+.admin-login-btn{width:100%;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:800;font-size:.88rem;padding:1rem;border-radius:.9rem;border:none;margin-top:.5rem;}
+.admin-forgot-link{display:block;margin-top:1rem;font-size:.76rem;color:var(--text-muted);}
+
+.admin-header{display:flex;justify-content:space-between;align-items:center;padding:1.1rem;position:sticky;top:0;background:rgba(6,10,20,.9);backdrop-filter:blur(20px);z-index:50;border-bottom:1px solid rgba(255,255,255,.08);}
+.admin-logout-btn{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:.75rem;font-weight:700;padding:.5rem 1rem;border-radius:.6rem;}
+
+.admin-tabs{display:flex;gap:.5rem;padding:1rem 1.1rem;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+.admin-tabs::-webkit-scrollbar{display:none;}
+.admin-tab{flex:0 0 auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text-secondary);font-size:.78rem;font-weight:700;padding:.6rem 1.1rem;border-radius:999px;white-space:nowrap;}
+.admin-tab.active{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border-color:transparent;}
+.admin-section{display:none;padding:0 1.1rem 2rem;}
+.admin-section.active{display:block;}
+
+.admin-product-row{display:flex;align-items:center;gap:.9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:.9rem;padding:.85rem;margin-bottom:.7rem;}
+.admin-thumb{width:52px;height:52px;border-radius:.6rem;background:rgba(14,165,233,.15);display:flex;align-items:center;justify-content:center;font-size:1.5rem;overflow:hidden;flex-shrink:0;}
+.admin-thumb img,.admin-thumb video{width:100%;height:100%;object-fit:cover;}
+.admin-row-info{flex:1;min-width:0;}
+.admin-row-name{font-weight:800;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.admin-row-price{font-size:.75rem;color:var(--gold);font-weight:700;}
+.admin-row-stock{font-size:.65rem;font-weight:800;margin-top:.2rem;padding:.15rem .5rem;border-radius:999px;display:inline-block;}
+.stock-in{background:rgba(34,197,94,.15);color:#4ade80;}
+.stock-low{background:rgba(250,204,21,.15);color:var(--gold);}
+.stock-out{background:rgba(239,68,68,.15);color:#f87171;}
+.stock-soon{background:rgba(168,85,247,.15);color:#c084fc;}
+.admin-row-btns{display:flex;gap:.4rem;flex-wrap:wrap;}
+.admin-icon-btn{background:rgba(255,255,255,.08);border:none;color:#fff;width:2.1rem;height:2.1rem;border-radius:.5rem;font-size:.9rem;}
+
+.file-drop{border:2px dashed rgba(14,165,233,.4);border-radius:.9rem;padding:1.5rem;text-align:center;background:rgba(14,165,233,.05);margin-bottom:.6rem;font-size:.82rem;}
+
+.referrer-row{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:.9rem;padding:.9rem 1rem;margin-bottom:.6rem;}
+.referrer-code-tag{font-family:monospace;font-size:.72rem;background:rgba(250,204,21,.15);color:var(--gold);padding:.3rem .6rem;border-radius:.4rem;font-weight:700;}
+
+.admin-sale-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1rem;padding:1rem;margin-bottom:.8rem;}
+.admin-sale-top{display:flex;justify-content:space-between;margin-bottom:.6rem;align-items:center;flex-wrap:wrap;gap:.3rem;}
+.admin-status-pill{font-size:.65rem;font-weight:800;padding:.3rem .7rem;border-radius:999px;text-transform:uppercase;}
+.status-pending{background:rgba(250,204,21,.15);color:var(--gold);}
+.status-verified{background:rgba(59,130,246,.15);color:#60a5fa;}
+.status-paid{background:rgba(34,197,94,.15);color:#4ade80;}
+.admin-sale-detail{font-size:.78rem;color:var(--text-secondary);line-height:1.6;margin-bottom:.6rem;}
+.admin-sale-commission{font-weight:900;color:var(--gold);font-size:1rem;margin-bottom:.7rem;}
+.admin-sale-btns{display:flex;gap:.5rem;flex-wrap:wrap;}
+.admin-mini-btn{flex:1;padding:.55rem;border-radius:.6rem;border:none;font-weight:800;font-size:.72rem;min-width:90px;}
+.btn-verify{background:rgba(59,130,246,.2);color:#60a5fa;}
+.btn-paid{background:rgba(34,197,94,.2);color:#4ade80;}
+.order-status-select{width:100%;margin-top:.6rem;background:#161616;border:1px solid rgba(255,255,255,.15);color:#fff;padding:.6rem .8rem;border-radius:.6rem;font-size:.8rem;font-weight:700;}
+
+.kv-row{display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;margin-bottom:.6rem;}
+.kv-row input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.7rem .8rem;border-radius:.6rem;font-size:.8rem;}
+.feature-row{display:grid;grid-template-columns:1fr auto;gap:.5rem;margin-bottom:.6rem;}
+.feature-row input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.7rem .8rem;border-radius:.6rem;font-size:.8rem;}
+.add-row-btn{width:100%;color:#60a5fa;background:rgba(14,165,233,.12);border:1px solid rgba(14,165,233,.3);padding:.75rem;border-radius:.7rem;font-weight:700;font-size:.8rem;}
+
+.admin-search-bar{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.9rem;font-size:.85rem;margin-bottom:.8rem;}
+.admin-filter-chips{display:flex;gap:.5rem;overflow-x:auto;padding-bottom:.6rem;margin-bottom:.8rem;-ms-overflow-style:none;scrollbar-width:none;}
+.admin-filter-chips::-webkit-scrollbar{display:none;}
+.admin-filter-chip{flex:0 0 auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--text-secondary);font-size:.72rem;font-weight:700;padding:.5rem 1rem;border-radius:999px;white-space:nowrap;}
+.admin-filter-chip.selected{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border-color:transparent;}
+.img-chip-reorder{position:relative;}
+.img-chip-reorder .reorder-btns{position:absolute;bottom:2px;left:2px;display:flex;gap:2px;}
+.img-chip-reorder .reorder-btns button{width:1.3rem;height:1.3rem;font-size:.6rem;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:.3rem;}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.3rem;}
+.stat-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1rem;padding:1rem;text-align:center;}
+.stat-num{font-size:1.4rem;font-weight:900;}
+.stat-lbl{font-size:.65rem;color:var(--text-muted);margin-top:.2rem;}
+
+/* Added CSS for 3D/360 Showcase */
+.showcase-variant-card{border:1px solid rgba(255,255,255,.1);border-radius:.9rem;padding:.9rem;margin-bottom:.8rem;background:rgba(255,255,255,.03);}
+.showcase-upload-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.6rem;}
+.showcase-upload-btn{background:rgba(14,165,233,.1);border:1px dashed rgba(14,165,233,.4);color:#60a5fa;padding:.7rem;border-radius:.6rem;font-size:.72rem;text-align:center;}
+.showcase-media-preview{margin-top:.5rem;width:100%;max-height:120px;border-radius:.5rem;overflow:hidden;background:#000;}
+.showcase-media-preview video,.showcase-media-preview img{width:100%;max-height:120px;object-fit:cover;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN GATE -->
+<div class="admin-login-wrap" id="adminLoginWrap">
+  <div class="admin-login-card">
+    <div class="ic">⚙️</div>
+    <h2>Admin Access</h2>
+    <p>Sign in to manage Voltix Pro GH</p>
+    <form onsubmit="handleAdminLoginSubmit(event)">
+      <div class="admin-form-field"><label>Email</label><input type="email" id="adminEmailInput" placeholder="you@example.com" required></div>
+      <div class="admin-form-field"><label>Password</label><input type="password" id="adminPasswordInput" placeholder="Enter password" required></div>
+      <button type="submit" class="admin-login-btn ripple" id="adminLoginBtn">Sign In</button>
+    </form>
+    <button class="admin-forgot-link" onclick="handleForgotPassword()">🔑 Forgot Password?</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="adminDashboard" style="display:none;">
+  <div class="admin-header">
+    <div style="font-weight:900;font-size:1rem;">⚙️ Admin Dashboard</div>
+    <button class="admin-logout-btn" onclick="handleAdminLogoutClick()">🚪 Logout</button>
+  </div>
+
+  <div class="admin-tabs" id="adminTabs">
+    <button class="admin-tab active" data-tab="dashboard">📊 Dashboard</button>
+    <button class="admin-tab" data-tab="analytics">📈 Analytics</button>
+    <button class="admin-tab" data-tab="products">📦 Products</button>
+    <button class="admin-tab" data-tab="add">➕ Add/Edit</button>
+    <button class="admin-tab" data-tab="categories">🏷️ Categories</button>
+    <button class="admin-tab" data-tab="orders">📋 Orders</button>
+    <button class="admin-tab" data-tab="reviews">⭐ Reviews</button>
+    <button class="admin-tab" data-tab="music">🎵 Music</button>
+    <button class="admin-tab" data-tab="hero">🎬 Hero</button>
+    <button class="admin-tab" data-tab="promo">📢 Promo</button>
+    <button class="admin-tab" data-tab="referrers">🎁 Referrers</button>
+    <button class="admin-tab" data-tab="sales">🧾 Referral Sales</button>
+    <button class="admin-tab" data-tab="spinwinners">🎡 Spin Winners</button>
+    <button class="admin-tab" data-tab="spinreferrals">🤝 Spin Referrals</button>
+  </div>
+
+  <!-- SALES DASHBOARD -->
+  <div class="admin-section active" id="adminsec-dashboard">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num" style="color:var(--gold);" id="statTotalProducts">0</div><div class="stat-lbl">Total Products</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--gold);" id="statTotalOrders">0</div><div class="stat-lbl">Total Orders</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:#4ade80;" id="statTotalSales">Ghc0</div><div class="stat-lbl">Total Sales</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--gold);" id="statPendingOrders">0</div><div class="stat-lbl">Pending Orders</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:#4ade80;" id="statCompletedOrders">0</div><div class="stat-lbl">Completed Orders</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:#f87171;" id="statOutOfStock">0</div><div class="stat-lbl">Out of Stock</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:#f59e0b;" id="statLowStock">0</div><div class="stat-lbl">Low Stock</div></div>
+    </div>
+
+    <div class="admin-sale-card">
+      <div class="admin-sale-top"><b style="font-size:.85rem;">💰 Revenue</b></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;font-size:.8rem;">
+        <div>Today: <b id="revToday" style="color:var(--gold);">Ghc0</b></div>
+        <div>This Week: <b id="revWeek" style="color:var(--gold);">Ghc0</b></div>
+        <div>This Month: <b id="revMonth" style="color:var(--gold);">Ghc0</b></div>
+        <div>This Year: <b id="revYear" style="color:var(--gold);">Ghc0</b></div>
+      </div>
+    </div>
+
+    <div class="admin-sale-card">
+      <div class="admin-sale-top"><b style="font-size:.85rem;">🏆 Best-Selling Products</b></div>
+      <div id="bestSellersList" style="font-size:.8rem;color:var(--text-secondary);"></div>
+    </div>
+  </div>
+
+  <!-- PROFITABILITY ANALYTICS -->
+  <div class="admin-section" id="adminsec-analytics">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem;">
+      <select id="anaDateFilter" class="order-status-select" style="margin:0;">
+        <option value="all">All Time</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+        <option value="year">This Year</option>
+      </select>
+      <select id="anaCategoryFilter" class="order-status-select" style="margin:0;"><option value="all">All Categories</option></select>
+    </div>
+    <select id="anaSortBy" class="order-status-select" style="margin-bottom:1.2rem;">
+      <option value="sales">Sort: Highest Sales</option>
+      <option value="profit">Sort: Highest Gross Profit</option>
+      <option value="margin">Sort: Highest Margin</option>
+      <option value="units">Sort: Most Units Sold</option>
+      <option value="stock">Sort: Lowest Stock</option>
+      <option value="repeat">Sort: Most Repeat Purchases</option>
+    </select>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num" style="font-size:1.15rem;color:var(--gold);" id="anaTotalSales">Ghc0</div><div class="stat-lbl">Total Sales</div></div>
+      <div class="stat-card"><div class="stat-num" style="font-size:1.15rem;color:#f87171;" id="anaTotalCost">Ghc0</div><div class="stat-lbl">Total Cost</div></div>
+      <div class="stat-card"><div class="stat-num" style="font-size:1.15rem;color:#4ade80;" id="anaGrossProfit">Ghc0</div><div class="stat-lbl">Gross Profit</div></div>
+      <div class="stat-card"><div class="stat-num" style="font-size:1.15rem;color:var(--gold);" id="anaAvgMargin">0%</div><div class="stat-lbl">Avg Margin</div></div>
+      <div class="stat-card"><div class="stat-num" style="font-size:1.15rem;color:#fff;" id="anaUnitsSold">0</div><div class="stat-lbl">Units Sold</div></div>
+      <div class="stat-card"><div class="stat-num" style="font-size:1.15rem;color:#60a5fa;" id="anaRepeatRate">0%</div><div class="stat-lbl">Repeat Purchase Rate</div></div>
+    </div>
+
+    <div id="anaProductList"></div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="admin-section" id="adminsec-products">
+    <input type="text" class="admin-search-bar" id="adminProductSearch" placeholder="🔍 Search by name or SKU..." oninput="renderAdminProductList()">
+    <div class="admin-filter-chips" id="adminStockFilterChips">
+      <button class="admin-filter-chip selected" data-filter="all">All</button>
+      <button class="admin-filter-chip" data-filter="in">In Stock</button>
+      <button class="admin-filter-chip" data-filter="low">Low Stock</button>
+      <button class="admin-filter-chip" data-filter="out">Out of Stock</button>
+      <button class="admin-filter-chip" data-filter="inactive">Inactive</button>
+    </div>
+    <div class="admin-filter-chips" id="adminCategoryFilterChips"></div>
+    <div id="adminProductList"></div>
+  </div>
+
+  <!-- ADD/EDIT -->
+  <div class="admin-section" id="adminsec-add">
+    <form onsubmit="saveProductForm(event)">
+      <input type="hidden" id="editingProductId" value="">
+      <div class="admin-form-field">
+        <label>Product Photos or Videos (choose multiple from your gallery)</label>
+        <div class="file-drop" onclick="document.getElementById('productImageInput').click()">📁 Tap to choose photos or videos</div>
+        <input type="file" id="productImageInput" accept="image/*,video/*" multiple style="display:none;" onchange="handleProductImages(event)">
+        <div class="img-chip-grid" id="productImageChips"></div>
+        <div class="admin-note">Use ▲▼ on each photo to reorder — the first one is the main product image.</div>
+      </div>
+      <div class="admin-form-field"><label>Name</label><input type="text" id="formName" required oninput="autoFillSlug()"></div>
+      <div class="admin-form-field"><label>Selling Price (Ghc)</label><input type="number" id="formPrice" required></div>
+      <div class="admin-form-field"><label>Old Price (Ghc)</label><input type="number" id="formOldPrice"></div>
+      <div class="admin-form-field"><label>Badge</label>
+        <select id="formBadge" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;">
+          <option value="badge-hot|Hot Deal">🔴 Hot Deal</option>
+          <option value="badge-new|New">🔵 New</option>
+          <option value="badge-best|Best Seller">🟡 Best Seller</option>
+          <option value="badge-value|Best Value">🟢 Best Value</option>
+          <option value="badge-hot|Premium">🔷 Premium</option>
+          <option value="badge-new|Gift Set">🟠 Gift Set</option>
+        </select>
+      </div>
+      <div class="admin-form-field"><label>Category</label>
+        <select id="formCategory" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;"></select>
+      </div>
+
+      <div class="admin-form-field"><label>Product Status</label>
+        <select id="formStatus" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;">
+          <option value="active">✅ Active</option>
+          <option value="inactive">🚫 Inactive (hidden from shop)</option>
+          <option value="coming-soon">🔜 Coming Soon</option>
+        </select>
+        <div class="admin-note">Out of Stock is set automatically once stock reaches 0 — no need to pick it manually.</div>
+      </div>
+
+      <div class="admin-form-field"><label>Current Stock Quantity (leave blank if this product uses colour-variant stock instead)</label><input type="number" id="formStock" placeholder="e.g. 25"></div>
+      <div class="admin-form-field"><label>Low-Stock Threshold</label><input type="number" id="formLowStockThreshold" placeholder="Default: 5" value="5"></div>
+      <div class="admin-form-field"><label>SKU (optional)</label><input type="text" id="formSku" placeholder="e.g. VOLTIX-RC-BLK"></div>
+      <div class="admin-form-field"><label>Cost Price / Unit Cost (Ghc, optional — required for profit &amp; margin analytics, never shown to customers)</label><input type="number" id="formCostPrice" placeholder="e.g. 22"></div>
+
+      <div class="admin-form-field">
+        <label>Specifications</label>
+        <div id="specsList"></div>
+        <button type="button" class="add-row-btn" onclick="addSpecRow()">➕ Add Specification</button>
+      </div>
+
+      <div class="admin-form-field">
+        <label>Features</label>
+        <div id="featuresList"></div>
+        <button type="button" class="add-row-btn" onclick="addFeatureRow()">➕ Add Feature</button>
+      </div>
+
+      <div class="admin-form-field"><label>Short Description (legacy specs line, still shown on cards)</label><input type="text" id="formSpecs" placeholder="Noise Cancelling • Bluetooth 5.3 • 48h Battery"></div>
+
+      <div class="admin-form-field"><label>URL Slug (auto-filled, editable)</label><input type="text" id="formSlug" placeholder="e.g. ultrapods-max"></div>
+      <div class="admin-form-field"><label>SEO Title (optional)</label><input type="text" id="formSeoTitle" placeholder="Leave blank to use product name"></div>
+      <div class="admin-form-field"><label>SEO Description (optional)</label><input type="text" id="formSeoDescription" placeholder="One-sentence summary for search engines"></div>
+
+      <div class="admin-form-field">
+        <label>🎨 Colour Variants (optional — powers the carousel on the product page)</label>
+        <div id="variantList"></div>
+        <button type="button" class="admin-logout-btn" style="width:100%;color:#60a5fa;background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.3);" onclick="addVariantRow()">➕ Add Colour Variant</button>
+        <div class="admin-note">Each colour needs its own real photo(s) — no filters or tinting. Leave empty if this product only comes in one colour.</div>
+      </div>
+
+      <!-- Added collapsible section for 3D/360 Video Showcase right after Colour Variants block -->
+      <div class="admin-form-field">
+        <label>🎬 3D / 360° Video Showcase (optional — powers the full-screen product carousel on the storefront)</label>
+        <div id="showcaseVariantList"></div>
+        <button type="button" class="admin-logout-btn" style="width:100%;color:#60a5fa;background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.3);" onclick="addShowcaseVariantRow()">➕ Add Showcase Colour</button>
+        <div class="admin-note">Each colour needs a real 360° video of the actual product (MP4/WebM) and a poster image shown before the video loads. Leave empty if this product isn't part of the 3D showcase yet.</div>
+      </div>
+
+      <button type="submit" class="admin-login-btn ripple" id="saveProductBtn">💾 Save Product</button>
+      <button type="button" class="admin-logout-btn" style="width:100%;margin-top:.7rem;color:#fff;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);" onclick="resetProductForm()">Clear Form</button>
+    </form>
+  </div>
+
+  <!-- CATEGORIES -->
+  <div class="admin-section" id="adminsec-categories">
+    <div id="categoryFormBox" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1rem;padding:1rem;margin-bottom:1.2rem;">
+      <input type="hidden" id="editingCategoryId" value="">
+      <div class="admin-form-field"><label>Category Name</label><input type="text" id="catName" placeholder="e.g. Accessories"></div>
+      <div class="admin-form-field"><label>Slug (used internally — auto-filled, editable)</label><input type="text" id="catSlug" placeholder="e.g. accessories"></div>
+      <div class="admin-form-field"><label>Display Order</label><input type="number" id="catOrder" placeholder="e.g. 5" value="5"></div>
+      <div class="admin-form-field">
+        <label>Active?</label>
+        <select id="catActive" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;">
+          <option value="true">✅ Active</option>
+          <option value="false">🚫 Inactive (hidden from shop)</option>
+        </select>
+      </div>
+      <button type="button" class="admin-login-btn ripple" id="saveCategoryBtn" onclick="saveCategoryForm()" style="width:100%;">💾 Save Category</button>
+      <button type="button" class="admin-logout-btn" style="width:100%;margin-top:.6rem;color:#fff;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);" onclick="resetCategoryForm()">Clear Form</button>
+    </div>
+    <div id="categoryList"></div>
+  </div>
+
+  <!-- ORDERS -->
+  <div class="admin-section" id="adminsec-orders">
+    <div id="adminOrdersList"></div>
+  </div>
+
+  <!-- REVIEWS -->
+  <div class="admin-section" id="adminsec-reviews">
+    <div id="adminReviewsList"></div>
+  </div>
+
+  <!-- MUSIC -->
+  <div class="admin-section" id="adminsec-music">
+    <div class="admin-form-field">
+      <label>Store Music (choose multiple MP3s from your file manager)</label>
+      <div class="file-drop" onclick="document.getElementById('musicFileInput').click()">📁 Tap to choose audio files</div>
+      <input type="file" id="musicFileInput" accept="audio/*" multiple style="display:none;" onchange="handleMusicFiles(event)">
+      <div class="upload-progress" id="musicUploadProgress">⏳ Uploading...</div>
+    </div>
+    <div id="musicTrackList"></div>
+  </div>
+
+  <!-- HERO MEDIA -->
+  <div class="admin-section" id="adminsec-hero">
+    <div class="admin-form-field">
+      <label>Splash Hero (one image OR one video)</label>
+      <div class="file-drop" onclick="document.getElementById('heroMediaInput').click()">📁 Tap to choose a photo or video</div>
+      <input type="file" id="heroMediaInput" accept="image/*,video/*" style="display:none;" onchange="handleHeroMediaUpload(event)">
+      <div class="upload-progress" id="heroUploadProgress">⏳ Uploading...</div>
+      <div id="heroMediaPreviewWrap" style="margin-top:1rem;display:none;">
+        <div id="heroMediaPreview" style="width:100%;max-height:220px;border-radius:.8rem;overflow:hidden;background:rgba(255,255,255,.04);"></div>
+        <button type="button" class="admin-logout-btn" style="width:100%;margin-top:.7rem;" onclick="removeHeroMedia()">🗑️ Remove Hero Media</button>
+      </div>
+      <div class="admin-note">Shown on index.html's landing/splash screen — upload either a photo or a short looping video, the site detects which automatically.</div>
+    </div>
+
+    <!-- Added separate "Founder Photo/Video" upload section right after Splash Hero section -->
+    <div class="admin-form-field" style="margin-top:1.5rem;">
+      <label>Founder Photo/Video (shown on home.html's founder card — one image OR one video)</label>
+      <div class="file-drop" onclick="document.getElementById('founderMediaInput').click()">📁 Tap to choose a photo or video</div>
+      <input type="file" id="founderMediaInput" accept="image/*,video/*" style="display:none;" onchange="handleFounderMediaUpload(event)">
+      <div class="upload-progress" id="founderUploadProgress">⏳ Uploading...</div>
+      <div id="founderMediaPreviewWrap" style="margin-top:1rem;display:none;">
+        <div id="founderMediaPreview" style="width:100%;max-height:220px;border-radius:.8rem;overflow:hidden;background:rgba(255,255,255,.04);"></div>
+        <button type="button" class="admin-logout-btn" style="width:100%;margin-top:.7rem;" onclick="removeFounderMedia()">🗑️ Remove Founder Media</button>
+      </div>
+      <div class="admin-note">This is separate from the Splash Hero above — uploading here will not affect index.html's landing screen.</div>
+    </div>
+  </div>
+
+  <!-- PROMO BANNER -->
+  <div class="admin-section" id="adminsec-promo">
+    <div class="admin-form-field">
+      <label>Show Banner?</label>
+      <select id="promoEnabled" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;">
+        <option value="true">✅ Show on homepage</option>
+        <option value="false">🚫 Hidden</option>
+      </select>
+    </div>
+    <div class="admin-form-field">
+      <label>Theme</label>
+      <select id="promoTheme" onchange="updatePromoPreview()" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;border-radius:.75rem;font-size:.85rem;">
+        <option value="christmas">🎄 Christmas</option>
+        <option value="newyear">🎆 New Year</option>
+        <option value="blackfriday">🖤 Black Friday</option>
+        <option value="valentine">💝 Valentine's</option>
+        <option value="independence">🇬🇭 Independence Day</option>
+        <option value="general">⚡ General Sale</option>
+      </select>
+    </div>
+    <div class="admin-form-field"><label>Badge Text (small tag)</label><input type="text" id="promoBadge" oninput="updatePromoPreview()" placeholder="LIMITED TIME"></div>
+    <div class="admin-form-field"><label>Title</label><input type="text" id="promoTitle" oninput="updatePromoPreview()" placeholder="Christmas Mega Sale"></div>
+    <div class="admin-form-field"><label>Subtitle</label><input type="text" id="promoSubtitle" oninput="updatePromoPreview()" placeholder="Up to 30% off — this week only!"></div>
+    <div class="admin-form-field"><label>Button Text</label><input type="text" id="promoCtaText" oninput="updatePromoPreview()" placeholder="Shop Now" value="Shop Now"></div>
+    <div class="admin-form-field"><label>Button Link</label><input type="text" id="promoCtaLink" placeholder="shop.html" value="shop.html"></div>
+    <div class="admin-form-field">
+      <label>Promo Symbol/Image (optional)</label>
+      <div class="file-drop" onclick="document.getElementById('promoImageInput').click()">📁 Tap to choose an image</div>
+      <input type="file" id="promoImageInput" accept="image/*" style="display:none;" onchange="handlePromoImage(event)">
+      <div class="upload-progress" id="promoUploadProgress">⏳ Uploading... 0%</div>
+    </div>
+    <div class="admin-note" style="margin-bottom:.8rem;">Live preview:</div>
+    <div id="promoPreviewBox" style="border-radius:1.1rem;overflow:hidden;margin-bottom:1.2rem;"></div>
+    <button type="button" class="admin-login-btn ripple" style="width:100%;" onclick="savePromoBanner()">💾 Save Promo Banner</button>
+  </div>
+
+  <!-- REFERRERS -->
+  <div class="admin-section" id="adminsec-referrers">
+    <div id="adminReferrerList"></div>
+  </div>
+
+  <!-- REFERRAL SALES -->
+  <div class="admin-section" id="adminsec-sales">
+    <div id="adminSalesList"></div>
+  </div>
+
+  <!-- SPIN WINNERS -->
+  <div class="admin-section" id="adminsec-spinwinners">
+    <div id="spinWinnersList"></div>
+  </div>
+
+  <!-- SPIN REFERRALS -->
+  <div class="admin-section" id="adminsec-spinreferrals">
+    <div id="spinReferralsList"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let currentImages = [];
+let newImageFiles = [];
+let currentVariants = [];
+let variantPendingFiles = {};
+let currentSpecs = [];
+let currentFeatures = [];
+let allCategories = [];
+let adminStockFilter = 'all';
+let adminCategoryFilter = 'all';
+let latestReviewsList = [];
+let allOrdersGlobal = [];
+
+/* ===== 3D/360 SHOWCASE VARIANTS (Phase 1) ===== */
+let currentShowcaseVariants = [];       // [{id, name, colorHex, video, poster, gallery:[]}]
+let showcasePendingFiles = {};          // { [variantId]: { video: File|null, poster: File|null, gallery: File[] } }
+
+function renderShowcaseVariantList(){
+  const box = document.getElementById('showcaseVariantList');
+  if(!box) return;
+  if(!currentShowcaseVariants.length){
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:.78rem;padding:.5rem 0;">No showcase colours added yet.</p>';
+    return;
+  }
+  box.innerHTML = currentShowcaseVariants.map(v => {
+    const pending = showcasePendingFiles[v.id] || { video:null, poster:null, gallery:[] };
+    const fieldStyle = "background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem .8rem;border-radius:.6rem;font-size:.82rem;";
+
+    const videoPreview = pending.video
+      ? `<div class="showcase-media-preview"><video src="${URL.createObjectURL(pending.video)}" muted loop playsinline autoplay></video></div>`
+      : (v.video ? `<div class="showcase-media-preview"><video src="${v.video}" muted loop playsinline autoplay></video></div>` : '');
+
+    const posterPreview = pending.poster
+      ? `<div class="showcase-media-preview"><img src="${URL.createObjectURL(pending.poster)}"></div>`
+      : (v.poster ? `<div class="showcase-media-preview"><img src="${v.poster}"></div>` : '');
+
+    const galleryChips = [...(v.gallery||[]), ...pending.gallery].map((item,i) => {
+      const isFile = item instanceof File;
+      const src = isFile ? URL.createObjectURL(item) : item;
+      return `<div class="img-chip">${mediaTagHTML(src)}<button type="button" class="img-chip-del" onclick="removeShowcaseGalleryItem('${v.id}', ${i})">✕</button></div>`;
+    }).join('');
+
+    return `
+    <div class="showcase-variant-card">
+      <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.6rem;">
+        <input type="color" value="${v.colorHex||'#111111'}" onchange="updateShowcaseVariantField('${v.id}','colorHex',this.value)" style="width:2.4rem;height:2.4rem;border:none;border-radius:.5rem;background:none;padding:0;flex-shrink:0;">
+        <input type="text" placeholder="Colour name (e.g. White)" value="${v.name||''}" oninput="updateShowcaseVariantField('${v.id}','name',this.value)" style="flex:1;${fieldStyle}">
+        <button type="button" class="admin-icon-btn" onclick="removeShowcaseVariantRow('${v.id}')">🗑️</button>
+      </div>
+
+      <div class="showcase-upload-row">
+        <div>
+          <div class="showcase-upload-btn" onclick="document.getElementById('showcaseVideoInput-${v.id}').click()">🎬 ${v.video||pending.video?'Replace 360° Video':'Upload 360° Video'}</div>
+          <input type="file" id="showcaseVideoInput-${v.id}" accept="video/mp4,video/webm" style="display:none;" onchange="handleShowcaseVideoPick('${v.id}', event)">
+          ${videoPreview}
+        </div>
+        <div>
+          <div class="showcase-upload-btn" onclick="document.getElementById('showcasePosterInput-${v.id}').click()">🖼️ ${v.poster||pending.poster?'Replace Poster':'Upload Poster'}</div>
+          <input type="file" id="showcasePosterInput-${v.id}" accept="image/*" style="display:none;" onchange="handleShowcasePosterPick('${v.id}', event)">
+          ${posterPreview}
+        </div>
+      </div>
+
+      <div class="showcase-upload-btn" style="margin-top:.6rem;" onclick="document.getElementById('showcaseGalleryInput-${v.id}').click()">📁 Add Gallery Photos</div>
+      <input type="file" id="showcaseGalleryInput-${v.id}" accept="image/*" multiple style="display:none;" onchange="handleShowcaseGalleryPick('${v.id}', event)">
+      <div class="img-chip-grid">${galleryChips}</div>
+    </div>`;
+  }).join('');
+}
+
+function addShowcaseVariantRow(){
+  const id = 'sv_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  currentShowcaseVariants.push({ id, name:'', colorHex:'#111111', video:null, poster:null, gallery:[] });
+  showcasePendingFiles[id] = { video:null, poster:null, gallery:[] };
+  renderShowcaseVariantList();
+}
+function removeShowcaseVariantRow(id){
+  currentShowcaseVariants = currentShowcaseVariants.filter(v=>v.id!==id);
+  delete showcasePendingFiles[id];
+  renderShowcaseVariantList();
+}
+function updateShowcaseVariantField(id, field, value){
+  const v = currentShowcaseVariants.find(x=>x.id===id);
+  if(v) v[field] = value;
+}
+function handleShowcaseVideoPick(id, e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!warnIfLarge(file, 40)){ e.target.value = ''; return; }
+  if(!showcasePendingFiles[id]) showcasePendingFiles[id] = { video:null, poster:null, gallery:[] };
+  showcasePendingFiles[id].video = file;
+  renderShowcaseVariantList();
+}
+function handleShowcasePosterPick(id, e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!showcasePendingFiles[id]) showcasePendingFiles[id] = { video:null, poster:null, gallery:[] };
+  showcasePendingFiles[id].poster = file;
+  renderShowcaseVariantList();
+}
+function handleShowcaseGalleryPick(id, e){
+  const files = Array.from(e.target.files || []);
+  if(!showcasePendingFiles[id]) showcasePendingFiles[id] = { video:null, poster:null, gallery:[] };
+  showcasePendingFiles[id].gallery = showcasePendingFiles[id].gallery.concat(files);
+  renderShowcaseVariantList();
+}
+function removeShowcaseGalleryItem(id, index){
+  const v = currentShowcaseVariants.find(x=>x.id===id);
+  const savedCount = (v?.gallery||[]).length;
+  if(index < savedCount){
+    v.gallery.splice(index,1);
+  } else {
+    showcasePendingFiles[id].gallery.splice(index - savedCount, 1);
+  }
+  renderShowcaseVariantList();
+}
+
+function handleAdminLoginSubmit(e){
+  e.preventDefault();
+  const email = document.getElementById('adminEmailInput').value;
+  const password = document.getElementById('adminPasswordInput').value;
+  const btn = document.getElementById('adminLoginBtn');
+  btn.textContent = 'Signing in...';
+  btn.disabled = true;
+  VDB.adminLogin(email, password).then(()=>{
+    showToast('Welcome back!');
+  }).catch(err=>{
+    alert('Login failed: ' + err.message);
+    btn.textContent = 'Sign In';
+    btn.disabled = false;
+  });
+}
+function handleForgotPassword(){
+  const email = document.getElementById('adminEmailInput').value;
+  if(!email){ alert('Type your email first, then tap Forgot Password again.'); return; }
+  VDB.adminResetPassword(email).then(()=>{
+    alert('✅ Reset email sent to ' + email);
+  }).catch(err=> alert('Failed: ' + err.message));
+}
+function handleAdminLogoutClick(){
+  VDB.adminLogout().then(()=>{ window.location.href = 'home.html'; });
+}
+
+document.getElementById('adminTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('.admin-tab');
+  if(!btn) return;
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('adminsec-'+btn.dataset.tab).classList.add('active');
+});
+
+/* ===== STOCK STATUS HELPER ===== */
+function getStockStatus(p){
+  if(p.status === 'inactive') return { label:'Inactive', cls:'stock-out', key:'inactive' };
+  if(p.status === 'coming-soon') return { label:'Coming Soon', cls:'stock-soon', key:'soon' };
+  const stock = p.stock;
+  if(stock === null || stock === undefined) return null;
+  const threshold = p.lowStockThreshold ?? 5;
+  if(stock <= 0) return { label:'Out of Stock', cls:'stock-out', key:'out' };
+  if(stock <= threshold) return { label:`Low Stock (${stock})`, cls:'stock-low', key:'low' };
+  return { label:`In Stock (${stock})`, cls:'stock-in', key:'in' };
+}
+
+/* ===== ORDER STATUS HELPERS ===== */
+function isOrderCompleted(o){ return (o.status||'').toLowerCase()==='delivered'; }
+function isOrderCancelled(o){ return (o.status||'').toLowerCase()==='cancelled'; }
+function isOrderPending(o){ return !isOrderCompleted(o) && !isOrderCancelled(o); }
+
+/* ===== SALES DASHBOARD ===== */
+function renderSalesDashboard(){
+  const dashSection = document.getElementById('adminsec-dashboard');
+  if(!dashSection) return;
+
+  const orders = allOrdersGlobal;
+  const validOrders = orders.filter(o=>!isOrderCancelled(o));
+
+  document.getElementById('statTotalProducts').textContent = allProducts.length;
+  document.getElementById('statTotalOrders').textContent = orders.length;
+  const totalSales = validOrders.reduce((s,o)=>s+(o.total||0),0);
+  document.getElementById('statTotalSales').textContent = `Ghc${totalSales}`;
+  document.getElementById('statPendingOrders').textContent = orders.filter(isOrderPending).length;
+  document.getElementById('statCompletedOrders').textContent = orders.filter(isOrderCompleted).length;
+
+  let outOfStockCount = 0, lowStockCount = 0;
+  allProducts.forEach(p=>{
+    const s = getStockStatus(p);
+    if(s?.key==='out') outOfStockCount++;
+    if(s?.key==='low') lowStockCount++;
+  });
+  document.getElementById('statOutOfStock').textContent = outOfStockCount;
+  document.getElementById('statLowStock').textContent = lowStockCount;
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+  function revenueSince(cutoff){
+    return validOrders.filter(o => new Date(o.createdAt) >= cutoff).reduce((s,o)=>s+(o.total||0),0);
+  }
+  document.getElementById('revToday').textContent = `Ghc${revenueSince(startOfToday)}`;
+  document.getElementById('revWeek').textContent = `Ghc${revenueSince(startOfWeek)}`;
+  document.getElementById('revMonth').textContent = `Ghc${revenueSince(startOfMonth)}`;
+  document.getElementById('revYear').textContent = `Ghc${revenueSince(startOfYear)}`;
+
+  const productStats = {};
+  validOrders.forEach(o=>{
+    (o.items||[]).forEach(item=>{
+      const pid = String(item.id);
+      if(!productStats[pid]) productStats[pid] = { unitsSold:0, revenue:0 };
+      productStats[pid].unitsSold += item.qty;
+      productStats[pid].revenue += item.price * item.qty;
+    });
+  });
+
+  const bestSellers = Object.entries(productStats)
+    .sort((a,b)=>b[1].unitsSold - a[1].unitsSold)
+    .slice(0,5)
+    .map(([pid,stats])=>{
+      const p = allProducts.find(x=>String(x.id)===pid);
+      return { name: p?.name || 'Unknown product', ...stats };
+    });
+  const bestSellersBox = document.getElementById('bestSellersList');
+  bestSellersBox.innerHTML = bestSellers.length
+    ? bestSellers.map((b,i)=>`<div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.06);">${i+1}. ${b.name}<b style="color:var(--gold);">${b.unitsSold} sold</b></div>`).join('')
+    : '<p style="color:var(--text-muted);">No sales yet.</p>';
+}
+
+/* ===== PROFITABILITY ANALYTICS ===== */
+document.getElementById('anaDateFilter').addEventListener('change', renderProfitabilityAnalytics);
+document.getElementById('anaCategoryFilter').addEventListener('change', renderProfitabilityAnalytics);
+document.getElementById('anaSortBy').addEventListener('change', renderProfitabilityAnalytics);
+
+function getDateCutoff(filter){
+  const now = new Date();
+  if(filter==='today') return new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  if(filter==='week'){ const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()); d.setDate(d.getDate()-d.getDay()); return d; }
+  if(filter==='month') return new Date(now.getFullYear(),now.getMonth(),1);
+  if(filter==='year') return new Date(now.getFullYear(),0,1);
+  return null;
+}
+
+function renderProfitabilityAnalytics(){
+  const section = document.getElementById('adminsec-analytics');
+  if(!section) return;
+
+  const catSelect = document.getElementById('anaCategoryFilter');
+  if(catSelect.options.length <= 1 && allCategories.length){
+    catSelect.innerHTML = '<option value="all">All Categories</option>' +
+      allCategories.map(c=>`<option value="${c.slug}">${c.name}</option>`).join('');
+  }
+
+  const dateFilter = document.getElementById('anaDateFilter').value;
+  const categoryFilter = document.getElementById('anaCategoryFilter').value;
+  const sortBy = document.getElementById('anaSortBy').value;
+  const cutoff = getDateCutoff(dateFilter);
+
+  let validOrders = allOrdersGlobal.filter(o => (o.status||'').toLowerCase() !== 'cancelled');
+  if(cutoff) validOrders = validOrders.filter(o => new Date(o.createdAt) >= cutoff);
+
+  const productStats = {};
+  const productCustomerOrders = {};
+
+  validOrders.forEach(o=>{
+    const phone = o.customer?.phone || 'unknown';
+    (o.items||[]).forEach(item=>{
+      const pid = String(item.id);
+      if(!productStats[pid]) productStats[pid] = { unitsSold:0, sales:0 };
+      productStats[pid].unitsSold += item.qty;
+      productStats[pid].sales += item.price * item.qty;
+
+      if(!productCustomerOrders[pid]) productCustomerOrders[pid] = {};
+      productCustomerOrders[pid][phone] = (productCustomerOrders[pid][phone]||0) + 1;
+    });
+  });
+
+  let rows = allProducts
+    .filter(p => categoryFilter==='all' || p.category===categoryFilter)
+    .map(p=>{
+      const stats = productStats[String(p.id)] || { unitsSold:0, sales:0 };
+      const hasCost = p.costPrice !== null && p.costPrice !== undefined;
+      const cost = hasCost ? p.costPrice * stats.unitsSold : null;
+      const grossProfit = hasCost ? stats.sales - cost : null;
+      const margin = (hasCost && stats.sales > 0) ? (grossProfit / stats.sales) * 100 : null;
+      const custOrders = productCustomerOrders[String(p.id)] || {};
+      const repeatCustomers = Object.values(custOrders).filter(count => count >= 2).length;
+      const stockDisplay = (p.stock===null||p.stock===undefined) ? '—' : p.stock;
+      const categoryName = allCategories.find(c=>c.slug===p.category)?.name || p.category || '—';
+
+      return {
+        id: p.id, name: p.name, category: categoryName,
+        sales: stats.sales, cost, grossProfit, margin,
+        unitsSold: stats.unitsSold, stock: p.stock, stockDisplay, repeatCustomers, hasCost
+      };
+    });
+
+  if(sortBy==='sales') rows.sort((a,b)=>b.sales-a.sales);
+  else if(sortBy==='profit') rows.sort((a,b)=>(b.grossProfit??-Infinity)-(a.grossProfit??-Infinity));
+  else if(sortBy==='margin') rows.sort((a,b)=>(b.margin??-Infinity)-(a.margin??-Infinity));
+  else if(sortBy==='units') rows.sort((a,b)=>b.unitsSold-a.unitsSold);
+  else if(sortBy==='stock') rows.sort((a,b)=>(a.stock??Infinity)-(b.stock??Infinity));
+  else if(sortBy==='repeat') rows.sort((a,b)=>b.repeatCustomers-a.repeatCustomers);
+
+  const totalSales = rows.reduce((s,r)=>s+r.sales,0);
+  const rowsWithCost = rows.filter(r=>r.hasCost);
+  const totalCost = rowsWithCost.reduce((s,r)=>s+r.cost,0);
+  const totalGrossProfit = rowsWithCost.reduce((s,r)=>s+r.grossProfit,0);
+  const avgMargin = rowsWithCost.length ? (rowsWithCost.reduce((s,r)=>s+r.margin,0)/rowsWithCost.length) : 0;
+  const totalUnitsSold = rows.reduce((s,r)=>s+r.unitsSold,0);
+  const allCustomersAcrossProducts = {};
+  Object.values(productCustomerOrders).forEach(custMap=>{
+    Object.entries(custMap).forEach(([phone,count])=>{
+      allCustomersAcrossProducts[phone] = (allCustomersAcrossProducts[phone]||0) + count;
+    });
+  });
+  const totalCustomers = Object.keys(allCustomersAcrossProducts).length;
+  const repeatCustomersTotal = Object.values(allCustomersAcrossProducts).filter(c=>c>=2).length;
+  const repeatRate = totalCustomers ? (repeatCustomersTotal/totalCustomers*100) : 0;
+
+  document.getElementById('anaTotalSales').textContent = `Ghc${totalSales.toFixed(2)}`;
+  document.getElementById('anaTotalCost').textContent = `Ghc${totalCost.toFixed(2)}`;
+  document.getElementById('anaGrossProfit').textContent = `Ghc${totalGrossProfit.toFixed(2)}`;
+  document.getElementById('anaAvgMargin').textContent = `${avgMargin.toFixed(1)}%`;
+  document.getElementById('anaUnitsSold').textContent = totalUnitsSold;
+  document.getElementById('anaRepeatRate').textContent = `${repeatRate.toFixed(1)}%`;
+
+  const listBox = document.getElementById('anaProductList');
+  listBox.innerHTML = rows.map(r=>`
+    <div class="admin-sale-card">
+      <div class="admin-sale-top"><b style="font-size:.85rem;">${r.name}</b><span style="font-size:.68rem;color:var(--text-muted);">${r.category}</span></div>
+      <div class="admin-sale-detail">
+        Sales: <b style="color:var(--gold);">Ghc${r.sales.toFixed(2)}</b> · Units Sold: <b style="color:#fff;">${r.unitsSold}</b><br>
+        ${r.hasCost
+          ? `Cost: <b>Ghc${r.cost.toFixed(2)}</b> · Gross Profit: <b style="color:${r.grossProfit>=0?'#4ade80':'#f87171'};">Ghc${r.grossProfit.toFixed(2)}</b> · Margin: <b style="color:var(--gold);">${r.margin.toFixed(1)}%</b><br>`
+          : `<span style="color:var(--text-muted);">No cost price set — add one to see profit/margin.</span><br>`}
+        Current Stock: <b style="color:#fff;">${r.stockDisplay}</b> · Repeat Customers: <b style="color:#60a5fa;">${r.repeatCustomers}</b>
+      </div>
+    </div>`).join('') || '<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">No data for this filter.</p>';
+}
+
+/* ===== PRODUCT SEARCH + FILTERS ===== */
+document.getElementById('adminStockFilterChips').addEventListener('click', e=>{
+  const btn = e.target.closest('.admin-filter-chip'); if(!btn) return;
+  document.querySelectorAll('#adminStockFilterChips .admin-filter-chip').forEach(c=>c.classList.remove('selected'));
+  btn.classList.add('selected');
+  adminStockFilter = btn.dataset.filter;
+  renderAdminProductList();
+});
+function renderAdminCategoryFilterChips(){
+  const box = document.getElementById('adminCategoryFilterChips');
+  if(!box) return;
+  const chips = allCategories.map(c => `<button class="admin-filter-chip ${adminCategoryFilter===c.slug?'selected':''}" data-cat="${c.slug}">${c.name}</button>`).join('');
+  box.innerHTML = `<button class="admin-filter-chip ${adminCategoryFilter==='all'?'selected':''}" data-cat="all">All Categories</button>${chips}`;
+}
+document.getElementById('adminCategoryFilterChips').addEventListener('click', e=>{
+  const btn = e.target.closest('.admin-filter-chip'); if(!btn) return;
+  document.querySelectorAll('#adminCategoryFilterChips .admin-filter-chip').forEach(c=>c.classList.remove('selected'));
+  btn.classList.add('selected');
+  adminCategoryFilter = btn.dataset.cat;
+  renderAdminProductList();
+});
+
+function renderAdminProductList(){
+  const list = document.getElementById('adminProductList');
+  if(!list) return;
+  const searchTerm = (document.getElementById('adminProductSearch').value||'').toLowerCase();
+
+  let filtered = allProducts.filter(p => {
+    if(searchTerm && !p.name.toLowerCase().includes(searchTerm) && !(p.sku||'').toLowerCase().includes(searchTerm)) return false;
+    if(adminCategoryFilter!=='all' && p.category!==adminCategoryFilter) return false;
+    if(adminStockFilter!=='all'){
+      const s = getStockStatus(p);
+      if(adminStockFilter==='inactive'){ if(!s || s.key!=='inactive') return false; }
+      else { if(!s || s.key!==adminStockFilter) return false; }
+    }
+    return true;
+  });
+
+  if(filtered.length===0){ list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">No products match your search/filters.</p>'; return; }
+
+  list.innerHTML = filtered.map(p => {
+    const thumb = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+    const stockInfo = getStockStatus(p);
+    return `
+    <div class="admin-product-row">
+      <div class="admin-thumb">${thumb ? mediaTagHTML(thumb) : (p.emoji||'🎧')}</div>
+      <div class="admin-row-info">
+        <div class="admin-row-name">${p.name}</div>
+        <div class="admin-row-price">Ghc${p.price} ${p.oldPrice?'· was Ghc'+p.oldPrice:''}</div>
+        ${stockInfo ? `<span class="admin-row-stock ${stockInfo.cls}">${stockInfo.label}</span>` : ''}
+      </div>
+      <div class="admin-row-btns">
+        <button class="admin-icon-btn" onclick="editProduct('${p.id}')">✏️</button>
+        <button class="admin-icon-btn" onclick="duplicateProduct('${p.id}')" title="Duplicate">📋</button>
+        <button class="admin-icon-btn" onclick="deleteProduct('${p.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function duplicateProduct(id){
+  const p = allProducts.find(x=>String(x.id)===String(id));
+  if(!p) return;
+  if(!confirm(`Duplicate "${p.name}"? You can edit the copy afterwards.`)) return;
+  const clone = { ...p };
+  delete clone.id;
+  clone.name = p.name + ' (Copy)';
+  clone.slug = (p.slug||slugify(p.name)) + '-copy-' + Date.now().toString(36).slice(-4);
+  VDB.saveProduct(clone).then(()=>{
+    showToast('Product duplicated — edit the copy now.');
+  }).catch(err=>alert('Failed: '+err.message));
+}
+
+function slugify(text){
+  return (text||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
+
+/* Large video/audio files can take several minutes on slow mobile data —
+   even with the longer timeout, it's better to tell the person up front
+   than let them wait and wonder. Returns true to proceed, false if they
+   cancelled. Only warns past the threshold; small files skip the prompt. */
+function warnIfLarge(file, maxMB){
+  const mb = file.size / (1024*1024);
+  if(mb <= maxMB) return true;
+  return confirm(`"${file.name}" is ${mb.toFixed(1)}MB. On a slow connection this could take several minutes to upload. Continue?`);
+}
+function autoFillSlug(){
+  if(!document.getElementById('formSlug').dataset.manuallyEdited){
+    document.getElementById('formSlug').value = slugify(document.getElementById('formName').value);
+  }
+}
+document.getElementById('formSlug').addEventListener('input', function(){ this.dataset.manuallyEdited = 'true'; });
+
+function renderImageChips(){
+  const box = document.getElementById('productImageChips');
+  const savedChips = currentImages.map((url,i) => `
+    <div class="img-chip img-chip-reorder">
+      ${mediaTagHTML(url)}
+      <button type="button" class="img-chip-del" onclick="removeExistingImage('${url}')">✕</button>
+      <div class="reorder-btns">
+        <button type="button" onclick="moveExistingImage(${i},-1)" ${i===0?'disabled':''}>▲</button>
+        <button type="button" onclick="moveExistingImage(${i},1)" ${i===currentImages.length-1?'disabled':''}>▼</button>
+      </div>
+    </div>`).join('');
+  const newChips = newImageFiles.map((file,i) => `
+    <div class="img-chip">
+      ${file.type.startsWith('video/')
+        ? `<video src="${URL.createObjectURL(file)}" muted loop playsinline autoplay></video>`
+        : `<img src="${URL.createObjectURL(file)}">`}
+      <button type="button" class="img-chip-del" onclick="removeNewImage(${i})">✕</button>
+    </div>`).join('');
+  box.innerHTML = savedChips + newChips;
+}
+function moveExistingImage(index, direction){
+  const newIndex = index + direction;
+  if(newIndex < 0 || newIndex >= currentImages.length) return;
+  [currentImages[index], currentImages[newIndex]] = [currentImages[newIndex], currentImages[index]];
+  renderImageChips();
+}
+function handleProductImages(e){
+  const files = Array.from(e.target.files || []);
+  newImageFiles = newImageFiles.concat(files);
+  renderImageChips();
+  e.target.value = '';
+}
+function removeExistingImage(url){
+  currentImages = currentImages.filter(u => u !== url);
+  renderImageChips();
+}
+function removeNewImage(index){
+  newImageFiles.splice(index,1);
+  renderImageChips();
+}
+
+function renderSpecsList(){
+  const box = document.getElementById('specsList');
+  if(!box) return;
+  if(!currentSpecs.length){
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:.78rem;padding:.3rem 0;">No specifications added yet.</p>';
+    return;
+  }
+  box.innerHTML = currentSpecs.map((s,i) => `
+    <div class="kv-row">
+      <input type="text" placeholder="e.g. Bluetooth" value="${s.key||''}" oninput="updateSpecField(${i},'key',this.value)">
+      <input type="text" placeholder="e.g. 5.3" value="${s.value||''}" oninput="updateSpecField(${i},'value',this.value)">
+      <button type="button" class="admin-icon-btn" onclick="removeSpecRow(${i})">🗑️</button>
+    </div>`).join('');
+}
+function addSpecRow(){ currentSpecs.push({key:'',value:''}); renderSpecsList(); }
+function removeSpecRow(i){ currentSpecs.splice(i,1); renderSpecsList(); }
+function updateSpecField(i,field,val){ currentSpecs[i][field] = val; }
+
+function renderFeaturesList(){
+  const box = document.getElementById('featuresList');
+  if(!box) return;
+  if(!currentFeatures.length){
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:.78rem;padding:.3rem 0;">No features added yet.</p>';
+    return;
+  }
+  box.innerHTML = currentFeatures.map((f,i) => `
+    <div class="feature-row">
+      <input type="text" placeholder="e.g. Premium sound" value="${f}" oninput="updateFeatureField(${i},this.value)">
+      <button type="button" class="admin-icon-btn" onclick="removeFeatureRow(${i})">🗑️</button>
+    </div>`).join('');
+}
+function addFeatureRow(){ currentFeatures.push(''); renderFeaturesList(); }
+function removeFeatureRow(i){ currentFeatures.splice(i,1); renderFeaturesList(); }
+function updateFeatureField(i,val){ currentFeatures[i] = val; }
+
+function renderVariantList(){
+  const box = document.getElementById('variantList');
+  if(!box) return;
+  if(!currentVariants.length){
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:.78rem;padding:.5rem 0;">No colour variants yet — this product will show as single-colour.</p>';
+    return;
+  }
+  box.innerHTML = currentVariants.map(v => {
+    const savedChips = (v.images||[]).map(url => `
+      <div class="img-chip">${mediaTagHTML(url)}<button type="button" class="img-chip-del" onclick="removeVariantSavedImage('${v.id}','${url}')">✕</button></div>`).join('');
+    const pendingChips = (variantPendingFiles[v.id]||[]).map((file,i) => `
+      <div class="img-chip">${file.type.startsWith('video/') ? `<video src="${URL.createObjectURL(file)}" muted loop playsinline autoplay></video>` : `<img src="${URL.createObjectURL(file)}">`}<button type="button" class="img-chip-del" onclick="removeVariantPendingImage('${v.id}',${i})">✕</button></div>`).join('');
+    const fieldStyle = "background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem .8rem;border-radius:.6rem;font-size:.82rem;";
+    return `
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:.9rem;padding:.9rem;margin-bottom:.8rem;background:rgba(255,255,255,.03);">
+      <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.6rem;">
+        <input type="color" value="${v.colorHex||'#111111'}" onchange="updateVariantField('${v.id}','colorHex',this.value)" style="width:2.4rem;height:2.4rem;border:none;border-radius:.5rem;background:none;padding:0;flex-shrink:0;">
+        <input type="text" placeholder="Colour name (e.g. Black)" value="${v.name||''}" oninput="updateVariantField('${v.id}','name',this.value)" style="flex:1;${fieldStyle}">
+        <button type="button" class="admin-icon-btn" onclick="removeVariantRow('${v.id}')">🗑️</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.6rem;">
+        <input type="number" placeholder="Price (Ghc)" value="${v.price??''}" oninput="updateVariantField('${v.id}','price',this.value)" style="${fieldStyle}">
+        <input type="number" placeholder="Old price" value="${v.compareAtPrice??''}" oninput="updateVariantField('${v.id}','compareAtPrice',this.value)" style="${fieldStyle}">
+        <input type="number" placeholder="Stock" value="${v.stock??''}" oninput="updateVariantField('${v.id}','stock',this.value)" style="${fieldStyle}">
+        <input type="text" placeholder="SKU" value="${v.sku||''}" oninput="updateVariantField('${v.id}','sku',this.value)" style="${fieldStyle}">
+      </div>
+      <div class="file-drop" style="padding:.8rem;font-size:.72rem;" onclick="document.getElementById('variantImgInput-${v.id}').click()">📁 Tap to add real photos for this colour</div>
+      <input type="file" id="variantImgInput-${v.id}" accept="image/*,video/*" multiple style="display:none;" onchange="handleVariantImages('${v.id}', event)">
+      <div class="img-chip-grid">${savedChips}${pendingChips}</div>
+    </div>`;
+  }).join('');
+}
+function addVariantRow(){
+  const id = 'v_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  currentVariants.push({ id, name:'', colorHex:'#111111', price:null, compareAtPrice:null, stock:null, sku:'', images:[] });
+  variantPendingFiles[id] = [];
+  renderVariantList();
+}
+function removeVariantRow(id){
+  currentVariants = currentVariants.filter(v=>v.id!==id);
+  delete variantPendingFiles[id];
+  renderVariantList();
+}
+function updateVariantField(id, field, value){
+  const v = currentVariants.find(x=>x.id===id);
+  if(!v) return;
+  v[field] = (field==='price'||field==='compareAtPrice'||field==='stock')
+    ? (value===''? null : parseFloat(value))
+    : value;
+}
+function handleVariantImages(id, e){
+  const files = Array.from(e.target.files || []);
+  variantPendingFiles[id] = (variantPendingFiles[id]||[]).concat(files);
+  renderVariantList();
+}
+function removeVariantPendingImage(id, index){
+  variantPendingFiles[id].splice(index,1);
+  renderVariantList();
+}
+function removeVariantSavedImage(id, url){
+  const v = currentVariants.find(x=>x.id===id);
+  if(!v) return;
+  v.images = (v.images||[]).filter(u=>u!==url);
+  renderVariantList();
+}
+
+function editProduct(id){
+  const p = allProducts.find(x=>String(x.id)===String(id));
+  if(!p) return;
+  document.getElementById('editingProductId').value = p.id;
+  document.getElementById('formName').value = p.name;
+  document.getElementById('formPrice').value = p.price;
+  document.getElementById('formOldPrice').value = p.oldPrice||'';
+  document.getElementById('formSpecs').value = p.specs||'';
+  document.getElementById('formBadge').value = (p.badgeClass||'badge-hot')+'|'+(p.badge||'Hot Deal');
+  refreshCategoryDropdown();
+  document.getElementById('formCategory').value = p.category||'';
+  document.getElementById('formStatus').value = p.status||'active';
+  document.getElementById('formStock').value = (p.stock===null||p.stock===undefined) ? '' : p.stock;
+  document.getElementById('formLowStockThreshold').value = p.lowStockThreshold ?? 5;
+  document.getElementById('formSku').value = p.sku||'';
+  document.getElementById('formCostPrice').value = p.costPrice ?? '';
+  document.getElementById('formSlug').value = p.slug || slugify(p.name);
+  document.getElementById('formSlug').dataset.manuallyEdited = 'true';
+  document.getElementById('formSeoTitle').value = p.seoTitle || '';
+  document.getElementById('formSeoDescription').value = p.seoDescription || '';
+  currentSpecs = Array.isArray(p.specifications) ? [...p.specifications] : [];
+  renderSpecsList();
+  currentFeatures = Array.isArray(p.features) ? [...p.features] : [];
+  renderFeaturesList();
+  currentImages = (p.images && p.images.length) ? [...p.images] : (p.imageUrl ? [p.imageUrl] : []);
+  newImageFiles = [];
+  renderImageChips();
+  currentVariants = (p.variants||[]).map(v=>({...v, images: [...(v.images||[])]}));
+  variantPendingFiles = {};
+  currentVariants.forEach(v=>{ variantPendingFiles[v.id] = []; });
+  renderVariantList();
+
+  // Wiring into editProduct() for 3D showcase variants
+  currentShowcaseVariants = (p.showcaseVariants||[]).map(v=>({...v, gallery:[...(v.gallery||[])]}));
+  showcasePendingFiles = {};
+  currentShowcaseVariants.forEach(v=>{ showcasePendingFiles[v.id] = { video:null, poster:null, gallery:[] }; });
+  renderShowcaseVariantList();
+
+  document.getElementById('saveProductBtn').textContent = '💾 Update Product';
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab==='add'));
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.toggle('active', s.id==='adminsec-add'));
+}
+function deleteProduct(id){
+  if(!confirm('Remove this product?')) return;
+  VDB.deleteProductById(id).catch(err=>alert('Failed: '+err.message));
+}
+function resetProductForm(){
+  document.getElementById('editingProductId').value='';
+  document.getElementById('formName').value='';
+  document.getElementById('formPrice').value='';
+  document.getElementById('formOldPrice').value='';
+  document.getElementById('formSpecs').value='';
+  document.getElementById('formStatus').value='active';
+  document.getElementById('formStock').value='';
+  document.getElementById('formLowStockThreshold').value='5';
+  document.getElementById('formSku').value='';
+  document.getElementById('formCostPrice').value='';
+  document.getElementById('formSlug').value='';
+  document.getElementById('formSlug').dataset.manuallyEdited = '';
+  document.getElementById('formSeoTitle').value='';
+  document.getElementById('formSeoDescription').value='';
+  currentSpecs = [];
+  renderSpecsList();
+  currentFeatures = [];
+  renderFeaturesList();
+  currentImages = [];
+  newImageFiles = [];
+  renderImageChips();
+  currentVariants = [];
+  variantPendingFiles = {};
+  renderVariantList();
+
+  // Resetting showcase variants
+  currentShowcaseVariants = [];
+  showcasePendingFiles = {};
+  renderShowcaseVariantList();
+
+  document.getElementById('saveProductBtn').textContent='💾 Save Product';
+}
+function saveProductForm(e){
+  e.preventDefault();
+  const id = document.getElementById('editingProductId').value;
+  const name = document.getElementById('formName').value;
+  const price = parseFloat(document.getElementById('formPrice').value);
+  const oldPrice = document.getElementById('formOldPrice').value ? parseFloat(document.getElementById('formOldPrice').value) : null;
+  const specs = document.getElementById('formSpecs').value;
+  const category = document.getElementById('formCategory').value;
+  const [badgeClass, badge = null] = document.getElementById('formBadge').value.split('|');
+  const existing = id ? allProducts.find(p=>String(p.id)===String(id)) : null;
+
+  const stockRaw = document.getElementById('formStock').value;
+  const stock = stockRaw === '' ? null : parseInt(stockRaw);
+  const lowStockThreshold = parseInt(document.getElementById('formLowStockThreshold').value) || 5;
+  const sku = document.getElementById('formSku').value || '';
+  const costPriceRaw = document.getElementById('formCostPrice').value;
+  const costPrice = costPriceRaw === '' ? null : parseFloat(costPriceRaw);
+  let status = document.getElementById('formStatus').value;
+  if(stock !== null && stock <= 0 && status === 'active') status = 'out-of-stock';
+  const specifications = currentSpecs.filter(s=>s.key && s.value);
+  const features = currentFeatures.filter(f=>f && f.trim());
+  const slug = document.getElementById('formSlug').value.trim() || slugify(name);
+  const seoTitle = document.getElementById('formSeoTitle').value || '';
+  const seoDescription = document.getElementById('formSeoDescription').value || '';
+
+  const btn = document.getElementById('saveProductBtn');
+  btn.textContent='⏳ Saving...'; btn.disabled=true;
+
+  const uploadPromise = newImageFiles.length
+    ? VDB.uploadProductImages(newImageFiles, (idx,pct,fname)=>{ btn.textContent = `⏳ Uploading ${fname}: ${pct}%`; })
+    : Promise.resolve([]);
+  uploadPromise.then(async newUrls=>{
+    const images = [...currentImages, ...newUrls];
+
+    const variants = [];
+    for(const v of currentVariants){
+      if(!v.name) continue;
+      const pending = variantPendingFiles[v.id] || [];
+      const uploadedUrls = pending.length
+        ? await VDB.uploadProductImages(pending, (idx,pct,fname)=>{ btn.textContent = `⏳ Uploading ${v.name} — ${fname}: ${pct}%`; })
+        : [];
+      variants.push({
+        id: v.id,
+        name: v.name,
+        colorHex: v.colorHex || '#111111',
+        price: (v.price===null || v.price===undefined) ? price : v.price,
+        compareAtPrice: v.compareAtPrice ?? null,
+        stock: v.stock ?? null,
+        sku: v.sku || '',
+        images: [...(v.images||[]), ...uploadedUrls]
+      });
+    }
+
+    // Wiring into saveProductForm() for showcase variants
+    const showcaseVariants = [];
+    for(const v of currentShowcaseVariants){
+      if(!v.name) continue;
+      const pending = showcasePendingFiles[v.id] || { video:null, poster:null, gallery:[] };
+      let videoUrl = v.video || null;
+      let posterUrl = v.poster || null;
+      if(pending.video){
+        btn.textContent = `⏳ Uploading ${v.name} 360° video...`;
+        videoUrl = await VDB.uploadShowcaseVideo(pending.video, pct=>{ btn.textContent = `⏳ Uploading ${v.name} video: ${pct}%`; });
+      }
+      if(pending.poster){
+        const posterUrls = await VDB.uploadProductImages([pending.poster]);
+        posterUrl = posterUrls[0];
+      }
+      let galleryUrls = [...(v.gallery||[])];
+      if(pending.gallery.length){
+        const uploaded = await VDB.uploadProductImages(pending.gallery, (idx,pct,fname)=>{ btn.textContent = `⏳ Uploading ${v.name} gallery — ${fname}: ${pct}%`; });
+        galleryUrls = [...galleryUrls, ...uploaded];
+      }
+      showcaseVariants.push({ id: v.id, name: v.name, colorHex: v.colorHex||'#111111', video: videoUrl, poster: posterUrl, gallery: galleryUrls });
+    }
+
+    const productData = {
+      id: id||null, name, price, oldPrice, specs, badgeClass, badge, category,
+      emoji: existing?.emoji||'🎧',
+      images,
+      imageUrl: images[0] || null,
+      variants,
+      showcaseVariants,
+      status, stock, lowStockThreshold, sku, costPrice,
+      specifications, features,
+      slug, seoTitle, seoDescription
+    };
+    return VDB.saveProduct(productData);
+  }).then(()=>{
+    resetProductForm();
+    document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab==='products'));
+    document.querySelectorAll('.admin-section').forEach(s=>s.classList.toggle('active', s.id==='adminsec-products'));
+  }).catch(err=>alert('Failed: '+err.message)).finally(()=>{ btn.disabled=false; });
+}
+
+function handleMusicFiles(e){
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+  const oversized = files.filter(f => f.size / (1024*1024) > 15);
+  if(oversized.length){
+    const names = oversized.map(f=>`${f.name} (${(f.size/(1024*1024)).toFixed(1)}MB)`).join(', ');
+    if(!confirm(`These files are fairly large: ${names}. On a slow connection they could take a few minutes each. Continue?`)){
+      e.target.value = '';
+      return;
+    }
+  }
+  const progress = document.getElementById('musicUploadProgress');
+  progress.style.display = 'block';
+  progress.innerHTML = files.map((f,i)=>`<div id="upl-${i}">⏳ ${f.name}: 0%</div>`).join('');
+  VDB.uploadMusicFiles(files, (idx,pct,name)=>{
+    const row = document.getElementById(`upl-${idx}`);
+    if(row) row.textContent = `⏳ ${name}: ${pct}%`;
+  }).then(()=>{
+    progress.style.display = 'none';
+    e.target.value = '';
+    showToast('Music uploaded!');
+  }).catch(err=>{
+    progress.style.display = 'none';
+    alert('Upload failed: ' + err.message);
+  });
+}
+function renderMusicTracks(tracks){
+  const box = document.getElementById('musicTrackList');
+  if(!box) return;
+  if(!tracks || tracks.length===0){
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:1rem 0;">No tracks uploaded yet.</p>';
+    return;
+  }
+  box.innerHTML = tracks.map(t => `
+    <div class="track-row">
+      <button type="button" class="track-play-btn" onclick="previewTrack('${t.url}')">▶</button>
+      <span class="tname">${t.name}</span>
+      <button type="button" class="track-del-btn" onclick="deleteMusicTrack('${t.url}')">🗑️</button>
+    </div>`).join('');
+}
+let previewAudio = null;
+function previewTrack(url){
+  if(previewAudio){ previewAudio.pause(); }
+  previewAudio = new Audio(url);
+  previewAudio.play();
+}
+function deleteMusicTrack(url){
+  if(!confirm('Remove this track?')) return;
+  VDB.removeMusicTrack(url).catch(err=>alert('Failed: '+err.message));
+}
+
+function renderAdminReferrers(list){
+  const box = document.getElementById('adminReferrerList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML='<p style="color:var(--text-muted);font-size:.82rem;text-align:center;padding:2rem 0;">No referrers yet.</p>'; return; }
+  box.innerHTML = list.map(r=>`
+    <div class="referrer-row">
+      <div><b style="font-size:.85rem;">${r.name}</b><div style="font-size:.75rem;color:var(--text-muted);">📱 ${r.phone}</div></div>
+      <div class="referrer-code-tag">${r.code}</div>
+    </div>`).join('');
+}
+function renderAdminSales(list){
+  const box = document.getElementById('adminSalesList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML='<p style="color:var(--text-muted);font-size:.82rem;text-align:center;padding:2rem 0;">No referral sales yet.</p>'; return; }
+  box.innerHTML = list.map(s=>`
+    <div class="admin-sale-card">
+      <div class="admin-sale-top">
+        <b style="font-size:.85rem;">${s.refCode}</b>
+        <span class="admin-status-pill status-${s.status}">${s.status}</span>
+      </div>
+      <div class="admin-sale-detail">👤 ${s.customerName} · 📱 ${s.customerPhone}<br>📦 ${s.orderRef} · ${s.itemsSummary}</div>
+      <div class="admin-sale-commission">Commission: Ghc${s.commission}</div>
+      <div class="admin-sale-btns">
+        <button class="admin-mini-btn btn-verify" onclick="VDB.updateReferralSaleStatus('${s.id}','verified')">✅ Verified</button>
+        <button class="admin-mini-btn btn-paid" onclick="VDB.updateReferralSaleStatus('${s.id}','paid')">💰 Paid</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderAdminOrders(list){
+  const box = document.getElementById('adminOrdersList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">No orders yet.</p>'; return; }
+  box.innerHTML = list.map(o => {
+    const items = (o.items||[]).map(i=>`${i.name} x${i.qty}`).join(', ');
+    const statusLower = (o.status||'Processing').toLowerCase();
+    const pillClass = statusLower==='delivered' ? 'status-paid' : (statusLower==='cancelled' ? 'status-pending' : 'status-verified');
+    return `
+    <div class="admin-sale-card">
+      <div class="admin-sale-top">
+        <b style="font-size:.85rem;">${o.ref || o.id}</b>
+        <span class="admin-status-pill ${pillClass}">${o.status||'Processing'}</span>
+      </div>
+      <div class="admin-sale-detail">
+        👤 ${o.customer?.name||'-'} · 📱 ${o.customer?.phone||'-'}<br>
+        📍 ${o.customer?.address||''} ${o.customer?.city||''}<br>
+        📦 ${items}<br>
+        💳 ${o.paymentMethod||'-'} · 🕐 ${new Date(o.createdAt).toLocaleString('en-GB')}
+      </div>
+      <div class="admin-sale-commission">Total: Ghc${o.total}</div>
+      <select class="order-status-select" onchange="VDB.updateOrderStatus('${o.id}', this.value).then(()=>showToast('Status updated — customer will see it next time they open Orders')).catch(e=>alert('Failed: '+e.message))">
+        <option value="Processing" ${o.status==='Processing'?'selected':''}>Processing</option>
+        <option value="Packed" ${o.status==='Packed'?'selected':''}>Packed</option>
+        <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
+        <option value="Delivered" ${o.status==='Delivered'?'selected':''}>Delivered</option>
+        <option value="Cancelled" ${o.status==='Cancelled'?'selected':''}>Cancelled</option>
+      </select>
+    </div>`;
+  }).join('');
+}
+
+/* ===== REVIEWS ===== */
+function renderAdminReviews(list){
+  latestReviewsList = list;
+  const box = document.getElementById('adminReviewsList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">No reviews yet.</p>'; return; }
+  box.innerHTML = list.map(r => `
+    <div class="admin-sale-card">
+      <div class="admin-sale-top">
+        <b style="font-size:.85rem;">${r.customerName} — ${r.productName}</b>
+        <span class="admin-status-pill ${r.approved?'status-paid':'status-pending'}">${r.approved?'Approved':'Pending'}</span>
+      </div>
+      <div class="admin-sale-detail">
+        ${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}<br>
+        ${r.text}<br>
+        ${r.imageUrl ? `<img src="${r.imageUrl}" style="width:100%;max-height:140px;object-fit:cover;border-radius:.6rem;margin-top:.5rem;">` : ''}
+        <div style="font-size:.65rem;color:var(--text-muted);margin-top:.4rem;">${new Date(r.createdAt).toLocaleString('en-GB')}</div>
+      </div>
+      <div class="admin-sale-btns">
+        ${!r.approved ? `<button class="admin-mini-btn btn-verify" onclick="VDB.updateReviewStatus('${r.id}',{approved:true})">✅ Approve</button>` : `<button class="admin-mini-btn btn-verify" onclick="VDB.updateReviewStatus('${r.id}',{approved:false})">🚫 Hide</button>`}
+        <button class="admin-mini-btn btn-paid" onclick="toggleReviewFeatured('${r.id}')">${r.featured?'⭐ Unfeature':'⭐ Feature'}</button>
+        <button class="admin-mini-btn" style="background:rgba(239,68,68,.2);color:#f87171;" onclick="if(confirm('Delete this review?')) VDB.deleteReviewById('${r.id}')">🗑️ Delete</button>
+      </div>
+    </div>`).join('');
+}
+function toggleReviewFeatured(id){
+  const r = latestReviewsList.find(x=>x.id===id);
+  if(!r) return;
+  VDB.updateReviewStatus(id, { featured: !r.featured }).catch(err=>alert('Failed: '+err.message));
+}
+
+function renderSpinWinners(list){
+  const box = document.getElementById('spinWinnersList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">No winners yet.</p>'; return; }
+  box.innerHTML = list.map(w => `
+    <div class="admin-sale-card">
+      <div class="admin-sale-top">
+        <b style="font-size:.85rem;">${w.name}</b>
+        <span class="admin-status-pill status-${w.status==='fulfilled'?'paid':'pending'}">${w.status}</span>
+      </div>
+      <div class="admin-sale-detail">📱 ${w.phone}<br>🎁 ${w.prizeLabel}<br>🕐 ${new Date(w.createdAt).toLocaleString('en-GB')}</div>
+      ${w.status!=='fulfilled' ? `<button class="admin-mini-btn btn-paid" onclick="markWinnerFulfilled('${w.id}')">✅ Mark Fulfilled</button>` : ''}
+    </div>`).join('');
+}
+const SPIN_BACKEND_URL = 'https://spin-backend-delta.vercel.app';
+function markWinnerFulfilled(id){
+  fetch(SPIN_BACKEND_URL + '/api/mark-winner-fulfilled', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ winnerId: id })
+  }).then(()=>showToast('Marked as fulfilled')).catch(()=>alert('Failed'));
+}
+
+function renderSpinReferrals(list){
+  const box = document.getElementById('spinReferralsList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">No referrals yet.</p>'; return; }
+  box.innerHTML = list.map(r => `
+    <div class="admin-sale-card">
+      <div class="admin-sale-detail">
+        <b style="color:#fff;">👤 Referrer:</b> ${r.referrerName} · 📱 ${r.referrerPhone}<br>
+        <b style="color:#fff;">👥 Friend:</b> ${r.referredName} · 📱 ${r.referredPhone}<br>
+        🕐 ${new Date(r.rewardedAt).toLocaleString('en-GB')}
+      </div>
+      <div class="admin-sale-commission">+${r.coinsAwarded} coins each</div>
+    </div>`).join('');
+}
+
+function renderCategoryList(list){
+  allCategories = list;
+  const box = document.getElementById('categoryList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:1.5rem 0;">No categories yet — add your first one above.</p>'; return; }
+  box.innerHTML = list.map(c => `
+    <div class="admin-product-row">
+      <div class="admin-row-info">
+        <div class="admin-row-name">${c.name} ${c.active===false ? '<span style="color:#f87171;font-size:.65rem;">(inactive)</span>' : ''}</div>
+        <div class="admin-row-price">Slug: ${c.slug} · Order: ${c.order??'-'}</div>
+      </div>
+      <div class="admin-row-btns">
+        <button class="admin-icon-btn" onclick="editCategory('${c.id}')">✏️</button>
+        <button class="admin-icon-btn" onclick="deleteCategoryRow('${c.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+
+  refreshCategoryDropdown();
+  renderAdminCategoryFilterChips();
+}
+function editCategory(id){
+  const c = allCategories.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('editingCategoryId').value = c.id;
+  document.getElementById('catName').value = c.name;
+  document.getElementById('catSlug').value = c.slug;
+  document.getElementById('catOrder').value = c.order ?? 5;
+  document.getElementById('catActive').value = c.active===false ? 'false' : 'true';
+  document.getElementById('saveCategoryBtn').textContent = '💾 Update Category';
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab==='categories'));
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.toggle('active', s.id==='adminsec-categories'));
+}
+function resetCategoryForm(){
+  document.getElementById('editingCategoryId').value = '';
+  document.getElementById('catName').value = '';
+  document.getElementById('catSlug').value = '';
+  document.getElementById('catOrder').value = '5';
+  document.getElementById('catActive').value = 'true';
+  document.getElementById('saveCategoryBtn').textContent = '💾 Save Category';
+}
+document.getElementById('catName').addEventListener('input', function(){
+  if(!document.getElementById('editingCategoryId').value){
+    document.getElementById('catSlug').value = slugify(this.value);
+  }
+});
+function saveCategoryForm(){
+  const id = document.getElementById('editingCategoryId').value;
+  const name = document.getElementById('catName').value.trim();
+  const slug = document.getElementById('catSlug').value.trim() || slugify(name);
+  const order = parseInt(document.getElementById('catOrder').value) || 5;
+  const active = document.getElementById('catActive').value === 'true';
+  if(!name){ alert('Category name is required'); return; }
+
+  VDB.saveCategory({ id: id||null, name, slug, order, active }).then(()=>{
+    resetCategoryForm();
+    showToast('Category saved!');
+  }).catch(err=>alert('Failed: '+err.message));
+}
+function deleteCategoryRow(id){
+  if(!confirm('Delete this category? Products already assigned to it will keep the old category value until you edit them.')) return;
+  VDB.deleteCategoryById(id).catch(err=>alert('Failed: '+err.message));
+}
+function refreshCategoryDropdown(){
+  const select = document.getElementById('formCategory');
+  if(!select) return;
+  const currentVal = select.value;
+  select.innerHTML = allCategories.filter(c=>c.active!==false).map(c=>
+    `<option value="${c.slug}">${c.name}</option>`
+  ).join('');
+  if(currentVal && allCategories.some(c=>c.slug===currentVal)) select.value = currentVal;
+}
+
+function initAdminDashboard(){
+  renderVariantList();
+  renderShowcaseVariantList();
+  renderSpecsList();
+  renderFeaturesList();
+  VDB.subscribeProducts(list=>{ allProducts = list; renderAdminProductList(); renderSalesDashboard(); renderProfitabilityAnalytics(); });
+  VDB.subscribeMusic(tracks=>{ renderMusicTracks(tracks); });
+  VDB.subscribeHeroMedia(renderHeroMediaPreview);
+  VDB.subscribeFounderMedia(renderFounderMediaPreview);
+  VDB.subscribePromoBanner(renderPromoBannerForm);
+  VDB.subscribeReferrers(renderAdminReferrers);
+  VDB.subscribeReferralSales(renderAdminSales);
+  VDB.subscribeSpinWinners(renderSpinWinners);
+  VDB.subscribeSpinReferrals(renderSpinReferrals);
+  VDB.subscribeOrders(list=>{ allOrdersGlobal = list; renderAdminOrders(list); renderSalesDashboard(); renderProfitabilityAnalytics(); });
+  VDB.subscribeCategories(list=>{ renderCategoryList(list); renderProfitabilityAnalytics(); });
+  VDB.subscribeAllReviews(renderAdminReviews);
+}
+
+function renderHeroMediaPreview(heroMedia){
+  const wrap = document.getElementById('heroMediaPreviewWrap');
+  const box = document.getElementById('heroMediaPreview');
+  if(!wrap || !box) return;
+  if(!heroMedia || !heroMedia.url){
+    wrap.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'block';
+  box.innerHTML = heroMedia.type === 'video'
+    ? `<video src="${heroMedia.url}" muted loop playsinline autoplay style="width:100%;max-height:220px;object-fit:cover;"></video>`
+    : `<img src="${heroMedia.url}" style="width:100%;max-height:220px;object-fit:cover;">`;
+}
+function handleHeroMediaUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const maxMB = file.type.startsWith('video/') ? 40 : 10;
+  if(!warnIfLarge(file, maxMB)){ e.target.value = ''; return; }
+  const progress = document.getElementById('heroUploadProgress');
+  progress.style.display = 'block';
+  progress.textContent = '⏳ Uploading... 0%';
+  VDB.uploadHeroMedia(file, pct=>{ progress.textContent = `⏳ Uploading... ${pct}%`; }).then(()=>{
+    progress.style.display = 'none';
+    e.target.value = '';
+    showToast('Hero media updated!');
+  }).catch(err=>{
+    progress.style.display = 'none';
+    alert('Upload failed: ' + err.message);
+  });
+}
+function removeHeroMedia(){
+  if(!confirm('Remove the hero media? The splash screen will fall back to its default image.')) return;
+  VDB.removeHeroMedia().catch(err=>alert('Failed: '+err.message));
+}
+
+function renderFounderMediaPreview(founderMedia){
+  const wrap = document.getElementById('founderMediaPreviewWrap');
+  const box = document.getElementById('founderMediaPreview');
+  if(!wrap || !box) return;
+  if(!founderMedia || !founderMedia.url){
+    wrap.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'block';
+  box.innerHTML = founderMedia.type === 'video'
+    ? `<video src="${founderMedia.url}" muted loop playsinline autoplay style="width:100%;max-height:220px;object-fit:cover;"></video>`
+    : `<img src="${founderMedia.url}" style="width:100%;max-height:220px;object-fit:cover;">`;
+}
+function handleFounderMediaUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const maxMB = file.type.startsWith('video/') ? 40 : 10;
+  if(!warnIfLarge(file, maxMB)){ e.target.value = ''; return; }
+  const progress = document.getElementById('founderUploadProgress');
+  progress.style.display = 'block';
+  progress.textContent = '⏳ Uploading... 0%';
+  VDB.uploadFounderMedia(file, pct=>{ progress.textContent = `⏳ Uploading... ${pct}%`; }).then(()=>{
+    progress.style.display = 'none';
+    e.target.value = '';
+    showToast('Founder media updated!');
+  }).catch(err=>{
+    progress.style.display = 'none';
+    alert('Upload failed: ' + err.message);
+  });
+}
+function removeFounderMedia(){
+  if(!confirm('Remove the founder media? The founder card will fall back to its default photo.')) return;
+  VDB.removeFounderMedia().catch(err=>alert('Failed: '+err.message));
+}
+
+let pendingPromoImageFile = null;
+let currentPromoImageUrl = null;
+let promoImageRemoved = false;
+
+function buildPromoBannerHTML(){
+  const theme = document.getElementById('promoTheme').value;
+  const badge = document.getElementById('promoBadge').value;
+  const title = document.getElementById('promoTitle').value;
+  const subtitle = document.getElementById('promoSubtitle').value;
+  const ctaText = document.getElementById('promoCtaText').value || 'Shop Now';
+  const imgSrc = pendingPromoImageFile ? URL.createObjectURL(pendingPromoImageFile) : (promoImageRemoved ? null : currentPromoImageUrl);
+  if(!title && !subtitle) return '<p style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:1rem;">Fill in a title or subtitle to preview.</p>';
+  return `
+    <div class="promo-banner theme-${theme}">
+      <div class="promo-banner-content">
+        ${badge ? `<span class="promo-badge">${badge}</span>` : ''}
+        ${title ? `<div class="promo-title">${title}</div>` : ''}
+        ${subtitle ? `<div class="promo-subtitle">${subtitle}</div>` : ''}
+        <span class="promo-cta">${ctaText} →</span>
+      </div>
+      ${imgSrc ? `<img src="${imgSrc}" class="promo-image" alt="">` : ''}
+    </div>`;
+}
+function updatePromoPreview(){
+  document.getElementById('promoPreviewBox').innerHTML = buildPromoBannerHTML();
+}
+function handlePromoImage(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  pendingPromoImageFile = file;
+  promoImageRemoved = false;
+  updatePromoPreview();
+}
+async function savePromoBanner(){
+  const btn = document.querySelector('#adminsec-promo .admin-login-btn');
+  btn.textContent = '⏳ Saving...'; btn.disabled = true;
+  const progress = document.getElementById('promoUploadProgress');
+  try{
+    let imageUrl = promoImageRemoved ? null : currentPromoImageUrl;
+    if(pendingPromoImageFile){
+      progress.style.display = 'block';
+      progress.textContent = '⏳ Uploading... 0%';
+      imageUrl = await VDB.uploadPromoImage(pendingPromoImageFile, pct=>{ progress.textContent = `⏳ Uploading... ${pct}%`; });
+      progress.style.display = 'none';
+    }
+    const data = {
+      enabled: document.getElementById('promoEnabled').value === 'true',
+      theme: document.getElementById('promoTheme').value,
+      badgeText: document.getElementById('promoBadge').value,
+      title: document.getElementById('promoTitle').value,
+      subtitle: document.getElementById('promoSubtitle').value,
+      ctaText: document.getElementById('promoCtaText').value || 'Shop Now',
+      ctaLink: document.getElementById('promoCtaLink').value || 'shop.html',
+      image: imageUrl
+    };
+    await VDB.savePromoBanner(data);
+    pendingPromoImageFile = null;
+    promoImageRemoved = false;
+    showToast('Promo banner saved!');
+  } catch(err){
+    progress.style.display = 'none';
+    alert('Failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Save Promo Banner';
+  }
+}
+function renderPromoBannerForm(promo){
+  promo = promo || {};
+  document.getElementById('promoEnabled').value = promo.enabled ? 'true' : 'false';
+  document.getElementById('promoTheme').value = promo.theme || 'general';
+  document.getElementById('promoBadge').value = promo.badgeText || '';
+  document.getElementById('promoTitle').value = promo.title || '';
+  document.getElementById('promoSubtitle').value = promo.subtitle || '';
+  document.getElementById('promoCtaText').value = promo.ctaText || 'Shop Now';
+  document.getElementById('promoCtaLink').value = promo.ctaLink || 'shop.html';
+  currentPromoImageUrl = promo.image || null;
+  pendingPromoImageFile = null;
+  promoImageRemoved = false;
+  updatePromoPreview();
+}
+
+function checkAdminAuthState(){
+  if(!VDB){ window.addEventListener('vdb-ready', checkAdminAuthState); return; }
+  VDB.watchAdminAuth(user=>{
+    if(user){
+      document.getElementById('adminLoginWrap').style.display='none';
+      document.getElementById('adminDashboard').style.display='block';
+      initAdminDashboard();
+    } else {
+      document.getElementById('adminLoginWrap').style.display='flex';
+      document.getElementById('adminDashboard').style.display='none';
+    }
+  });
+}
+checkAdminAuthState();
+</script>
+</body>
+</html>
