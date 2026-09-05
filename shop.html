@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Shop premium earpods at Voltix Pro GH — filter by category, price, Bluetooth version and battery life.">
+<title>Shop All Earpods — Voltix Pro GH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://res.cloudinary.com">
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.search-bar-wrap{padding:.9rem 1.1rem 0;}
+.search-bar{display:flex;align-items:center;gap:.6rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:.7rem 1.1rem;}
+.search-bar input{flex:1;background:none;border:none;color:#fff;font-size:.85rem;outline:none;}
+.search-bar input::placeholder{color:var(--text-muted);}
+.search-bar .icon{font-size:1rem;color:var(--text-muted);}
+
+.cat-tabs{display:flex;gap:.6rem;overflow-x:auto;padding:1rem 1.1rem;-ms-overflow-style:none;scrollbar-width:none;}
+.cat-tabs::-webkit-scrollbar{display:none;}
+.cat-tab{flex:0 0 auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text-secondary);font-size:.78rem;font-weight:700;padding:.55rem 1.1rem;border-radius:999px;white-space:nowrap;}
+.cat-tab.active{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border-color:transparent;}
+
+.filter-sort-bar{display:flex;gap:.7rem;padding:0 1.1rem 1rem;}
+.fs-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#fff;font-size:.78rem;font-weight:700;padding:.65rem;border-radius:.7rem;}
+
+.results-count{padding:0 1.1rem .8rem;font-size:.75rem;color:var(--text-muted);}
+
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;padding:0 1.1rem 2rem;}
+.shop-grid .pcard{width:100%;}
+
+.load-more-btn{display:block;width:calc(100% - 2.2rem);margin:0 1.1rem 2rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-weight:700;font-size:.8rem;padding:.9rem;border-radius:.9rem;}
+
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:150;display:none;}
+.sheet-overlay.active{display:block;}
+.bottom-sheet{position:fixed;left:0;right:0;bottom:0;z-index:151;background:var(--navy-mid);border-radius:1.5rem 1.5rem 0 0;border-top:1px solid rgba(255,255,255,.1);padding:1.3rem 1.1rem calc(1.3rem + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.22,1,.36,1);max-height:82vh;overflow-y:auto;}
+.bottom-sheet.active{transform:translateY(0);}
+.sheet-handle{width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:99px;margin:0 auto 1.1rem;}
+.sheet-title{font-size:1.05rem;font-weight:900;margin-bottom:1.2rem;display:flex;justify-content:space-between;align-items:center;}
+.sheet-close{background:rgba(255,255,255,.08);border:none;color:#fff;width:2rem;height:2rem;border-radius:50%;font-size:1rem;}
+.filter-group{margin-bottom:1.3rem;}
+.filter-group h4{font-size:.72rem;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.7rem;}
+.filter-chips{display:flex;flex-wrap:wrap;gap:.55rem;}
+.filter-chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:.75rem;font-weight:700;padding:.5rem 1rem;border-radius:999px;}
+.filter-chip.selected{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));border-color:transparent;}
+.sheet-apply-btn{width:100%;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:800;padding:1rem;border-radius:.9rem;border:none;font-size:.9rem;margin-top:.5rem;}
+.sort-option{display:flex;align-items:center;justify-content:space-between;padding:.9rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.85rem;font-weight:600;}
+.sort-option.selected{color:var(--blue-electric);font-weight:800;}
+
+.quick-view-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:160;display:none;align-items:flex-end;justify-content:center;}
+.quick-view-modal.active{display:flex;}
+.qv-content{background:var(--navy-mid);border-radius:1.5rem 1.5rem 0 0;width:100%;max-height:88vh;overflow-y:auto;padding:1.3rem 1.1rem calc(1.3rem + env(safe-area-inset-bottom));}
+.qv-img{width:100%;height:200px;border-radius:1rem;background:linear-gradient(150deg,rgba(14,165,233,.2),rgba(30,64,175,.12));display:flex;align-items:center;justify-content:center;font-size:5rem;overflow:hidden;margin-bottom:1rem;}
+.qv-img img,.qv-img video{width:100%;height:100%;object-fit:contain;padding:1rem;}
+
+.compare-bar{position:fixed;bottom:4.5rem;left:1.1rem;right:1.1rem;z-index:90;background:var(--navy-light);border:1px solid rgba(14,165,233,.35);border-radius:1.2rem;padding:.9rem 1.1rem;display:none;align-items:center;justify-content:space-between;box-shadow:0 10px 30px rgba(0,0,0,.4);}
+.compare-bar.active{display:flex;}
+.compare-btn{background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:var(--navy-deep);font-weight:800;font-size:.78rem;padding:.55rem 1.1rem;border-radius:.7rem;border:none;}
+.compare-check{position:absolute;bottom:.5rem;left:.5rem;z-index:2;width:1.4rem;height:1.4rem;accent-color:var(--blue-electric);}
+
+.spin-banner{display:flex;align-items:center;gap:.8rem;margin:0 1.1rem 1rem;padding:.9rem 1.1rem;background:linear-gradient(135deg,rgba(37,211,102,.18),rgba(14,165,233,.12));border:1px solid rgba(37,211,102,.35);border-radius:1rem;}
+.spin-popup-icon{font-size:3rem;margin-bottom:.5rem;}
+.spin-greeting-text{font-size:.85rem;color:rgba(255,255,255,.75);margin:.8rem 0 1.2rem;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="home.html" class="topbar-logo">
+    <img src="logo.png" alt="Voltix Pro GH" onerror="this.style.display='none'">
+    <div class="topbar-logo-text"><b>VOLTIX</b><span>PRO GH</span></div>
+  </a>
+  <div class="topbar-icons">
+    <button class="icon-btn" onclick="toggleStoreMusic()" id="musicToggleBtn">🎵</button>
+    <button class="icon-btn" onclick="toggleMusicPlaylist()" aria-label="Choose a song">☰</button>
+    <a href="showcase.html" class="icon-btn" aria-label="3D Product Showcase">🎬</a>
+    <a href="wishlist.html" class="icon-btn">♡<span class="icon-badge" id="navWishCount" style="display:none;">0</span></a>
+    <a href="cart.html" class="icon-btn">🛒<span class="icon-badge" id="navCartCount" style="display:none;">0</span></a>
+  </div>
+</header>
+
+<div class="playlist-panel" id="musicPlaylistPanel">
+  <div class="playlist-header"><b>🎵 Store Playlist</b><button onclick="toggleMusicPlaylist()">✕</button></div>
+  <div id="musicPlaylistList"></div>
+</div>
+
+<audio id="storeAudio"></audio>
+
+<div class="search-bar-wrap">
+  <div class="search-bar">
+    <span class="icon">🔍</span>
+    <input type="text" id="shopSearchInput" placeholder="Search earpods, colors, models...">
+  </div>
+</div>
+
+<div class="cat-tabs" id="catTabs">
+  <button class="cat-tab active" data-cat="all">All</button>
+  <!-- Populated dynamically from the real Categories collection managed in Admin -->
+</div>
+
+<div class="filter-sort-bar">
+  <button class="fs-btn" onclick="openSheet('filterSheet')">🎚️ Filters</button>
+  <button class="fs-btn" onclick="openSheet('sortSheet')">↕️ Sort By</button>
+</div>
+
+<!-- SPIN & WIN BANNER -->
+<div class="spin-banner ripple" onclick="openSpinWithVoice()">
+  <span style="font-size:1.6rem;">🎡</span>
+  <div>
+    <div style="font-weight:900;font-size:.88rem;">Spin &amp; Win!</div>
+    <div style="font-size:.68rem;color:rgba(255,255,255,.6);">Tap to play</div>
+  </div>
+</div>
+
+<div class="results-count" id="resultsCount">Loading products...</div>
+
+<div class="shop-grid" id="shopGrid"></div>
+<button class="load-more-btn" id="loadMoreBtn" onclick="loadMoreProducts()" style="display:none;">Load More Products</button>
+
+<!-- COMPARE BAR -->
+<div class="compare-bar" id="compareBar">
+  <span id="compareCountText">0 selected</span>
+  <button class="compare-btn" onclick="openCompareModal()">Compare</button>
+</div>
+
+<!-- FILTER BOTTOM SHEET -->
+<div class="sheet-overlay" id="filterOverlay" onclick="closeSheet('filterSheet')"></div>
+<div class="bottom-sheet" id="filterSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Filters <button class="sheet-close" onclick="closeSheet('filterSheet')">✕</button></div>
+
+  <div class="filter-group">
+    <h4>Price Range</h4>
+    <div class="filter-chips" id="priceFilterChips">
+      <button class="filter-chip selected" data-price="any">Any Price</button>
+      <button class="filter-chip" data-price="under40">≤ Ghc40</button>
+      <button class="filter-chip" data-price="mid">Ghc50–150</button>
+      <button class="filter-chip" data-price="high">Ghc150+</button>
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <h4>Bluetooth Version</h4>
+    <div class="filter-chips" id="btFilterChips">
+      <button class="filter-chip selected" data-bt="any">Any</button>
+      <button class="filter-chip" data-bt="5.2">Bluetooth 5.2</button>
+      <button class="filter-chip" data-bt="5.3">Bluetooth 5.3</button>
+      <button class="filter-chip" data-bt="5.4">Bluetooth 5.4</button>
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <h4>Battery Life</h4>
+    <div class="filter-chips" id="battFilterChips">
+      <button class="filter-chip selected" data-batt="any">Any</button>
+      <button class="filter-chip" data-batt="24">24h+</button>
+      <button class="filter-chip" data-batt="36">36h+</button>
+      <button class="filter-chip" data-batt="48">48h+</button>
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <h4>Brand</h4>
+    <div class="filter-chips">
+      <button class="filter-chip selected">Voltix Pro GH</button>
+    </div>
+  </div>
+
+  <button class="sheet-apply-btn ripple" onclick="applyFilters()">Show Results</button>
+</div>
+
+<!-- SORT BOTTOM SHEET -->
+<div class="sheet-overlay" id="sortOverlay" onclick="closeSheet('sortSheet')"></div>
+<div class="bottom-sheet" id="sortSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Sort By <button class="sheet-close" onclick="closeSheet('sortSheet')">✕</button></div>
+  <div class="sort-option selected" data-sort="popular" onclick="selectSort(this,'popular')">Most Popular</div>
+  <div class="sort-option" data-sort="price-low" onclick="selectSort(this,'price-low')">Price: Low to High</div>
+  <div class="sort-option" data-sort="price-high" onclick="selectSort(this,'price-high')">Price: High to Low</div>
+  <div class="sort-option" data-sort="newest" onclick="selectSort(this,'newest')">Newest First</div>
+  <button class="sheet-apply-btn ripple" onclick="closeSheet('sortSheet')" style="margin-top:1.3rem;">Apply</button>
+</div>
+
+<!-- QUICK VIEW MODAL -->
+<div class="quick-view-modal" id="quickViewModal">
+  <div class="qv-content">
+    <div class="sheet-handle"></div>
+    <div class="qv-img" id="qvImg"></div>
+    <div id="qvBadge"></div>
+    <h3 id="qvName" style="font-size:1.2rem;font-weight:900;margin:.6rem 0 .4rem;"></h3>
+    <div id="qvVariantHint" style="font-size:.7rem;font-weight:800;color:var(--blue-electric);margin-bottom:.4rem;display:none;"></div>
+    <p id="qvSpecs" style="font-size:.8rem;color:var(--text-secondary);line-height:1.6;margin-bottom:1rem;"></p>
+    <div style="display:flex;align-items:baseline;gap:.6rem;margin-bottom:1.3rem;">
+      <span id="qvPrice" style="font-size:1.6rem;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;"></span>
+      <span id="qvOldPrice" style="font-size:.9rem;color:var(--text-muted);text-decoration:line-through;"></span>
+    </div>
+    <div style="display:flex;gap:.6rem;">
+      <button class="sheet-apply-btn ripple" id="qvAddBtn" style="margin:0;" onclick="qvAddToCart()">🛒 Add to Cart</button>
+      <button class="fs-btn" style="flex:0 0 auto;padding:0 1rem;" aria-label="Share this product" onclick="shareProductCard(document.getElementById('quickViewModal').dataset.pid)">🔗</button>
+      <button class="fs-btn" style="flex:0 0 auto;padding:0 1rem;" onclick="closeQuickView()">✕</button>
+    </div>
+    <a id="qvFullDetails" href="#" style="display:block;text-align:center;margin-top:1rem;font-size:.8rem;color:var(--blue-electric);font-weight:700;">View Full Details →</a>
+  </div>
+</div>
+
+<!-- SPIN & WIN POPUP -->
+<div class="center-modal" id="spinPopupModal">
+  <div class="modal-box" style="text-align:center;">
+    <div class="spin-popup-icon">🎡</div>
+    <div class="modal-title">Spin &amp; Win!</div>
+    <p class="spin-greeting-text" id="spinGreetingText">Hi, welcome to Kodiya Nekara earpods spin game. Spin more and win more!</p>
+    <button class="sheet-apply-btn ripple" onclick="closeCenterModal('spinPopupModal'); window.location.href='spin.html';">🎡 Spin Now</button>
+    <button style="margin-top:.7rem;background:none;border:none;color:var(--text-muted);font-size:.8rem;padding:.7rem;width:100%;" onclick="closeCenterModal('spinPopupModal')">Close</button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item" data-page="home"><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page="shop"><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page="cart"><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page="account"><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+let activeCategory='all', activePriceFilter='any', activeBtFilter='any', activeBattFilter='any';
+let activeSort='popular', searchTerm='';
+let visibleCount = 8;
+let compareList = [];
+let shopCategories = [];
+
+/* ===== PHASE 3: DYNAMIC CATEGORY TABS ===== */
+function renderCategoryTabs(){
+  const box = document.getElementById('catTabs');
+  if(!box) return;
+  const activeCats = shopCategories.filter(c => c.active !== false);
+  const tabsHTML = activeCats.map(c =>
+    `<button class="cat-tab ${activeCategory===c.slug?'active':''}" data-cat="${c.slug}">${c.name}</button>`
+  ).join('');
+  box.innerHTML = `<button class="cat-tab ${activeCategory==='all'?'active':''}" data-cat="all">All</button>${tabsHTML}`;
+}
+
+function goToProductQuickView(id, e){
+  if(e) e.stopPropagation();
+  const p = allProducts.find(x=>String(x.id)===String(id));
+  if(!p) return;
+  const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+  const hasVariants = p.variants && p.variants.length > 1;
+
+  document.getElementById('qvImg').innerHTML = img ? mediaTagHTML(img, p.name, '', 'f_auto,q_auto,w_700') : (p.emoji||'🎧');
+  document.getElementById('qvBadge').innerHTML = p.badge ? `<span class="pcard-badge ${p.badgeClass||''}" style="position:static;display:inline-block;">${p.badge}</span>` : '';
+  document.getElementById('qvName').textContent = p.name;
+  document.getElementById('qvSpecs').textContent = p.specs||'';
+  document.getElementById('qvPrice').textContent = 'Ghc'+p.price;
+  document.getElementById('qvOldPrice').textContent = p.oldPrice ? 'Ghc'+p.oldPrice : '';
+  document.getElementById('qvFullDetails').href = 'product.html?id='+encodeURIComponent(id);
+  document.getElementById('quickViewModal').dataset.pid = id;
+
+  const hint = document.getElementById('qvVariantHint');
+  const addBtn = document.getElementById('qvAddBtn');
+  if(hasVariants){
+    hint.style.display = 'block';
+    hint.textContent = `🎨 ${p.variants.length} colours available`;
+    addBtn.textContent = '🎨 Choose Colour';
+  } else {
+    hint.style.display = 'none';
+    addBtn.textContent = '🛒 Add to Cart';
+  }
+
+  document.getElementById('quickViewModal').classList.add('active');
+}
+function closeQuickView(){ document.getElementById('quickViewModal').classList.remove('active'); }
+function qvAddToCart(){
+  const id = document.getElementById('quickViewModal').dataset.pid;
+  const p = allProducts.find(x=>String(x.id)===String(id));
+  if(p && p.variants && p.variants.length > 1){
+    window.location.href = 'product.html?id='+encodeURIComponent(id);
+    return;
+  }
+  addToCart(id);
+  closeQuickView();
+}
+
+function openSheet(id){
+  document.getElementById(id).classList.add('active');
+  document.getElementById(id==='filterSheet'?'filterOverlay':'sortOverlay').classList.add('active');
+}
+function closeSheet(id){
+  document.getElementById(id).classList.remove('active');
+  document.getElementById(id==='filterSheet'?'filterOverlay':'sortOverlay').classList.remove('active');
+}
+function selectSort(el, val){
+  document.querySelectorAll('.sort-option').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  activeSort = val;
+  renderShopGrid();
+}
+
+document.getElementById('priceFilterChips').addEventListener('click', e=>{
+  const btn = e.target.closest('.filter-chip'); if(!btn) return;
+  document.querySelectorAll('#priceFilterChips .filter-chip').forEach(c=>c.classList.remove('selected'));
+  btn.classList.add('selected'); activePriceFilter = btn.dataset.price;
+});
+document.getElementById('btFilterChips').addEventListener('click', e=>{
+  const btn = e.target.closest('.filter-chip'); if(!btn) return;
+  document.querySelectorAll('#btFilterChips .filter-chip').forEach(c=>c.classList.remove('selected'));
+  btn.classList.add('selected'); activeBtFilter = btn.dataset.bt;
+});
+document.getElementById('battFilterChips').addEventListener('click', e=>{
+  const btn = e.target.closest('.filter-chip'); if(!btn) return;
+  document.querySelectorAll('#battFilterChips .filter-chip').forEach(c=>c.classList.remove('selected'));
+  btn.classList.add('selected'); activeBattFilter = btn.dataset.batt;
+});
+function applyFilters(){ closeSheet('filterSheet'); renderShopGrid(); }
+
+document.getElementById('catTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('.cat-tab'); if(!btn) return;
+  document.querySelectorAll('.cat-tab').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active'); activeCategory = btn.dataset.cat;
+  visibleCount = 8;
+  renderShopGrid();
+});
+document.getElementById('shopSearchInput').addEventListener('input', e=>{
+  searchTerm = e.target.value.toLowerCase();
+  visibleCount = 8;
+  renderShopGrid();
+});
+
+function matchesAllFilters(p){
+  if(activeCategory!=='all' && (p.category||'')!==activeCategory) return false;
+  if(activePriceFilter==='under40' && p.price>40) return false;
+  if(activePriceFilter==='mid' && (p.price<50||p.price>150)) return false;
+  if(activePriceFilter==='high' && p.price<=150) return false;
+  if(activeBtFilter!=='any' && !(p.specs||'').includes(activeBtFilter)) return false;
+  if(activeBattFilter!=='any'){
+    const battMatch = (p.specs||'').match(/(\d+)h/);
+    const battVal = battMatch ? parseInt(battMatch[1]) : 0;
+    if(battVal < parseInt(activeBattFilter)) return false;
+  }
+  if(searchTerm && !p.name.toLowerCase().includes(searchTerm) && !(p.specs||'').toLowerCase().includes(searchTerm)) return false;
+  return true;
+}
+function sortProducts(list){
+  const arr = [...list];
+  if(activeSort==='price-low') arr.sort((a,b)=>a.price-b.price);
+  else if(activeSort==='price-high') arr.sort((a,b)=>b.price-a.price);
+  else if(activeSort==='newest') arr.sort((a,b)=>(b.badgeClass==='badge-new'?1:0)-(a.badgeClass==='badge-new'?1:0));
+  return arr;
+}
+
+function renderShopGrid(){
+  const filtered = sortProducts(allProducts.filter(matchesAllFilters));
+  document.getElementById('resultsCount').textContent = `${filtered.length} products found`;
+  const toShow = filtered.slice(0, visibleCount);
+  document.getElementById('shopGrid').innerHTML = toShow.map(p => {
+    const hasVariants = p.variants && p.variants.length > 1;
+    const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+    const addBtnHTML = hasVariants
+      ? `<button class="pcard-addbtn ripple" style="flex:1;" onclick="event.stopPropagation(); window.location.href='product.html?id=${encodeURIComponent(p.id)}';">🎨 Choose Colour</button>`
+      : `<button class="pcard-addbtn ripple" style="flex:1;" onclick="event.stopPropagation(); addToCart('${p.id}');">Add to Cart</button>`;
+    return `
+    <div class="glass-card pcard" style="position:relative;" onclick="goToProduct('${p.id}')">
+      <input type="checkbox" class="compare-check" data-id="${p.id}" onclick="event.stopPropagation(); toggleCompare('${p.id}', this)">
+      <div class="pcard-img">
+        ${p.badge?`<span class="pcard-badge ${p.badgeClass||''}">${p.badge}</span>`:''}
+        <button class="wish-toggle ${isWishlisted(p.id)?'active':''}" data-id="${p.id}" onclick="event.stopPropagation(); toggleWishlist('${p.id}')">${isWishlisted(p.id)?'♥':'♡'}</button>
+        ${img?mediaTagHTML(img, p.name, '', 'f_auto,q_auto,w_500'):`<span>${p.emoji||'🎧'}</span>`}
+      </div>
+      <div class="pcard-name">${p.name}</div>
+      ${hasVariants?`<div style="font-size:.6rem;font-weight:800;color:var(--blue-electric);margin-bottom:.2rem;">🎨 ${p.variants.length} colours</div>`:''}
+      <div class="pcard-rating">★★★★★ <span class="count">(${p.reviewCount||Math.floor(Math.random()*80)+20})</span></div>
+      <div class="pcard-price-row">
+        <span class="pcard-price">Ghc${p.price}</span>
+        ${p.oldPrice?`<span class="pcard-oldprice">Ghc${p.oldPrice}</span>`:''}
+      </div>
+      <div style="font-size:.62rem;font-weight:800;color:var(--gold);margin-bottom:.5rem;">💸 Earn Ghc${getCommissionForPrice(p.price)} referring this</div>
+      <div style="display:flex;gap:.35rem;">
+        ${addBtnHTML}
+        <button class="fs-btn" style="flex:0 0 auto;padding:.5rem .55rem;font-size:.7rem;" onclick="event.stopPropagation(); goToProductQuickView('${p.id}')">👁️</button>
+        <button class="fs-btn" style="flex:0 0 auto;padding:.5rem .55rem;font-size:.7rem;" aria-label="Share this product" onclick="shareProductCard('${p.id}', event)">🔗</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('loadMoreBtn').style.display = filtered.length > visibleCount ? 'block' : 'none';
+}
+function loadMoreProducts(){ visibleCount += 8; renderShopGrid(); }
+
+function toggleCompare(id, checkbox){
+  if(checkbox.checked){
+    if(compareList.length>=3){ checkbox.checked=false; showToast('Max 3 products to compare'); return; }
+    compareList.push(id);
+  } else {
+    compareList = compareList.filter(c=>c!==id);
+  }
+  document.getElementById('compareCountText').textContent = compareList.length+' selected';
+  document.getElementById('compareBar').classList.toggle('active', compareList.length>0);
+}
+function openCompareModal(){
+  if(compareList.length<2){ showToast('Select at least 2 products'); return; }
+  const items = compareList.map(id=>allProducts.find(p=>String(p.id)===String(id))).filter(Boolean);
+  let html = '<div class="qv-content"><div class="sheet-handle"></div><h3 style="font-size:1.1rem;font-weight:900;margin-bottom:1rem;">Compare Products</h3>';
+  items.forEach(p=>{
+    const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl;
+    html += `<div style="display:flex;gap:.8rem;padding:.9rem 0;border-bottom:1px solid rgba(255,255,255,.08);">
+      <div style="width:60px;height:60px;border-radius:.7rem;background:rgba(14,165,233,.15);display:flex;align-items:center;justify-content:center;font-size:1.6rem;overflow:hidden;flex-shrink:0;">${img?mediaTagHTML(img, p.name, 'style="width:100%;height:100%;object-fit:cover;"', 'f_auto,q_auto,w_150'):(p.emoji||'🎧')}</div>
+      <div><b style="font-size:.85rem;">${p.name}</b><div style="font-size:.75rem;color:var(--text-secondary);margin-top:.2rem;">${p.specs||''}</div><div style="font-size:1rem;font-weight:900;color:var(--gold);margin-top:.3rem;">Ghc${p.price}</div></div>
+    </div>`;
+  });
+  html += '<button class="sheet-apply-btn" onclick="closeQuickView()">Close</button></div>';
+  const modal = document.getElementById('quickViewModal');
+  modal.innerHTML = html;
+  modal.classList.add('active');
+}
+
+function closeCenterModal(id){ document.getElementById(id).classList.remove('active'); }
+
+function openSpinWithVoice(){
+  document.getElementById('spinPopupModal').classList.add('active');
+  const greeting = document.getElementById('spinGreetingText').textContent;
+  if('speechSynthesis' in window){
+    try{
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(greeting);
+      utter.rate = 0.95;
+      window.speechSynthesis.speak(utter);
+    } catch(e){}
+  }
+}
+
+// URL param support (from Home page category links)
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const cat = params.get('category');
+  if(cat) activeCategory = cat;
+  const filter = params.get('filter');
+  if(filter==='new') activeSort='newest';
+})();
+
+initVoltixApp('shop', renderShopGrid);
+initStoreMusic();
+
+VDB ? VDB.subscribeCategories(list=>{ shopCategories = list; renderCategoryTabs(); })
+    : window.addEventListener('vdb-ready', ()=> VDB.subscribeCategories(list=>{ shopCategories = list; renderCategoryTabs(); }));
+
+const origUpdateBadges2 = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadges2();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+</script>
+</body>
+</html>

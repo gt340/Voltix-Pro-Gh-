@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>About Us — Voltix Pro GH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://res.cloudinary.com">
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.about-hero{position:relative;padding:2.5rem 1.3rem;text-align:center;overflow:hidden;}
+.about-photo{width:150px;height:150px;border-radius:50%;object-fit:cover;margin:0 auto 1.3rem;border:3px solid var(--gold);box-shadow:0 20px 50px rgba(14,165,233,.3);position:relative;z-index:2;}
+.about-tag{display:inline-flex;align-items:center;gap:.4rem;background:rgba(14,165,233,.15);border:1px solid rgba(14,165,233,.4);color:var(--gold);font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:999px;margin-bottom:1rem;position:relative;z-index:2;}
+.about-title{font-size:1.6rem;font-weight:900;margin-bottom:.5rem;position:relative;z-index:2;}
+.about-subtitle{font-size:.85rem;color:var(--gold);font-weight:700;position:relative;z-index:2;}
+
+.about-story{margin:1.3rem 1.1rem;padding:1.3rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1.2rem;}
+.about-story p{font-size:.86rem;line-height:1.85;color:var(--text-secondary);margin-bottom:1.1rem;}
+.about-story p:last-child{margin-bottom:0;}
+.about-story p strong{color:#fff;}
+
+.about-mission{margin:0 1.1rem 1.3rem;padding:1.3rem;background:linear-gradient(150deg,rgba(30,64,175,.25),rgba(14,165,233,.1));border:1px solid rgba(14,165,233,.3);border-radius:1.2rem;}
+.about-mission-tag{font-size:.68rem;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.6rem;}
+.about-mission p{font-size:.9rem;font-weight:700;color:#fff;line-height:1.6;}
+
+.about-values-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;padding:0 1.1rem 1.3rem;}
+.about-value-card{padding:1.2rem 1rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1.1rem;text-align:center;}
+.about-value-card .ic{font-size:1.8rem;margin-bottom:.7rem;}
+.about-value-card b{display:block;font-size:.82rem;font-weight:800;margin-bottom:.3rem;}
+.about-value-card span{font-size:.7rem;color:var(--text-muted);line-height:1.4;}
+
+.about-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;padding:0 1.1rem 1.3rem;}
+.about-stat{text-align:center;padding:.9rem .3rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1rem;}
+.about-stat .num{font-size:1.2rem;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.about-stat .lbl{font-size:.58rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-top:.2rem;}
+
+.about-cta{margin:0 1.1rem 1.5rem;padding:1.3rem;text-align:center;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:1.2rem;}
+.about-cta p{font-size:.85rem;color:var(--text-secondary);margin-bottom:1.1rem;}
+.about-cta-btn{display:inline-flex;align-items:center;gap:.5rem;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:800;font-size:.85rem;padding:.9rem 1.7rem;border-radius:.9rem;text-decoration:none;}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="account.html" class="icon-btn">←</a>
+  <div style="font-weight:800;font-size:.95rem;">About Us</div>
+  <div style="width:2.5rem;"></div>
+</header>
+
+<div class="about-hero">
+  <div class="orb orb1" style="opacity:.15;"></div>
+  <img src="founder.jpg" alt="Kodiya Nekara — Founder" class="about-photo" onerror="this.style.display='none'">
+  <div class="about-tag">🇬🇭 A Trust God Company Brand</div>
+  <h1 class="about-title">Kodiya Nekara</h1>
+  <div class="about-subtitle">Founder &amp; CEO, Voltix Pro GH</div>
+</div>
+
+<div class="about-story">
+  <p>"Hi everyone! I am <strong>Kodiya Nekara</strong>, founder of Voltix Pro GH. When I set out to build Ghana's number one premium earpods store, my goal was plain and simple: bringing the absolute best, crystal clear bass and audio technology to every Ghanaian at authentic, fair value prices starting from just <strong>Ghc 40</strong>!"</p>
+  <p>"Why pay hundreds of cedis for overpriced products when you can get genuine high fidelity, digital battery LED displays, or active noise cancellation that lasts an entire weekend? Every single pair of earbuds in our warehouse is thoroughly tested under strict quality regulations before getting delivered across Ghana."</p>
+  <p>"As a proud brand of the <strong>'Trust God Company'</strong>, we believe in absolute integrity, clean customer service, and solid support. That is why we offer an unconditional 7-Day defection replacement return warranty to guarantee your satisfaction."</p>
+</div>
+
+<div class="about-mission">
+  <div class="about-mission-tag">⚡ Our Mission</div>
+  <p>Make premium audio accessible to every Ghanaian at fair, honest prices — no overpricing, no shortcuts, just real value delivered to your door.</p>
+</div>
+
+<div class="about-values-grid">
+  <div class="about-value-card"><div class="ic">✅</div><b>Authenticity</b><span>100% genuine products, always</span></div>
+  <div class="about-value-card"><div class="ic">💰</div><b>Fair Pricing</b><span>Quality without the markup</span></div>
+  <div class="about-value-card"><div class="ic">🚚</div><b>Fast Delivery</b><span>1-3 days, nationwide</span></div>
+  <div class="about-value-card"><div class="ic">🤝</div><b>Real Support</b><span>Real people, real care</span></div>
+</div>
+
+<div class="about-stats-row">
+  <div class="about-stat"><div class="num">500+</div><div class="lbl">Customers</div></div>
+  <div class="about-stat"><div class="num">14+</div><div class="lbl">Products</div></div>
+  <div class="about-stat"><div class="num">4.8★</div><div class="lbl">Rating</div></div>
+  <div class="about-stat"><div class="num">🇬🇭</div><div class="lbl">Ghana Made</div></div>
+</div>
+
+<div class="about-cta">
+  <p>Have questions or want bulk purchase discounts? Talk directly to the founder.</p>
+  <a href="https://wa.me/233536193862" target="_blank" class="about-cta-btn ripple">💬 WhatsApp Kodiya</a>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item" data-page="account"><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page="account"><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page="account"><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page="account"><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+initVoltixApp('account', function(){});
+
+const origUpdateBadgesAbout = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadgesAbout();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+</script>
+</body>
+</html>

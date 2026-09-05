@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>My Profile — Voltix Pro GH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://res.cloudinary.com">
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.prof-tabs{display:flex;gap:.5rem;padding:1rem 1.1rem;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+.prof-tabs::-webkit-scrollbar{display:none;}
+.prof-tab{flex:0 0 auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text-secondary);font-size:.78rem;font-weight:700;padding:.6rem 1.2rem;border-radius:999px;white-space:nowrap;}
+.prof-tab.active{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border-color:transparent;}
+.prof-section{display:none;padding:0 1.1rem 2rem;}
+.prof-section.active{display:block;}
+
+.prof-avatar-wrap{display:flex;flex-direction:column;align-items:center;padding:1rem 0 1.5rem;}
+.prof-avatar-big{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,var(--blue-electric),var(--gold));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:2.2rem;margin-bottom:.9rem;position:relative;}
+.prof-avatar-edit{position:absolute;bottom:0;right:0;width:2rem;height:2rem;border-radius:50%;background:var(--navy-mid);border:2px solid var(--blue-electric);display:flex;align-items:center;justify-content:center;font-size:.85rem;}
+
+.form-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1.1rem;padding:1.1rem;margin-bottom:1rem;}
+.form-card h4{font-size:.78rem;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem;}
+.form-field{margin-bottom:.9rem;}
+.form-field:last-child{margin-bottom:0;}
+.form-field label{display:block;font-size:.68rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem;}
+.form-field input,.form-field select{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;}
+
+.save-btn{width:100%;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:800;font-size:.88rem;padding:1rem;border-radius:.9rem;border:none;}
+
+.addr-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1.1rem;padding:1.1rem;margin-bottom:.9rem;position:relative;}
+.addr-card.default{border-color:var(--blue-electric);}
+.addr-default-tag{position:absolute;top:1rem;right:1rem;background:rgba(14,165,233,.15);color:var(--blue-electric);font-size:.6rem;font-weight:800;padding:.25rem .6rem;border-radius:999px;text-transform:uppercase;}
+.addr-name{font-weight:800;font-size:.9rem;margin-bottom:.3rem;}
+.addr-detail{font-size:.8rem;color:var(--text-secondary);line-height:1.6;margin-bottom:.9rem;}
+.addr-btns{display:flex;gap:.6rem;}
+.addr-btns button{flex:1;font-size:.72rem;font-weight:800;padding:.6rem;border-radius:.6rem;border:none;}
+.btn-set-default{background:rgba(14,165,233,.15);color:var(--blue-electric);border:1px solid rgba(14,165,233,.3);}
+.btn-delete-addr{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.add-addr-btn{width:100%;background:rgba(255,255,255,.06);border:1.5px dashed rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:.85rem;padding:1rem;border-radius:1rem;}
+
+.pm-card{display:flex;align-items:center;gap:1rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:1.1rem;padding:1.1rem;margin-bottom:.9rem;}
+.pm-icon{width:2.8rem;height:2.8rem;border-radius:.8rem;background:rgba(14,165,233,.15);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;}
+.pm-info{flex:1;}
+.pm-info b{display:block;font-size:.85rem;}
+.pm-info span{font-size:.7rem;color:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="account.html" class="icon-btn">←</a>
+  <div style="font-weight:800;font-size:.95rem;">My Profile</div>
+  <div style="width:2.5rem;"></div>
+</header>
+
+<div class="prof-tabs" id="profTabs">
+  <button class="prof-tab active" data-tab="profile">👤 Profile</button>
+  <button class="prof-tab" data-tab="addresses">📍 Addresses</button>
+  <button class="prof-tab" data-tab="payments">💳 Payment Methods</button>
+</div>
+
+<!-- PROFILE TAB -->
+<div class="prof-section active" id="section-profile">
+  <div class="prof-avatar-wrap">
+    <div class="prof-avatar-big" id="profAvatarInitial">V</div>
+  </div>
+  <form onsubmit="saveProfile(event)">
+    <div class="form-card">
+      <h4>Personal Information</h4>
+      <div class="form-field"><label>Full Name</label><input type="text" id="profName" required></div>
+      <div class="form-field"><label>Phone Number</label><input type="tel" id="profPhone" required></div>
+      <div class="form-field"><label>Email (optional)</label><input type="email" id="profEmail" placeholder="you@example.com"></div>
+    </div>
+    <button type="submit" class="save-btn ripple">💾 Save Changes</button>
+  </form>
+</div>
+
+<!-- ADDRESSES TAB -->
+<div class="prof-section" id="section-addresses">
+  <div id="addressesList"></div>
+  <button class="add-addr-btn ripple" onclick="openAddAddressForm()">+ Add New Address</button>
+
+  <div class="form-card" id="addAddressForm" style="display:none;margin-top:1rem;">
+    <h4>New Delivery Address</h4>
+    <form onsubmit="saveNewAddress(event)">
+      <div class="form-field"><label>Label</label><input type="text" id="newAddrLabel" placeholder="e.g. Home, Office" required></div>
+      <div class="form-field"><label>Region</label>
+        <select id="newAddrRegion">
+          <option>Greater Accra</option><option>Ashanti</option><option>Western</option><option>Eastern</option><option>Central</option><option>Volta</option><option>Northern</option><option>Bono</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-field"><label>City / Town</label><input type="text" id="newAddrCity" required></div>
+      <div class="form-field"><label>Full Address</label><input type="text" id="newAddrDetail" placeholder="House number, street, landmark" required></div>
+      <button type="submit" class="save-btn ripple" style="margin-top:.5rem;">Save Address</button>
+    </form>
+  </div>
+</div>
+
+<!-- PAYMENT METHODS TAB -->
+<div class="prof-section" id="section-payments">
+  <div class="pm-card">
+    <div class="pm-icon">📱</div>
+    <div class="pm-info"><b>MTN Mobile Money</b><span>Fastest way to pay in Ghana</span></div>
+  </div>
+  <div class="pm-card">
+    <div class="pm-icon">📱</div>
+    <div class="pm-info"><b>Telecel Cash</b><span>Instant mobile money</span></div>
+  </div>
+  <div class="pm-card">
+    <div class="pm-icon">💳</div>
+    <div class="pm-info"><b>Visa / MasterCard</b><span>Secure card payment via Paystack</span></div>
+  </div>
+  <div class="pm-card">
+    <div class="pm-icon">🏠</div>
+    <div class="pm-info"><b>Cash on Delivery</b><span>Pay when your package arrives</span></div>
+  </div>
+  <p style="font-size:.75rem;color:var(--text-muted);text-align:center;margin-top:1rem;line-height:1.6;">These are the payment methods available at checkout — no card details are stored on this device.</p>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item" data-page="account"><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page="account"><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page="account"><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page="account"><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+let savedAddresses = JSON.parse(localStorage.getItem('voltixAddresses') || '[]');
+
+document.getElementById('profTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('.prof-tab');
+  if(!btn) return;
+  document.querySelectorAll('.prof-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.prof-section').forEach(s=>s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('section-'+btn.dataset.tab).classList.add('active');
+});
+
+function renderProfilePage(){
+  if(!currentUser){
+    showToast('Please login first');
+    window.location.href = 'account.html';
+    return;
+  }
+  document.getElementById('profName').value = currentUser.name || '';
+  document.getElementById('profPhone').value = currentUser.phone || '';
+  document.getElementById('profEmail').value = currentUser.email || '';
+  document.getElementById('profAvatarInitial').textContent = currentUser.name.charAt(0).toUpperCase();
+
+  renderAddresses();
+
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  if(tab && document.getElementById('section-'+tab)){
+    document.querySelectorAll('.prof-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+    document.querySelectorAll('.prof-section').forEach(s=>s.classList.toggle('active', s.id==='section-'+tab));
+  }
+}
+
+function saveProfile(e){
+  e.preventDefault();
+  currentUser = {
+    name: document.getElementById('profName').value,
+    phone: document.getElementById('profPhone').value,
+    email: document.getElementById('profEmail').value
+  };
+  localStorage.setItem('voltixUser', JSON.stringify(currentUser));
+  showToast('Profile updated!');
+  renderProfilePage();
+}
+
+function renderAddresses(){
+  const listEl = document.getElementById('addressesList');
+  if(savedAddresses.length === 0){
+    listEl.innerHTML = `<p style="font-size:.82rem;color:var(--text-muted);text-align:center;padding:1.5rem 0;">No saved addresses yet</p>`;
+    return;
+  }
+  listEl.innerHTML = savedAddresses.map((a,i) => `
+    <div class="addr-card ${a.isDefault?'default':''}">
+      ${a.isDefault?'<span class="addr-default-tag">Default</span>':''}
+      <div class="addr-name">${a.label}</div>
+      <div class="addr-detail">${a.detail}, ${a.city}, ${a.region}</div>
+      <div class="addr-btns">
+        ${!a.isDefault?`<button class="btn-set-default" onclick="setDefaultAddress(${i})">Set Default</button>`:''}
+        <button class="btn-delete-addr" onclick="deleteAddress(${i})">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+function openAddAddressForm(){
+  document.getElementById('addAddressForm').style.display = 'block';
+}
+
+function saveNewAddress(e){
+  e.preventDefault();
+  const addr = {
+    label: document.getElementById('newAddrLabel').value,
+    region: document.getElementById('newAddrRegion').value,
+    city: document.getElementById('newAddrCity').value,
+    detail: document.getElementById('newAddrDetail').value,
+    isDefault: savedAddresses.length === 0
+  };
+  savedAddresses.push(addr);
+  localStorage.setItem('voltixAddresses', JSON.stringify(savedAddresses));
+  document.getElementById('addAddressForm').style.display = 'none';
+  e.target.reset();
+  renderAddresses();
+  showToast('Address saved!');
+}
+
+function setDefaultAddress(idx){
+  savedAddresses.forEach((a,i)=> a.isDefault = (i===idx));
+  localStorage.setItem('voltixAddresses', JSON.stringify(savedAddresses));
+  renderAddresses();
+}
+
+function deleteAddress(idx){
+  if(!confirm('Delete this address?')) return;
+  savedAddresses.splice(idx,1);
+  if(savedAddresses.length > 0 && !savedAddresses.some(a=>a.isDefault)) savedAddresses[0].isDefault = true;
+  localStorage.setItem('voltixAddresses', JSON.stringify(savedAddresses));
+  renderAddresses();
+}
+
+initVoltixApp('account', renderProfilePage);
+renderProfilePage();
+
+const origUpdateBadgesProf = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadgesProf();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+</script>
+</body>
+</html>

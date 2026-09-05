@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>My Wishlist — Voltix Pro GH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://res.cloudinary.com">
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.wl-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
+.wl-empty .ic{font-size:4rem;margin-bottom:1.2rem;opacity:.5;}
+.wl-empty h3{font-size:1.15rem;font-weight:900;margin-bottom:.5rem;}
+.wl-empty p{font-size:.85rem;color:var(--text-secondary);margin-bottom:1.5rem;}
+.wl-empty-btn{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:800;font-size:.85rem;padding:.9rem 1.8rem;border-radius:.9rem;border:none;}
+
+.wl-header-row{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.1rem;}
+.wl-count{font-size:.8rem;color:var(--text-secondary);}
+.wl-clear-btn{background:none;border:none;color:#f87171;font-size:.75rem;font-weight:700;}
+
+.wl-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;padding:0 1.1rem 2rem;}
+.wl-card{position:relative;}
+.wl-remove-x{position:absolute;top:.5rem;right:.5rem;z-index:3;width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:.85rem;backdrop-filter:blur(6px);}
+.wl-added-date{font-size:.62rem;color:var(--text-muted);margin-top:.3rem;}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="account.html" class="icon-btn">←</a>
+  <div style="font-weight:800;font-size:.95rem;">My Wishlist</div>
+  <a href="cart.html" class="icon-btn">🛒<span class="icon-badge" id="navCartCount" style="display:none;">0</span></a>
+</header>
+
+<div id="wlEmptyState" class="wl-empty" style="display:none;">
+  <div class="ic">♡</div>
+  <h3>Your wishlist is empty</h3>
+  <p>Tap the heart on any product to save it here for later</p>
+  <a href="shop.html" class="wl-empty-btn ripple">🛍️ Browse Products</a>
+</div>
+
+<div id="wlContent">
+  <div class="wl-header-row">
+    <span class="wl-count" id="wlCountText">0 items saved</span>
+    <button class="wl-clear-btn" onclick="clearWishlist()">Clear All</button>
+  </div>
+  <div class="wl-grid" id="wlGrid"></div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item" data-page="home"><span class="nav-icon">🏠</span>Home</a>
+  <a href="shop.html" class="nav-item" data-page="shop"><span class="nav-icon">🛍️</span>Shop</a>
+  <a href="cart.html" class="nav-item" data-page="cart"><span class="nav-icon">🛒</span>Cart<span class="nav-count" id="navCartCount2" style="display:none;">0</span></a>
+  <a href="account.html" class="nav-item" data-page="account"><span class="nav-icon">👤</span>Account</a>
+</nav>
+
+<script src="app.js"></script>
+<script>
+function renderWishlistPage(list){
+  const emptyEl = document.getElementById('wlEmptyState');
+  const contentEl = document.getElementById('wlContent');
+
+  const wishedProducts = wishlist.map(id => list.find(p => String(p.id)===String(id))).filter(Boolean);
+
+  if(wishedProducts.length === 0){
+    emptyEl.style.display = 'flex';
+    contentEl.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  contentEl.style.display = 'block';
+
+  document.getElementById('wlCountText').textContent = `${wishedProducts.length} item${wishedProducts.length>1?'s':''} saved`;
+
+  document.getElementById('wlGrid').innerHTML = wishedProducts.map(p => `
+    <div class="glass-card pcard wl-card">
+      <button class="wl-remove-x" onclick="removeFromWishlistPage('${p.id}')">✕</button>
+      <div class="pcard-img" onclick="goToProduct('${p.id}')">
+        ${p.badge ? `<span class="pcard-badge ${p.badgeClass||''}">${p.badge}</span>` : ''}
+        ${(() => { const img = (p.images && p.images.length) ? p.images[0] : p.imageUrl; return img ? mediaTagHTML(img, p.name, '', 'f_auto,q_auto,w_500') : `<span>${p.emoji||'🎧'}</span>`; })()}
+      </div>
+      <div class="pcard-name" onclick="goToProduct('${p.id}')">${p.name}</div>
+      <div class="pcard-price-row">
+        <span class="pcard-price">Ghc${p.price}</span>
+        ${p.oldPrice ? `<span class="pcard-oldprice">Ghc${p.oldPrice}</span>` : ''}
+      </div>
+      <button class="pcard-addbtn ripple" onclick="addToCart('${p.id}')">Add to Cart</button>
+    </div>`).join('');
+}
+
+function removeFromWishlistPage(id){
+  wishlist = wishlist.filter(w => String(w) !== String(id));
+  localStorage.setItem('voltixWishlist', JSON.stringify(wishlist));
+  updateNavBadges();
+  renderWishlistPage(allProducts);
+  showToast('Removed from wishlist');
+}
+
+function clearWishlist(){
+  if(wishlist.length === 0) return;
+  if(!confirm('Remove all items from your wishlist?')) return;
+  wishlist = [];
+  localStorage.setItem('voltixWishlist', JSON.stringify(wishlist));
+  updateNavBadges();
+  renderWishlistPage(allProducts);
+  showToast('Wishlist cleared');
+}
+
+initVoltixApp('account', renderWishlistPage);
+
+const origUpdateBadgesWl = updateNavBadges;
+updateNavBadges = function(){
+  origUpdateBadgesWl();
+  const b2 = document.getElementById('navCartCount2');
+  if(b2){ const c=cartCount(); b2.textContent=c; b2.style.display=c>0?'flex':'none'; }
+};
+updateNavBadges();
+</script>
+</body>
+</html>
