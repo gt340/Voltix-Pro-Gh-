@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Private / not meant to be found via search
+Disallow: /admin.html
+Disallow: /cart.html
+Disallow: /checkout.html
+Disallow: /account.html
+Disallow: /profile.html
+Disallow: /settings.html
+Disallow: /notifications.html
+Disallow: /orders.html
+Disallow: /orders-success.html
+Disallow: /wishlist.html
+
+Sitemap: https://voltix-pro-gh.vercel.app/sitemap.xml
