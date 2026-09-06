@@ -53,6 +53,29 @@ body{padding-bottom:6.4rem;}
 .pdp-review-submit-btn{width:100%;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:800;padding:.95rem;border-radius:.8rem;border:none;font-size:.85rem;margin-top:.3rem;}
 .pdp-review-submit-btn:disabled{opacity:.5;pointer-events:none;}
 .pdp-review-upload-progress{font-size:.72rem;color:var(--blue-electric);margin-top:.5rem;display:none;}
+
+/* ===== 3D PRODUCT VIEWER ===== */
+.pdp-3d-stage{position:relative;margin:.9rem 1.1rem 0;width:calc(100% - 2.2rem);border-radius:1.4rem;overflow:hidden;aspect-ratio:1/1;perspective:1000px;box-shadow:0 20px 50px rgba(0,0,0,.4);background:#0a0e1a;}
+.pdp-3d-bg{position:absolute;inset:0;transition:background .6s ease;z-index:0;}
+.pdp-3d-name{position:absolute;top:.9rem;left:3rem;right:3rem;text-align:center;font-weight:900;font-size:1rem;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.7);z-index:5;letter-spacing:.01em;line-height:1.25;}
+.pdp-3d-viewport{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;cursor:grab;touch-action:pan-y;}
+.pdp-3d-viewport:active{cursor:grabbing;}
+.pdp-3d-frame-stack{position:relative;width:76%;height:76%;transform-style:preserve-3d;will-change:transform;transition:transform .12s ease-out;}
+.pdp-3d-frame-stack img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none;filter:drop-shadow(0 25px 26px rgba(0,0,0,.5));}
+.pdp-3d-frame-stack img.pdp-3d-frame-hidden{opacity:0;}
+.pdp-3d-shadow{position:absolute;left:50%;bottom:9%;width:50%;height:10%;transform:translateX(-50%);background:radial-gradient(ellipse at center, rgba(0,0,0,.5), transparent 72%);z-index:1;filter:blur(2px);}
+.pdp-3d-nav-arrow{position:absolute;top:50%;transform:translateY(-50%);width:2.3rem;height:2.3rem;border-radius:50%;background:rgba(6,10,20,.55);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:1.25rem;z-index:6;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;line-height:1;}
+.pdp-3d-nav-arrow.left{left:.6rem;}
+.pdp-3d-nav-arrow.right{right:.6rem;}
+.pdp-3d-nav-arrow:disabled{opacity:.22;}
+.pdp-3d-controls{position:absolute;bottom:.7rem;left:50%;transform:translateX(-50%);display:flex;gap:.45rem;z-index:6;background:rgba(6,10,20,.55);padding:.35rem;border-radius:999px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);}
+.pdp-3d-ctrl-btn{width:2rem;height:2rem;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:.95rem;display:flex;align-items:center;justify-content:center;}
+.pdp-3d-ctrl-btn.active{background:var(--blue-electric);}
+.pdp-3d-hint{text-align:center;font-size:.65rem;color:var(--text-muted);margin:.55rem 1.1rem 0;font-weight:600;}
+.pdp-3d-dots{display:flex;justify-content:center;gap:.35rem;margin:.55rem 0 0;}
+.pdp-3d-dots .dot{width:.4rem;height:.4rem;border-radius:50%;background:rgba(255,255,255,.25);transition:all .2s;}
+.pdp-3d-dots .dot.active{background:var(--blue-electric);width:1.1rem;border-radius:999px;}
+@media(prefers-reduced-motion: reduce){ .pdp-3d-frame-stack{transition:none !important;} }
 </style>
 </head>
 <body>
@@ -91,12 +114,25 @@ body{padding-bottom:6.4rem;}
 </div>
 
 <div id="pdpContent">
-  <div class="pdp-gallery" id="pdpGallery" style="margin:.9rem 1.1rem 0;width:calc(100% - 2.2rem);">
-    <div class="pdp-gallery-track" id="pdpGalleryTrack"></div>
-    <div class="pdp-dots" id="pdpDots"></div>
+  <div class="pdp-3d-stage" id="pdp3dStage">
+    <div class="pdp-3d-bg" id="pdp3dBg"></div>
+    <button type="button" class="pdp-3d-nav-arrow left" id="pdp3dPrevBtn" onclick="pdp3dChangeProduct(-1)" aria-label="Previous product">‹</button>
+    <button type="button" class="pdp-3d-nav-arrow right" id="pdp3dNextBtn" onclick="pdp3dChangeProduct(1)" aria-label="Next product">›</button>
+    <div class="pdp-3d-name" id="pdp3dName"></div>
+    <div class="pdp-3d-viewport" id="pdp3dViewport">
+      <div class="pdp-3d-shadow"></div>
+      <div class="pdp-3d-frame-stack" id="pdp3dFrameStack"></div>
+    </div>
     <button class="pdp-download-btn" onclick="downloadProductImage()" aria-label="Download product image">⬇️</button>
+    <div class="pdp-3d-controls">
+      <button type="button" class="pdp-3d-ctrl-btn" id="pdp3dAutoBtn" onclick="pdp3dToggleAuto()" aria-label="Auto-rotate">🔄</button>
+      <button type="button" class="pdp-3d-ctrl-btn" onclick="pdp3dZoom(-1)" aria-label="Zoom out">−</button>
+      <button type="button" class="pdp-3d-ctrl-btn" onclick="pdp3dZoom(1)" aria-label="Zoom in">+</button>
+      <button type="button" class="pdp-3d-ctrl-btn" onclick="pdp3dReset()" aria-label="Reset view">🎯</button>
+    </div>
   </div>
-  <div class="pdp-thumbs" id="pdpThumbs" style="margin:0 1.1rem;"></div>
+  <div class="pdp-3d-dots" id="pdp3dDots"></div>
+  <div class="pdp-3d-hint">Drag to rotate • Pinch or scroll to zoom • Swipe far to change product</div>
 
   <div id="pdpVariantSwatches"></div>
 
@@ -190,10 +226,10 @@ body{padding-bottom:6.4rem;}
 let currentProduct = null;
 let pdpQty = 1;
 let pdpActiveVariantIndex = -1;
-let pdpActiveImageIndex = 0;
 
 const pdpParams = new URLSearchParams(window.location.search);
 const pdpProductId = pdpParams.get('id');
+let pdpCurrentId = pdpProductId;
 
 function pdpGetActiveVariant(){
   if(pdpActiveVariantIndex < 0) return null;
@@ -206,30 +242,182 @@ function pdpGetActiveImages(){
   return currentProduct.imageUrl ? [currentProduct.imageUrl] : [];
 }
 
-function renderPdpGallery(images){
-  const track = document.getElementById('pdpGalleryTrack');
-  const dots = document.getElementById('pdpDots');
-  const thumbs = document.getElementById('pdpThumbs');
+/* ===== 3D PRODUCT VIEWER (image-based — uses your real uploaded photos, never a generated model) ===== */
+let pdp3dFrameIndex = 0;
+let pdp3dZoomLevel = 1;
+let pdp3dTiltX = 0;
+let pdp3dAutoRotate = false;
+let pdp3dAutoTimer = null;
+let pdp3dDragAccum = 0;
+
+function guessVariantBg(variant, product){
+  const name = ((variant && variant.name) || (product && product.name) || '').toLowerCase();
+  const map = [
+    [/white|silver|pearl|ivory/, 'radial-gradient(circle at 50% 32%, #eef2f7, #c7d2e0 75%)'],
+    [/black|midnight|graphite|onyx|space ?gr[ae]y/, 'radial-gradient(circle at 50% 32%, #2b2b30, #08080a 75%)'],
+    [/blue|navy|sky|cobalt/, 'radial-gradient(circle at 50% 32%, #3b82f6, #0a1a35 75%)'],
+    [/green|mint|olive|emerald/, 'radial-gradient(circle at 50% 32%, #22c55e, #08200f 75%)'],
+    [/gold|yellow|champagne/, 'radial-gradient(circle at 50% 32%, #facc15, #332a04 75%)'],
+    [/red|crimson|maroon/, 'radial-gradient(circle at 50% 32%, #ef4444, #2c0808 75%)'],
+    [/pink|rose|magenta/, 'radial-gradient(circle at 50% 32%, #f472b6, #300a1f 75%)'],
+    [/purple|violet|lavender/, 'radial-gradient(circle at 50% 32%, #a78bfa, #190f33 75%)'],
+    [/orange|amber/, 'radial-gradient(circle at 50% 32%, #fb923c, #331d05 75%)']
+  ];
+  for(const [re,bg] of map) if(re.test(name)) return bg;
+  return 'radial-gradient(circle at 50% 30%, rgba(14,165,233,.28), rgba(6,10,20,.7) 75%)';
+}
+
+function render3DViewer(images){
+  const stack = document.getElementById('pdp3dFrameStack');
+  const dotsEl = document.getElementById('pdp3dDots');
+  pdp3dFrameIndex = 0; pdp3dZoomLevel = 1; pdp3dTiltX = 0;
+
+  document.getElementById('pdp3dBg').style.background = guessVariantBg(pdpGetActiveVariant(), currentProduct);
+  document.getElementById('pdp3dName').textContent = currentProduct.name;
+
   if(!images.length){
-    track.innerHTML = `<div class="pdp-gallery-slide">${currentProduct.emoji || '🎧'}</div>`;
-    dots.innerHTML = ''; thumbs.innerHTML = '';
+    stack.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:4rem;">${currentProduct.emoji||'🎧'}</div>`;
+    dotsEl.innerHTML = '';
+    applyStackTransform();
     return;
   }
-  track.innerHTML = images.map((img,i) => `<div class="pdp-gallery-slide">${mediaTagHTML(img, currentProduct.name, i===0?'fetchpriority="high"':'', 'f_auto,q_auto,w_900', i===0)}</div>`).join('');
-  dots.innerHTML = images.length > 1 ? images.map((_,i)=>`<span class="pdp-dot ${i===0?'active':''}"></span>`).join('') : '';
-  thumbs.innerHTML = images.length > 1 ? images.map((img,i)=>`<button type="button" class="pdp-thumb ${i===0?'active':''}" onclick="pdpGoToImage(${i})">${mediaTagHTML(img, currentProduct.name, '', 'f_auto,q_auto,w_150')}</button>`).join('') : '';
-  pdpActiveImageIndex = 0;
-  track.onscroll = () => {
-    const idx = Math.round(track.scrollLeft / track.clientWidth);
-    if(idx === pdpActiveImageIndex) return;
-    pdpActiveImageIndex = idx;
-    document.querySelectorAll('#pdpDots .pdp-dot').forEach((d,i)=>d.classList.toggle('active', i===idx));
-    document.querySelectorAll('#pdpThumbs .pdp-thumb').forEach((t,i)=>t.classList.toggle('active', i===idx));
-  };
+
+  // Real product photos only — each variant's actual uploaded images become
+  // the turntable "frames"; nothing here is a generated/invented 3D model.
+  stack.innerHTML = images.map((img,i) =>
+    mediaTagHTML(img, currentProduct.name, `class="${i===0?'':'pdp-3d-frame-hidden'}" data-frame="${i}"`, 'f_auto,q_auto,w_900', i===0)
+  ).join('');
+
+  dotsEl.innerHTML = images.length > 1
+    ? images.map((_,i)=>`<span class="dot ${i===0?'active':''}"></span>`).join('')
+    : '';
+
+  applyStackTransform();
 }
-function pdpGoToImage(i){
-  const track = document.getElementById('pdpGalleryTrack');
-  track.scrollTo({ left: i * track.clientWidth, behavior:'smooth' });
+
+function pdp3dShowFrame(i){
+  const stack = document.getElementById('pdp3dFrameStack');
+  const frames = stack.querySelectorAll('[data-frame]');
+  if(!frames.length) return;
+  const count = frames.length;
+  pdp3dFrameIndex = ((i % count) + count) % count;
+  frames.forEach(f => f.classList.toggle('pdp-3d-frame-hidden', Number(f.dataset.frame) !== pdp3dFrameIndex));
+  document.querySelectorAll('#pdp3dDots .dot').forEach((d,idx)=> d.classList.toggle('active', idx===pdp3dFrameIndex));
+}
+
+function applyStackTransform(){
+  document.getElementById('pdp3dFrameStack').style.transform = `scale(${pdp3dZoomLevel}) rotateY(${pdp3dTiltX}deg)`;
+}
+
+function pdp3dZoom(dir){
+  pdp3dZoomLevel = Math.max(0.8, Math.min(2.4, pdp3dZoomLevel + dir*0.25));
+  applyStackTransform();
+}
+function pdp3dReset(){
+  pdp3dZoomLevel = 1; pdp3dTiltX = 0;
+  pdp3dShowFrame(0);
+  applyStackTransform();
+  if(pdp3dAutoRotate) pdp3dToggleAuto();
+}
+function pdp3dToggleAuto(){
+  pdp3dAutoRotate = !pdp3dAutoRotate;
+  document.getElementById('pdp3dAutoBtn').classList.toggle('active', pdp3dAutoRotate);
+  if(pdp3dAutoRotate) pdp3dStartAuto(); else pdp3dStopAuto();
+}
+function pdp3dStartAuto(){
+  pdp3dStopAuto();
+  const frameCount = document.querySelectorAll('#pdp3dFrameStack [data-frame]').length;
+  if(frameCount > 1){
+    pdp3dAutoTimer = setInterval(()=> pdp3dShowFrame(pdp3dFrameIndex+1), 1400); // slow, premium pace
+  } else {
+    let t = 0;
+    pdp3dAutoTimer = setInterval(()=>{ t += 0.05; pdp3dTiltX = Math.sin(t)*12; applyStackTransform(); }, 50);
+  }
+}
+function pdp3dStopAuto(){
+  if(pdp3dAutoTimer){ clearInterval(pdp3dAutoTimer); pdp3dAutoTimer = null; }
+}
+
+function pdp3dChangeProduct(direction){
+  if(!allProducts || !allProducts.length || !currentProduct) return;
+  const idx = allProducts.findIndex(p=>String(p.id)===String(currentProduct.id));
+  if(idx===-1) return;
+  const newIdx = idx + direction;
+  if(newIdx < 0 || newIdx >= allProducts.length) return; // ends of the existing catalog order — no wrap
+  pdpCurrentId = allProducts[newIdx].id;
+  history.pushState(null, '', 'product.html?id=' + encodeURIComponent(pdpCurrentId));
+  pdpLoad(allProducts);
+}
+function updateNavArrowState(){
+  if(!allProducts || !allProducts.length || !currentProduct) return;
+  const idx = allProducts.findIndex(p=>String(p.id)===String(currentProduct.id));
+  document.getElementById('pdp3dPrevBtn').disabled = idx<=0;
+  document.getElementById('pdp3dNextBtn').disabled = idx>=allProducts.length-1;
+}
+
+function pdp3dInitDrag(){
+  const viewport = document.getElementById('pdp3dViewport');
+  let dragging = false, startX=0, lastX=0, startTime=0;
+  let pinchStartDist = null, pinchStartZoom = 1;
+
+  function pointerDown(x){ dragging = true; startX = x; lastX = x; startTime = Date.now(); pdp3dDragAccum = 0; pdp3dStopAuto(); }
+  function pointerMove(x){
+    if(!dragging) return;
+    const dx = x - lastX; lastX = x;
+    const frameCount = document.querySelectorAll('#pdp3dFrameStack [data-frame]').length;
+    if(frameCount > 1){
+      pdp3dDragAccum += dx;
+      const step = 28;
+      while(pdp3dDragAccum > step){ pdp3dShowFrame(pdp3dFrameIndex - 1); pdp3dDragAccum -= step; }
+      while(pdp3dDragAccum < -step){ pdp3dShowFrame(pdp3dFrameIndex + 1); pdp3dDragAccum += step; }
+    } else {
+      pdp3dTiltX = Math.max(-25, Math.min(25, pdp3dTiltX + dx*0.3));
+      applyStackTransform();
+    }
+  }
+  function pointerUp(x){
+    if(!dragging) return;
+    dragging = false;
+    const totalDx = x - startX;
+    const elapsed = Date.now() - startTime;
+    const fastSwipe = elapsed < 300 && Math.abs(totalDx) > 60;
+    if(Math.abs(totalDx) > viewport.clientWidth*0.32 || fastSwipe){
+      pdp3dChangeProduct(totalDx < 0 ? 1 : -1);
+    } else {
+      pdp3dTiltX = 0;
+      applyStackTransform();
+    }
+  }
+
+  viewport.addEventListener('touchstart', e=>{ if(e.touches.length===1) pointerDown(e.touches[0].clientX); }, {passive:true});
+  viewport.addEventListener('touchmove', e=>{ if(e.touches.length===1) pointerMove(e.touches[0].clientX); }, {passive:true});
+  viewport.addEventListener('touchend', ()=> pointerUp(lastX), {passive:true});
+
+  viewport.addEventListener('mousedown', e=>{ pointerDown(e.clientX); e.preventDefault(); });
+  window.addEventListener('mousemove', e=>{ if(dragging) pointerMove(e.clientX); });
+  window.addEventListener('mouseup', e=> pointerUp(e.clientX));
+
+  viewport.addEventListener('touchstart', e=>{
+    if(e.touches.length===2){
+      pinchStartDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      pinchStartZoom = pdp3dZoomLevel;
+      dragging = false;
+    }
+  }, {passive:true});
+  viewport.addEventListener('touchmove', e=>{
+    if(e.touches.length===2 && pinchStartDist){
+      const dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      pdp3dZoomLevel = Math.max(0.8, Math.min(2.4, pinchStartZoom * (dist/pinchStartDist)));
+      applyStackTransform();
+    }
+  }, {passive:true});
+  viewport.addEventListener('touchend', e=>{ if(e.touches.length<2) pinchStartDist = null; }, {passive:true});
+
+  viewport.addEventListener('wheel', e=>{
+    e.preventDefault();
+    pdp3dZoomLevel = Math.max(0.8, Math.min(2.4, pdp3dZoomLevel - e.deltaY*0.001));
+    applyStackTransform();
+  }, {passive:false});
 }
 
 function renderStockBadge(p){
@@ -279,7 +467,8 @@ function renderPDP(){
   document.getElementById('pdpStickyBar').style.display = 'flex';
 
   const v = pdpGetActiveVariant();
-  renderPdpGallery(pdpGetActiveImages());
+  render3DViewer(pdpGetActiveImages());
+  updateNavArrowState();
 
   document.getElementById('pdpBadgeWrap').innerHTML = p.badge ? `<span class="pcard-badge ${p.badgeClass||''}">${p.badge}</span>` : '';
   document.getElementById('pdpName').textContent = v ? `${p.name} — ${v.name}` : p.name;
@@ -346,7 +535,7 @@ function pdpBuyNow(){
 
 function downloadProductImage(){
   const images = pdpGetActiveImages();
-  const img = images[pdpActiveImageIndex] || images[0];
+  const img = images[pdp3dFrameIndex] || images[0];
   if(!img) return;
   fetch(img).then(res=>res.blob()).then(blob=>{
     const blobUrl = URL.createObjectURL(blob);
@@ -364,9 +553,11 @@ function downloadProductImage(){
 let pdpReviews = [];
 let pdpReviewRating = 0;
 let pdpReviewPhotoFile = null;
+let pdpReviewsUnsub = null;
 
 function subscribeToPdpReviews(productId){
-  VDB.subscribeReviewsForProduct(productId, list=>{
+  if(pdpReviewsUnsub) pdpReviewsUnsub(); // drop the previous product's listener before attaching a new one
+  pdpReviewsUnsub = VDB.subscribeReviewsForProduct(productId, list=>{
     pdpReviews = list;
     renderPdpReviews();
   });
@@ -467,21 +658,31 @@ async function submitReview(){
 }
 
 function pdpLoad(list){
-  const found = list.find(x=>String(x.id)===String(pdpProductId));
+  const found = list.find(x=>String(x.id)===String(pdpCurrentId));
   if(!found){
     document.getElementById('pdpLoading').style.display = 'none';
     document.getElementById('pdpNotFound').style.display = 'block';
     return;
   }
   const isFirstLoad = !currentProduct;
+  const isDifferentProduct = currentProduct && String(currentProduct.id) !== String(found.id);
   currentProduct = found;
-  if(isFirstLoad){
+  if(isFirstLoad || isDifferentProduct){
     trackRecentlyViewed(currentProduct.id);
     pdpActiveVariantIndex = (currentProduct.variants && currentProduct.variants.length > 1) ? 0 : -1;
+    pdpQty = 1;
     subscribeToPdpReviews(currentProduct.id);
   }
   renderPDP();
 }
+
+window.addEventListener('popstate', ()=>{
+  const id = new URLSearchParams(window.location.search).get('id');
+  if(id && allProducts && allProducts.length){
+    pdpCurrentId = id;
+    pdpLoad(allProducts);
+  }
+});
 
 if(!pdpProductId){
   document.getElementById('pdpLoading').style.display = 'none';
@@ -489,6 +690,7 @@ if(!pdpProductId){
 } else {
   initVoltixApp('shop', pdpLoad);
   initStoreMusic();
+  pdp3dInitDrag();
 }
 </script>
 </body>
