@@ -96,6 +96,7 @@ async function uploadFileToCloudinary(file, onProgress){
   const maxAttempts = isImage ? 1 : 3; // retry video/audio — mobile data drops are common mid-upload
 
   function attemptOnce(){
+    let reachedFull = false;
     return new Promise((resolve, reject)=>{
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url, true);
@@ -105,7 +106,10 @@ async function uploadFileToCloudinary(file, onProgress){
       formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
       xhr.upload.onprogress = (e)=>{
-        if(onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        if(!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        if(pct >= 100) reachedFull = true; // all bytes reached the network layer
+        if(onProgress) onProgress(pct);
       };
       xhr.onload = ()=>{
         if(xhr.status >= 200 && xhr.status < 300){
@@ -121,8 +125,13 @@ async function uploadFileToCloudinary(file, onProgress){
           reject(Object.assign(new Error(msg), { retryable:false }));
         }
       };
-      xhr.onerror = ()=> reject(Object.assign(new Error('NETWORK_ERROR'), { retryable:true }));
-      xhr.ontimeout = ()=> reject(Object.assign(new Error('TIMEOUT'), { retryable:true }));
+      // reachedFull here means: the file's bytes fully reached the network
+      // before the connection dropped — the upload very likely completed on
+      // Cloudinary's end even though we never got the confirmation back.
+      // Retrying blind in that case just creates a duplicate upload, so we
+      // deliberately do NOT mark it retryable.
+      xhr.onerror = ()=> reject(Object.assign(new Error('NETWORK_ERROR'), { retryable:!reachedFull, reachedFull }));
+      xhr.ontimeout = ()=> reject(Object.assign(new Error('TIMEOUT'), { retryable:!reachedFull, reachedFull }));
       xhr.send(formData);
     });
   }
@@ -137,6 +146,9 @@ async function uploadFileToCloudinary(file, onProgress){
       if(!err.retryable || attempt === maxAttempts) break;
       await new Promise(r=>setTimeout(r, 2000 * attempt)); // brief backoff before retrying
     }
+  }
+  if(lastErr.reachedFull){
+    throw new Error(`The file fully uploaded, but the connection dropped before Cloudinary's confirmation made it back to your phone. It's very likely already saved — check your Cloudinary Media Library before uploading again, so you don't end up with duplicates.`);
   }
   if(lastErr.message === 'NETWORK_ERROR'){
     throw new Error(`Network error while uploading to Cloudinary${maxAttempts>1 ? ` (tried ${maxAttempts} times)` : ''} — check your connection and try again.`);
