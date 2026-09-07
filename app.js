@@ -97,6 +97,8 @@ async function uploadFileToCloudinary(file, onProgress){
 
   function attemptOnce(){
     let reachedFull = false;
+    let anyProgress = false;
+    const startedAt = Date.now();
     return new Promise((resolve, reject)=>{
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url, true);
@@ -106,6 +108,7 @@ async function uploadFileToCloudinary(file, onProgress){
       formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
       xhr.upload.onprogress = (e)=>{
+        anyProgress = true;
         if(!e.lengthComputable) return;
         const pct = Math.round((e.loaded / e.total) * 100);
         if(pct >= 100) reachedFull = true; // all bytes reached the network layer
@@ -130,8 +133,11 @@ async function uploadFileToCloudinary(file, onProgress){
       // Cloudinary's end even though we never got the confirmation back.
       // Retrying blind in that case just creates a duplicate upload, so we
       // deliberately do NOT mark it retryable.
-      xhr.onerror = ()=> reject(Object.assign(new Error('NETWORK_ERROR'), { retryable:!reachedFull, reachedFull }));
-      xhr.ontimeout = ()=> reject(Object.assign(new Error('TIMEOUT'), { retryable:!reachedFull, reachedFull }));
+      // anyProgress + elapsed time tell us WHERE it died: never sent a byte
+      // (rejected before the request even opened — preset/CORS/blocked) vs
+      // started sending then dropped (genuine connection loss).
+      xhr.onerror = ()=> reject(Object.assign(new Error('NETWORK_ERROR'), { retryable:!reachedFull, reachedFull, anyProgress, elapsedMs: Date.now()-startedAt }));
+      xhr.ontimeout = ()=> reject(Object.assign(new Error('TIMEOUT'), { retryable:!reachedFull, reachedFull, anyProgress, elapsedMs: Date.now()-startedAt }));
       xhr.send(formData);
     });
   }
@@ -150,11 +156,15 @@ async function uploadFileToCloudinary(file, onProgress){
   if(lastErr.reachedFull){
     throw new Error(`The file fully uploaded, but the connection dropped before Cloudinary's confirmation made it back to your phone. It's very likely already saved — check your Cloudinary Media Library before uploading again, so you don't end up with duplicates.`);
   }
+  const fileInfo = `"${file.name}", ${(file.size/(1024*1024)).toFixed(2)}MB, type: ${file.type||'unknown'}`;
   if(lastErr.message === 'NETWORK_ERROR'){
-    throw new Error(`Network error while uploading to Cloudinary${maxAttempts>1 ? ` (tried ${maxAttempts} times)` : ''} — check your connection and try again.`);
+    const diagnosis = lastErr.anyProgress
+      ? `it started sending (${lastErr.elapsedMs}ms before it dropped) — a genuine connection interruption`
+      : `it never sent a single byte (failed instantly, ${lastErr.elapsedMs}ms) — this points to the request being blocked or rejected before upload even began, not a slow connection`;
+    throw new Error(`Network error while uploading to Cloudinary${maxAttempts>1 ? ` (tried ${maxAttempts} times)` : ''} — ${diagnosis}. File: ${fileInfo}.`);
   }
   if(lastErr.message === 'TIMEOUT'){
-    throw new Error(`Upload timed out after ${Math.round(timeoutMs/1000)}s${maxAttempts>1 ? `, even after ${maxAttempts} attempts` : ''} — this file may be too large for your current connection. Try Wi-Fi, or a smaller/shorter file.`);
+    throw new Error(`Upload timed out after ${Math.round(timeoutMs/1000)}s${maxAttempts>1 ? `, even after ${maxAttempts} attempts` : ''} — this file may be too large for your current connection. Try Wi-Fi, or a smaller/shorter file. File: ${fileInfo}.`);
   }
   throw lastErr;
 }
