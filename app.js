@@ -218,7 +218,7 @@ function shareProductCard(id, e){
 (async function initFirebase(){
   const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const {
-    getFirestore, collection, doc, setDoc, addDoc, deleteDoc, getDoc, onSnapshot, getDocs, query
+    getFirestore, collection, doc, setDoc, addDoc, deleteDoc, getDoc, onSnapshot, getDocs, query, where, runTransaction
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
@@ -394,11 +394,112 @@ function shareProductCard(id, e){
       });
     },
 
-    async addReferrer(data){ const ref2 = await addDoc(collection(db,"referrers"),sanitizeForFirestore({...data,createdAt:new Date().toISOString()})); return ref2.id; },
+    async addReferrer(data){ const ref2 = await addDoc(collection(db,"referrers"),sanitizeForFirestore({...data,createdAt:new Date().toISOString(),balance:0,totalEarned:0,totalWithdrawn:0})); return ref2.id; },
     subscribeReferrers(cb){ return onSnapshot(collection(db,"referrers"), snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); l.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)); cb(l); }); },
-    async addReferralSale(data){ const ref2 = await addDoc(collection(db,"referralSales"),sanitizeForFirestore({...data,status:'pending',createdAt:new Date().toISOString()})); return ref2.id; },
+    async getReferrerByCode(code){
+      const snap = await getDocs(query(collection(db,"referrers"), where("code","==",code)));
+      if(snap.empty) return null;
+      const d = snap.docs[0];
+      return { id:d.id, ...d.data() };
+    },
+    subscribeReferrerByCode(code, cb){
+      // Live balance for the person's own dashboard — updates the instant admin verifies a sale.
+      return onSnapshot(query(collection(db,"referrers"), where("code","==",code)), snap=>{
+        if(snap.empty){ cb(null); return; }
+        const d = snap.docs[0];
+        cb({ id:d.id, ...d.data() });
+      });
+    },
+    async addReferralSale(data){ const ref2 = await addDoc(collection(db,"referralSales"),sanitizeForFirestore({...data,status:'pending',creditedToBalance:false,createdAt:new Date().toISOString()})); return ref2.id; },
     subscribeReferralSales(cb){ return onSnapshot(collection(db,"referralSales"), snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); l.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)); cb(l); }); },
     async updateReferralSaleStatus(id,status){ await setDoc(doc(db,"referralSales",id),{status},{merge:true}); },
+    async verifyReferralSaleAndCredit(saleId){
+      // The moment admin verifies a sale is the moment its commission becomes real —
+      // this is where the referrer's balance actually grows. Guarded by creditedToBalance
+      // so clicking Verify twice (or a flaky connection retry) can't double-pay someone.
+      const saleRef = doc(db,"referralSales",saleId);
+      await runTransaction(db, async (tx)=>{
+        const saleSnap = await tx.get(saleRef);
+        if(!saleSnap.exists()) throw new Error("Referral sale not found.");
+        const sale = saleSnap.data();
+        if(sale.creditedToBalance){
+          tx.update(saleRef, { status:'verified' });
+          return; // already credited once — just make sure status reflects verified, don't credit again
+        }
+        const refSnap = await getDocs(query(collection(db,"referrers"), where("code","==",sale.refCode)));
+        if(refSnap.empty) throw new Error(`No referrer found for code ${sale.refCode} — cannot credit balance.`);
+        const referrerDoc = refSnap.docs[0];
+        const referrer = referrerDoc.data();
+        const newBalance = (referrer.balance||0) + (sale.commission||0);
+        const newTotalEarned = (referrer.totalEarned||0) + (sale.commission||0);
+        tx.update(doc(db,"referrers",referrerDoc.id), { balance:newBalance, totalEarned:newTotalEarned });
+        tx.update(saleRef, { status:'verified', creditedToBalance:true });
+      });
+    },
+
+    /* ===== REFERRAL BALANCE: SPEND / WITHDRAW ===== */
+    async spendReferralBalance(code, amount){
+      // Used at checkout when a referrer pays for their own order partly/fully
+      // with their own balance. Transaction guards against spending more than
+      // they actually have (e.g. two tabs open at once).
+      const refSnap = await getDocs(query(collection(db,"referrers"), where("code","==",code)));
+      if(refSnap.empty) throw new Error("Referrer not found.");
+      const referrerId = refSnap.docs[0].id;
+      const referrerRef = doc(db,"referrers",referrerId);
+      await runTransaction(db, async (tx)=>{
+        const snap = await tx.get(referrerRef);
+        const current = snap.data().balance||0;
+        if(amount > current) throw new Error("Insufficient referral balance.");
+        tx.update(referrerRef, { balance: current - amount });
+      });
+    },
+    async requestWithdrawal(data){
+      // data: { code, name, phone, amount, type:'momo'|'airtime', momoNumber?, network? }
+      const refSnap = await getDocs(query(collection(db,"referrers"), where("code","==",data.code)));
+      if(refSnap.empty) throw new Error("Referrer not found.");
+      const referrerId = refSnap.docs[0].id;
+      const referrerRef = doc(db,"referrers",referrerId);
+      let requestId;
+      await runTransaction(db, async (tx)=>{
+        const snap = await tx.get(referrerRef);
+        const current = snap.data().balance||0;
+        if(data.amount > current) throw new Error("You don't have enough balance for that amount.");
+        if(data.amount < 30) throw new Error("Minimum withdrawal is Ghc30.");
+        tx.update(referrerRef, { balance: current - data.amount }); // held immediately so it can't be requested twice
+      });
+      const ref2 = await addDoc(collection(db,"withdrawalRequests"), sanitizeForFirestore({
+        ...data, status:'pending', createdAt:new Date().toISOString()
+      }));
+      requestId = ref2.id;
+      return requestId;
+    },
+    subscribeWithdrawalRequests(cb){
+      return onSnapshot(collection(db,"withdrawalRequests"), snap=>{
+        const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()}));
+        l.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+        cb(l);
+      });
+    },
+    async markWithdrawalPaid(id){
+      await setDoc(doc(db,"withdrawalRequests",id), { status:'paid', processedAt:new Date().toISOString() }, { merge:true });
+    },
+    async rejectWithdrawal(id){
+      // Rejecting gives the held amount back to the referrer's balance.
+      const reqRef = doc(db,"withdrawalRequests",id);
+      const reqSnap = await getDoc(reqRef);
+      if(!reqSnap.exists()) throw new Error("Withdrawal request not found.");
+      const reqData = reqSnap.data();
+      const refSnap = await getDocs(query(collection(db,"referrers"), where("code","==",reqData.code)));
+      if(!refSnap.empty){
+        const referrerRef = doc(db,"referrers",refSnap.docs[0].id);
+        await runTransaction(db, async (tx)=>{
+          const snap = await tx.get(referrerRef);
+          const current = snap.data().balance||0;
+          tx.update(referrerRef, { balance: current + reqData.amount });
+        });
+      }
+      await setDoc(reqRef, { status:'rejected', processedAt:new Date().toISOString() }, { merge:true });
+    },
 
     subscribeSpinWinners(cb){
       return onSnapshot(collection(db,"spinWinners"), snap=>{
