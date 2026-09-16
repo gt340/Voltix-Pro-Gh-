@@ -145,14 +145,9 @@
 
 <script src="app.js"></script>
 <script>
-let appliedCoupon = null;
+let appliedCoupon = null; // { code, type:'percent'|'fixed', value, discount } once validated
 let selectedDeliveryMethod = 'standard';
 let selectedDeliveryPrice = 0;
-
-const VALID_COUPONS = {
-  'WELCOME10': { percent: 10, label: 'WELCOME10 — 10% off' },
-  'VOLTIX20': { percent: 20, label: 'VOLTIX20 — 20% off' }
-};
 
 function renderCartPage(){
   const listEl = document.getElementById('cartListContainer');
@@ -212,18 +207,35 @@ function selectDelivery(method, price, el){
   updateSummary();
 }
 
-function applyCoupon(){
+async function applyCoupon(){
   const code = document.getElementById('couponInput').value.trim().toUpperCase();
   if(!code){ showToast('Enter a coupon code'); return; }
-  if(VALID_COUPONS[code]){
-    appliedCoupon = { code, ...VALID_COUPONS[code] };
+  const btn = document.querySelector('.coupon-row button');
+  btn.disabled = true; btn.textContent = '...';
+  try{
+    const coupon = await VDB.getCouponByCode(code);
+    if(!coupon){ showToast('Invalid coupon code'); return; }
+    if(coupon.active === false){ showToast('This coupon is no longer active'); return; }
+    if(coupon.expiresAt && new Date(coupon.expiresAt) < new Date()){ showToast('This coupon has expired'); return; }
+    if(coupon.maxUses && (coupon.usedCount||0) >= coupon.maxUses){ showToast('This coupon has been fully redeemed'); return; }
+    const subtotal = cartTotal();
+    if(coupon.minOrder && subtotal < coupon.minOrder){ showToast(`Minimum order of Ghc${coupon.minOrder} required for this coupon`); return; }
+
+    const discount = coupon.type === 'fixed'
+      ? Math.min(coupon.value, subtotal)
+      : Math.round(subtotal * coupon.value / 100);
+    appliedCoupon = { code: coupon.code, type: coupon.type, value: coupon.value, discount };
+
     document.getElementById('couponInputArea').style.display = 'none';
     document.getElementById('couponAppliedArea').style.display = 'block';
-    document.getElementById('couponAppliedText').textContent = '✅ ' + appliedCoupon.label;
+    const label = coupon.type === 'fixed' ? `${coupon.code} — Ghc${coupon.value} off` : `${coupon.code} — ${coupon.value}% off`;
+    document.getElementById('couponAppliedText').textContent = '✅ ' + label;
     showToast('Coupon applied!');
     updateSummary();
-  } else {
-    showToast('Invalid coupon code');
+  } catch(err){
+    showToast('Could not check that coupon — try again');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Apply';
   }
 }
 function removeCoupon(){
@@ -236,10 +248,11 @@ function removeCoupon(){
 
 function updateSummary(){
   const subtotal = cartTotal();
-  let discount = 0;
-  if(appliedCoupon){
-    discount = Math.round(subtotal * appliedCoupon.percent / 100);
-  }
+  // Re-derive the discount off the current subtotal so it stays correct if
+  // the cart changes after a percent coupon was applied.
+  const discount = appliedCoupon
+    ? (appliedCoupon.type === 'fixed' ? Math.min(appliedCoupon.value, subtotal) : Math.round(subtotal * appliedCoupon.value / 100))
+    : 0;
   const total = Math.max(0, subtotal - discount) + selectedDeliveryPrice;
 
   document.getElementById('sumSubtotal').textContent = `Ghc${subtotal}`;
