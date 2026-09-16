@@ -4,11 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>My Account — Voltix Pro GH</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://res.cloudinary.com">
-<link rel="preconnect" href="https://firestore.googleapis.com">
-<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
@@ -21,6 +16,18 @@
 .refer-code-display .lbl{font-size:.65rem;color:var(--gold);text-transform:uppercase;font-weight:800;letter-spacing:.1em;margin-bottom:.5rem;}
 .refer-code-display .code{font-family:monospace;font-weight:900;font-size:1.5rem;color:var(--gold);letter-spacing:.05em;word-break:break-all;}
 .refer-rules-link{display:block;width:100%;text-align:center;margin-top:1rem;background:none;border:none;color:var(--blue-electric);font-size:.78rem;font-weight:700;text-decoration:underline;}
+.refer-balance-card{margin:1.2rem 0 0;padding:1.1rem;background:linear-gradient(150deg,rgba(74,222,128,.16),rgba(14,165,233,.08));border:1px solid rgba(74,222,128,.35);border-radius:1.1rem;text-align:center;}
+.refer-balance-card .lbl{font-size:.65rem;color:#4ade80;text-transform:uppercase;font-weight:800;letter-spacing:.08em;margin-bottom:.35rem;}
+.refer-balance-card .amount{font-size:1.9rem;font-weight:900;color:#4ade80;}
+.refer-balance-sub{font-size:.68rem;color:var(--text-muted);margin-top:.3rem;}
+#referProgressWrap{margin-top:.9rem;}
+.refer-progress-track{width:100%;height:.5rem;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;}
+.refer-progress-fill{height:100%;background:linear-gradient(90deg,var(--blue-electric),#4ade80);border-radius:999px;transition:width .4s ease;}
+.refer-progress-label{font-size:.68rem;color:var(--text-muted);margin-top:.4rem;text-align:center;font-weight:700;}
+.refer-hint{font-size:.7rem;color:var(--text-muted);text-align:center;margin-top:.7rem;}
+.refer-type-toggle{display:flex;gap:.5rem;}
+.refer-type-btn{flex:1;padding:.75rem .5rem;border-radius:.7rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--text-secondary);font-weight:700;font-size:.8rem;}
+.refer-type-btn.active{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border-color:transparent;}
 .rules-text-block h4{color:var(--gold);font-size:.85rem;margin:1.1rem 0 .5rem;}
 .rules-text-block h4:first-child{margin-top:0;}
 .rules-text-block ul{padding-left:1.1rem;font-size:.78rem;color:var(--text-secondary);line-height:1.7;}
@@ -91,10 +98,67 @@
         <div class="code" id="myReferralCodeDisplay">-</div>
       </div>
       <button class="al-btn ripple" onclick="copyReferralLink()">🔗 Copy My Link &amp; Share</button>
+
+      <div class="refer-balance-card">
+        <div class="lbl">Your Referral Balance</div>
+        <div class="amount" id="referBalanceAmount">Ghc0</div>
+        <div class="refer-balance-sub" id="referBalanceSub">Total earned: Ghc0</div>
+      </div>
+
+      <div id="referProgressWrap">
+        <div class="refer-progress-track"><div class="refer-progress-fill" id="referProgressFill" style="width:0%;"></div></div>
+        <div class="refer-progress-label" id="referProgressLabel">Ghc0 / Ghc30 to unlock withdrawal</div>
+      </div>
+
+      <button class="al-btn ripple" id="referWithdrawBtn" onclick="openWithdrawModal()" disabled style="margin-top:1rem;">💸 Withdraw or Redeem Airtime</button>
+      <div class="refer-hint">💡 You can also spend this balance toward an earpods order at checkout.</div>
     </div>
 
     <button class="refer-rules-link" onclick="closeCenterModal('referModal'); openRulesModal();">📋 Referral Rules &amp; Regulations</button>
     <button class="admin-clear-btn" style="margin-top:.7rem;" onclick="closeCenterModal('referModal')">Close</button>
+  </div>
+</div>
+
+<!-- WITHDRAW / REDEEM MODAL -->
+<div class="center-modal" id="withdrawModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-icon">💸</div>
+      <div class="modal-title">Withdraw or Redeem</div>
+      <div class="modal-subtitle">Available: <span id="withdrawAvailableAmount">Ghc0</span></div>
+    </div>
+    <form onsubmit="handleWithdrawalSubmit(event)">
+      <div class="al-field">
+        <label>How do you want it?</label>
+        <div class="refer-type-toggle">
+          <button type="button" class="refer-type-btn active" id="withdrawTypeMomoBtn" onclick="setWithdrawType('momo')">📲 MoMo Cash</button>
+          <button type="button" class="refer-type-btn" id="withdrawTypeAirtimeBtn" onclick="setWithdrawType('airtime')">📶 Airtime</button>
+        </div>
+      </div>
+      <div class="al-field" style="margin-top:.9rem;">
+        <label>Amount (Ghc) — Ghc30 minimum</label>
+        <input type="number" id="withdrawAmount" min="30" step="1" required style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;">
+      </div>
+      <div class="al-field" id="withdrawMomoField" style="margin-top:.9rem;">
+        <label>MoMo Number</label>
+        <input type="tel" id="withdrawMomoNumber" placeholder="0536 193 862" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;">
+      </div>
+      <div class="al-field" id="withdrawNetworkField" style="margin-top:.9rem;display:none;">
+        <label>Network</label>
+        <select id="withdrawNetwork" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;">
+          <option value="MTN">MTN</option>
+          <option value="Telecel">Telecel</option>
+          <option value="AirtelTigo">AirtelTigo</option>
+        </select>
+      </div>
+      <div class="al-field" id="withdrawAirtimeNumberField" style="margin-top:.9rem;display:none;">
+        <label>Number to Top Up</label>
+        <input type="tel" id="withdrawAirtimeNumber" placeholder="0536 193 862" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;">
+      </div>
+      <button type="submit" class="al-btn ripple" style="margin-top:1.1rem;">Submit Request</button>
+    </form>
+    <div style="font-size:.7rem;color:var(--text-muted);text-align:center;margin-top:.8rem;">Requests are processed within 3–7 business days, same as referral payouts.</div>
+    <button class="admin-clear-btn" style="margin-top:.7rem;" onclick="closeCenterModal('withdrawModal')">Cancel</button>
   </div>
 </div>
 
@@ -112,10 +176,11 @@
       </ul>
       <h4>2. When You Get Paid</h4>
       <ul>
-        <li>Only paid after payment is confirmed and order is verified</li>
-        <li>Cash on Delivery orders paid only after confirmed delivery</li>
-        <li>Payment sent to the WhatsApp/MoMo number you registered</li>
-        <li>Payouts processed within 3–7 business days</li>
+        <li>Commission is added to your balance only after payment is confirmed and order is verified</li>
+        <li>Cash on Delivery orders are credited only after confirmed delivery</li>
+        <li>Once your balance reaches <strong>Ghc30</strong>, you can request a withdrawal to MoMo or redeem it as airtime</li>
+        <li>You can also spend your balance directly toward an earpods order at checkout — no minimum for that</li>
+        <li>Withdrawal/airtime requests are processed within 3–7 business days</li>
       </ul>
       <h4>3. Rules</h4>
       <ul>
@@ -307,9 +372,82 @@ function openReferFromAccount(){
     document.getElementById('referSignupArea').style.display = 'none';
     document.getElementById('referDashboardArea').style.display = 'block';
     document.getElementById('myReferralCodeDisplay').textContent = myReferrer.code;
+    subscribeToMyReferralBalance();
   } else {
     document.getElementById('referSignupArea').style.display = 'block';
     document.getElementById('referDashboardArea').style.display = 'none';
+  }
+}
+let referBalanceUnsub = null;
+let currentReferrerBalance = 0;
+const WITHDRAW_MINIMUM = 30;
+
+function subscribeToMyReferralBalance(){
+  if(!myReferrer || !VDB) return;
+  if(referBalanceUnsub) referBalanceUnsub();
+  referBalanceUnsub = VDB.subscribeReferrerByCode(myReferrer.code, referrer=>{
+    if(!referrer) return;
+    currentReferrerBalance = referrer.balance || 0;
+    const earned = referrer.totalEarned || 0;
+    document.getElementById('referBalanceAmount').textContent = `Ghc${currentReferrerBalance}`;
+    document.getElementById('referBalanceSub').textContent = `Total earned: Ghc${earned}`;
+
+    const pct = Math.min(100, (currentReferrerBalance / WITHDRAW_MINIMUM) * 100);
+    document.getElementById('referProgressFill').style.width = pct + '%';
+    const withdrawBtn = document.getElementById('referWithdrawBtn');
+    if(currentReferrerBalance >= WITHDRAW_MINIMUM){
+      document.getElementById('referProgressWrap').style.display = 'none';
+      withdrawBtn.disabled = false;
+    } else {
+      document.getElementById('referProgressWrap').style.display = 'block';
+      document.getElementById('referProgressLabel').textContent = `Ghc${currentReferrerBalance} / Ghc${WITHDRAW_MINIMUM} to unlock withdrawal`;
+      withdrawBtn.disabled = true;
+    }
+  });
+}
+
+function openWithdrawModal(){
+  document.getElementById('withdrawAvailableAmount').textContent = `Ghc${currentReferrerBalance}`;
+  document.getElementById('withdrawAmount').max = currentReferrerBalance;
+  document.getElementById('withdrawAmount').value = '';
+  setWithdrawType('momo');
+  document.getElementById('withdrawModal').classList.add('active');
+}
+function setWithdrawType(type){
+  document.getElementById('withdrawTypeMomoBtn').classList.toggle('active', type==='momo');
+  document.getElementById('withdrawTypeAirtimeBtn').classList.toggle('active', type==='airtime');
+  document.getElementById('withdrawMomoField').style.display = type==='momo' ? 'block' : 'none';
+  document.getElementById('withdrawNetworkField').style.display = type==='airtime' ? 'block' : 'none';
+  document.getElementById('withdrawAirtimeNumberField').style.display = type==='airtime' ? 'block' : 'none';
+  document.getElementById('withdrawModal').dataset.type = type;
+}
+async function handleWithdrawalSubmit(e){
+  e.preventDefault();
+  const type = document.getElementById('withdrawModal').dataset.type || 'momo';
+  const amount = Number(document.getElementById('withdrawAmount').value);
+  if(amount < WITHDRAW_MINIMUM){ showToast(`Minimum withdrawal is Ghc${WITHDRAW_MINIMUM}`); return; }
+  if(amount > currentReferrerBalance){ showToast('That\'s more than your available balance'); return; }
+
+  const data = { code: myReferrer.code, name: myReferrer.name, phone: myReferrer.phone, amount, type };
+  if(type === 'momo'){
+    data.momoNumber = document.getElementById('withdrawMomoNumber').value;
+    if(!data.momoNumber){ showToast('Enter your MoMo number'); return; }
+  } else {
+    data.network = document.getElementById('withdrawNetwork').value;
+    data.airtimeNumber = document.getElementById('withdrawAirtimeNumber').value;
+    if(!data.airtimeNumber){ showToast('Enter the number to top up'); return; }
+  }
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  try{
+    await VDB.requestWithdrawal(data);
+    showToast('✅ Request submitted — we\'ll process it within 3-7 business days');
+    closeCenterModal('withdrawModal');
+  } catch(err){
+    showToast('Failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submit Request';
   }
 }
 function openRulesModal(){ document.getElementById('rulesModal').classList.add('active'); }
@@ -327,6 +465,7 @@ async function handleReferrerSignup(e){
     document.getElementById('referSignupArea').style.display = 'none';
     document.getElementById('referDashboardArea').style.display = 'block';
     document.getElementById('myReferralCodeDisplay').textContent = code;
+    subscribeToMyReferralBalance();
     showToast('Referral code created!');
   } catch(err){ showToast('Failed: ' + err.message); }
 }
