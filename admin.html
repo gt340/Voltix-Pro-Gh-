@@ -54,6 +54,7 @@ body{padding-bottom:1rem;}
 .status-pending{background:rgba(250,204,21,.15);color:var(--gold);}
 .status-verified{background:rgba(59,130,246,.15);color:#60a5fa;}
 .status-paid{background:rgba(34,197,94,.15);color:#4ade80;}
+.status-rejected{background:rgba(239,68,68,.15);color:#f87171;}
 .admin-sale-detail{font-size:.78rem;color:var(--text-secondary);line-height:1.6;margin-bottom:.6rem;}
 .admin-sale-commission{font-weight:900;color:var(--gold);font-size:1rem;margin-bottom:.7rem;}
 .admin-sale-btns{display:flex;gap:.5rem;flex-wrap:wrap;}
@@ -127,6 +128,7 @@ body{padding-bottom:1rem;}
     <button class="admin-tab" data-tab="promo">📢 Promo</button>
     <button class="admin-tab" data-tab="referrers">🎁 Referrers</button>
     <button class="admin-tab" data-tab="sales">🧾 Referral Sales</button>
+    <button class="admin-tab" data-tab="withdrawals">🏦 Withdrawals</button>
     <button class="admin-tab" data-tab="spinwinners">🎡 Spin Winners</button>
     <button class="admin-tab" data-tab="spinreferrals">🤝 Spin Referrals</button>
   </div>
@@ -399,6 +401,12 @@ body{padding-bottom:1rem;}
   <!-- REFERRAL SALES -->
   <div class="admin-section" id="adminsec-sales">
     <div id="adminSalesList"></div>
+  </div>
+
+  <!-- WITHDRAWAL / AIRTIME REQUESTS -->
+  <div class="admin-section" id="adminsec-withdrawals">
+    <div class="admin-note" style="margin-bottom:.8rem;">Requests to cash out or redeem airtime from referral balance. Marking Paid does not touch their balance (already deducted when they submitted); Reject refunds the amount back to their balance.</div>
+    <div id="adminWithdrawalsList"></div>
   </div>
 
   <!-- SPIN WINNERS -->
@@ -1231,7 +1239,11 @@ function renderAdminReferrers(list){
   box.innerHTML = list.map(r=>`
     <div class="referrer-row">
       <div><b style="font-size:.85rem;">${r.name}</b><div style="font-size:.75rem;color:var(--text-muted);">📱 ${r.phone}</div></div>
-      <div class="referrer-code-tag">${r.code}</div>
+      <div style="text-align:right;">
+        <div class="referrer-code-tag">${r.code}</div>
+        <div style="font-size:.72rem;color:#4ade80;font-weight:800;margin-top:.3rem;">Ghc${r.balance||0} balance</div>
+        <div style="font-size:.65rem;color:var(--text-muted);">Ghc${r.totalEarned||0} lifetime</div>
+      </div>
     </div>`).join('');
 }
 function renderAdminSales(list){
@@ -1245,12 +1257,49 @@ function renderAdminSales(list){
         <span class="admin-status-pill status-${s.status}">${s.status}</span>
       </div>
       <div class="admin-sale-detail">👤 ${s.customerName} · 📱 ${s.customerPhone}<br>📦 ${s.orderRef} · ${s.itemsSummary}</div>
-      <div class="admin-sale-commission">Commission: Ghc${s.commission}</div>
+      <div class="admin-sale-commission">Commission: Ghc${s.commission}${s.creditedToBalance ? ' · ✅ credited to balance' : ''}</div>
       <div class="admin-sale-btns">
-        <button class="admin-mini-btn btn-verify" onclick="VDB.updateReferralSaleStatus('${s.id}','verified')">✅ Verified</button>
-        <button class="admin-mini-btn btn-paid" onclick="VDB.updateReferralSaleStatus('${s.id}','paid')">💰 Paid</button>
+        <button class="admin-mini-btn btn-verify" onclick="handleVerifySale('${s.id}', this)">✅ Verify &amp; Credit</button>
+        <button class="admin-mini-btn btn-paid" onclick="VDB.updateReferralSaleStatus('${s.id}','paid')">💰 Mark Paid</button>
       </div>
     </div>`).join('');
+}
+function handleVerifySale(id, btn){
+  btn.disabled = true; btn.textContent = 'Crediting...';
+  VDB.verifyReferralSaleAndCredit(id)
+    .then(()=> showToast('Verified — balance credited'))
+    .catch(err => alert('Failed: ' + err.message))
+    .finally(()=>{ btn.disabled = false; btn.textContent = '✅ Verify & Credit'; });
+}
+
+function renderAdminWithdrawals(list){
+  const box = document.getElementById('adminWithdrawalsList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML='<p style="color:var(--text-muted);font-size:.82rem;text-align:center;padding:2rem 0;">No withdrawal or airtime requests yet.</p>'; return; }
+  box.innerHTML = list.map(w=>{
+    const detail = w.type === 'airtime'
+      ? `📶 ${w.network||''} airtime to ${w.airtimeNumber||''}`
+      : `📲 MoMo to ${w.momoNumber||''}`;
+    const actions = w.status === 'pending' ? `
+      <div class="admin-sale-btns">
+        <button class="admin-mini-btn btn-paid" onclick="VDB.markWithdrawalPaid('${w.id}')">✅ Mark Paid</button>
+        <button class="admin-mini-btn" style="background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#f87171;" onclick="handleRejectWithdrawal('${w.id}')">❌ Reject &amp; Refund</button>
+      </div>` : '';
+    return `
+    <div class="admin-sale-card">
+      <div class="admin-sale-top">
+        <b style="font-size:.85rem;">${w.name} (${w.code})</b>
+        <span class="admin-status-pill status-${w.status}">${w.status}</span>
+      </div>
+      <div class="admin-sale-detail">📱 ${w.phone}<br>${detail}</div>
+      <div class="admin-sale-commission">Amount: Ghc${w.amount}</div>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+function handleRejectWithdrawal(id){
+  if(!confirm('Reject this request and refund the amount back to their balance?')) return;
+  VDB.rejectWithdrawal(id).catch(err => alert('Failed: ' + err.message));
 }
 
 function renderAdminOrders(list){
@@ -1436,6 +1485,7 @@ function initAdminDashboard(){
   VDB.subscribePromoBanner(renderPromoBannerForm);
   VDB.subscribeReferrers(renderAdminReferrers);
   VDB.subscribeReferralSales(renderAdminSales);
+  VDB.subscribeWithdrawalRequests(renderAdminWithdrawals);
   VDB.subscribeSpinWinners(renderSpinWinners);
   VDB.subscribeSpinReferrals(renderSpinReferrals);
   VDB.subscribeOrders(list=>{ allOrdersGlobal = list; renderAdminOrders(list); renderSalesDashboard(); renderProfitabilityAnalytics(); });
