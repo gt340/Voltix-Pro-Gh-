@@ -126,6 +126,7 @@ body{padding-bottom:1rem;}
     <button class="admin-tab" data-tab="music">🎵 Music</button>
     <button class="admin-tab" data-tab="hero">🎬 Hero</button>
     <button class="admin-tab" data-tab="promo">📢 Promo</button>
+    <button class="admin-tab" data-tab="coupons">🎟️ Coupons</button>
     <button class="admin-tab" data-tab="referrers">🎁 Referrers</button>
     <button class="admin-tab" data-tab="sales">🧾 Referral Sales</button>
     <button class="admin-tab" data-tab="withdrawals">🏦 Withdrawals</button>
@@ -391,6 +392,45 @@ body{padding-bottom:1rem;}
     <div class="admin-note" style="margin-bottom:.8rem;">Live preview:</div>
     <div id="promoPreviewBox" style="border-radius:1.1rem;overflow:hidden;margin-bottom:1.2rem;"></div>
     <button type="button" class="admin-login-btn ripple" style="width:100%;" onclick="savePromoBanner()">💾 Save Promo Banner</button>
+  </div>
+
+  <!-- COUPONS -->
+  <div class="admin-section" id="adminsec-coupons">
+    <div class="admin-note" style="margin-bottom:.8rem;">Create a code for customers to enter in their cart at checkout.</div>
+    <div class="admin-form-field">
+      <label>Coupon Code</label>
+      <input type="text" id="couponCodeInput" placeholder="e.g. WELCOME10" style="text-transform:uppercase;">
+    </div>
+    <div class="admin-form-field">
+      <label>Discount Type</label>
+      <div class="refer-type-toggle" id="couponTypeToggle">
+        <button type="button" class="refer-type-btn active" data-type="percent" onclick="setCouponType('percent')">% Percent</button>
+        <button type="button" class="refer-type-btn" data-type="fixed" onclick="setCouponType('fixed')">Ghc Fixed Amount</button>
+      </div>
+    </div>
+    <div class="admin-form-field">
+      <label id="couponValueLabel">Percent Off (e.g. 10)</label>
+      <input type="number" id="couponValueInput" min="1" placeholder="10">
+    </div>
+    <div class="admin-form-field">
+      <label>Minimum Order (optional)</label>
+      <input type="number" id="couponMinOrderInput" min="0" placeholder="Leave blank for no minimum">
+    </div>
+    <div class="admin-form-field">
+      <label>Usage Limit (optional)</label>
+      <input type="number" id="couponMaxUsesInput" min="1" placeholder="Leave blank for unlimited">
+    </div>
+    <div class="admin-form-field">
+      <label>Expiry Date (optional)</label>
+      <input type="date" id="couponExpiryInput">
+    </div>
+    <label style="display:flex;align-items:center;gap:.6rem;font-size:.82rem;font-weight:700;margin:.8rem 0 1.1rem;">
+      <input type="checkbox" id="couponActiveInput" checked style="width:1.1rem;height:1.1rem;"> Active (customers can use it right away)
+    </label>
+    <button type="button" class="admin-login-btn ripple" style="width:100%;" onclick="saveCouponForm()">💾 Save Coupon</button>
+
+    <div class="admin-note" style="margin:1.3rem 0 .8rem;">Existing coupons:</div>
+    <div id="adminCouponsList"></div>
   </div>
 
   <!-- REFERRERS -->
@@ -1484,6 +1524,7 @@ function initAdminDashboard(){
   VDB.subscribeFounderMedia(renderFounderMediaPreview);
   VDB.subscribePromoBanner(renderPromoBannerForm);
   VDB.subscribeReferrers(renderAdminReferrers);
+  VDB.subscribeCoupons(renderAdminCoupons);
   VDB.subscribeReferralSales(renderAdminSales);
   VDB.subscribeWithdrawalRequests(renderAdminWithdrawals);
   VDB.subscribeSpinWinners(renderSpinWinners);
@@ -1631,6 +1672,86 @@ async function savePromoBanner(){
     btn.disabled = false; btn.textContent = '💾 Save Promo Banner';
   }
 }
+
+/* ===== COUPONS ===== */
+let currentCouponType = 'percent';
+function setCouponType(type){
+  currentCouponType = type;
+  document.querySelectorAll('#couponTypeToggle .refer-type-btn').forEach(b=>b.classList.toggle('active', b.dataset.type===type));
+  document.getElementById('couponValueLabel').textContent = type==='fixed' ? 'Amount Off (Ghc)' : 'Percent Off (e.g. 10)';
+  document.getElementById('couponValueInput').placeholder = type==='fixed' ? '20' : '10';
+}
+async function saveCouponForm(){
+  const code = document.getElementById('couponCodeInput').value.trim().toUpperCase();
+  const value = Number(document.getElementById('couponValueInput').value);
+  if(!code){ alert('Enter a coupon code'); return; }
+  if(!value || value <= 0){ alert('Enter a discount value greater than 0'); return; }
+  if(currentCouponType==='percent' && value > 100){ alert('Percent discount can\'t be more than 100'); return; }
+
+  const minOrder = document.getElementById('couponMinOrderInput').value;
+  const maxUses = document.getElementById('couponMaxUsesInput').value;
+  const expiry = document.getElementById('couponExpiryInput').value;
+
+  const data = {
+    code, type: currentCouponType, value,
+    minOrder: minOrder ? Number(minOrder) : null,
+    maxUses: maxUses ? Number(maxUses) : null,
+    expiresAt: expiry || null,
+    active: document.getElementById('couponActiveInput').checked,
+    createdAt: new Date().toISOString()
+  };
+
+  const btn = document.querySelector('#adminsec-coupons .admin-login-btn');
+  btn.disabled = true; btn.textContent = '⏳ Saving...';
+  try{
+    await VDB.saveCoupon(data);
+    showToast(`Coupon ${code} saved!`);
+    document.getElementById('couponCodeInput').value = '';
+    document.getElementById('couponValueInput').value = '';
+    document.getElementById('couponMinOrderInput').value = '';
+    document.getElementById('couponMaxUsesInput').value = '';
+    document.getElementById('couponExpiryInput').value = '';
+  } catch(err){
+    alert('Failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Save Coupon';
+  }
+}
+function renderAdminCoupons(list){
+  const box = document.getElementById('adminCouponsList');
+  if(!box) return;
+  if(list.length===0){ box.innerHTML='<p style="color:var(--text-muted);font-size:.82rem;text-align:center;padding:2rem 0;">No coupons yet.</p>'; return; }
+  const today = new Date();
+  box.innerHTML = list.map(c=>{
+    const expired = c.expiresAt && new Date(c.expiresAt) < today;
+    const usedUp = c.maxUses && (c.usedCount||0) >= c.maxUses;
+    const statusLabel = expired ? 'Expired' : (usedUp ? 'Used Up' : (c.active ? 'Active' : 'Inactive'));
+    const statusClass = expired || usedUp || !c.active ? 'status-pending' : 'status-paid';
+    const valueLabel = c.type==='fixed' ? `Ghc${c.value} off` : `${c.value}% off`;
+    const usageLabel = c.maxUses ? `${c.usedCount||0} / ${c.maxUses} used` : `${c.usedCount||0} used · unlimited`;
+    return `
+    <div class="admin-sale-card">
+      <div class="admin-sale-top">
+        <b style="font-size:.9rem;">${c.code}</b>
+        <span class="admin-status-pill ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="admin-sale-detail">${valueLabel}${c.minOrder ? ` · Min order Ghc${c.minOrder}` : ''}${c.expiresAt ? ` · Expires ${c.expiresAt}` : ''}</div>
+      <div class="admin-sale-commission">${usageLabel}</div>
+      <div class="admin-sale-btns">
+        <button class="admin-mini-btn" onclick="toggleCouponActive('${c.code}', ${!c.active})">${c.active ? '⏸️ Deactivate' : '▶️ Activate'}</button>
+        <button class="admin-mini-btn" style="background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#f87171;" onclick="handleDeleteCoupon('${c.code}')">🗑️ Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleCouponActive(code, newActive){
+  VDB.saveCoupon({ code, active: newActive }).catch(err => alert('Failed: ' + err.message));
+}
+function handleDeleteCoupon(code){
+  if(!confirm(`Delete coupon ${code}? This can't be undone.`)) return;
+  VDB.deleteCouponByCode(code).catch(err => alert('Failed: ' + err.message));
+}
+
 function renderPromoBannerForm(promo){
   promo = promo || {};
   document.getElementById('promoEnabled').value = promo.enabled ? 'true' : 'false';
