@@ -318,6 +318,7 @@ function completeOrder(name, phone, region, city, address, total, paymentMethod)
     items: cart,
     total, paymentMethod,
     referralCreditUsed: referralCreditToApply || 0,
+    couponCode: checkoutSummary.couponCode || null,
     customer: { name, phone, region, city, address },
     status: 'Processing'
   };
@@ -327,6 +328,10 @@ function completeOrder(name, phone, region, city, address, total, paymentMethod)
   if(referralCreditToApply > 0 && myReferrer){
     VDB.spendReferralBalance(myReferrer.code, referralCreditToApply)
       .catch(err => console.error('Failed to deduct referral balance:', err));
+  }
+  if(checkoutSummary.couponCode){
+    VDB.incrementCouponUsage(checkoutSummary.couponCode)
+      .catch(err => console.error('Failed to record coupon usage:', err));
   }
 
   let orders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
