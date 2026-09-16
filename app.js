@@ -575,6 +575,46 @@ function shareProductCard(id, e){
     },
     async deleteCategoryById(id){ await deleteDoc(doc(db,"categories",String(id))); },
 
+    /* ===== COUPONS ===== */
+    // Code is the document ID — codes are meant to be unique anyway, and it
+    // makes cart-side lookup a single direct read instead of a query.
+    async saveCoupon(data){
+      const code = String(data.code||'').trim().toUpperCase();
+      if(!code) throw new Error('Coupon code is required.');
+      const toSave = sanitizeForFirestore({ ...data, code });
+      delete toSave.usedCount; // never let an edit accidentally reset usage — see incrementCouponUsage
+      await setDoc(doc(db,"coupons",code), toSave, { merge:true });
+      // New coupons need usedCount seeded once; merge:true above won't touch it if it already exists.
+      const snap = await getDoc(doc(db,"coupons",code));
+      if(snap.exists() && snap.data().usedCount === undefined){
+        await setDoc(doc(db,"coupons",code), { usedCount:0 }, { merge:true });
+      }
+      return code;
+    },
+    subscribeCoupons(cb){
+      return onSnapshot(collection(db,"coupons"), snap=>{
+        const list=[]; snap.forEach(d=>list.push({id:d.id,...d.data()}));
+        list.sort((a,b)=>(a.createdAt<b.createdAt?1:-1));
+        cb(list);
+      });
+    },
+    async deleteCouponByCode(code){ await deleteDoc(doc(db,"coupons",String(code).toUpperCase())); },
+    async getCouponByCode(code){
+      const snap = await getDoc(doc(db,"coupons",String(code).trim().toUpperCase()));
+      return snap.exists() ? { id:snap.id, ...snap.data() } : null;
+    },
+    async incrementCouponUsage(code){
+      // Transaction so two people redeeming the last available use at the same
+      // moment can't both succeed and blow past maxUses.
+      const ref2 = doc(db,"coupons",String(code).toUpperCase());
+      await runTransaction(db, async (tx)=>{
+        const snap = await tx.get(ref2);
+        if(!snap.exists()) return;
+        const current = snap.data().usedCount||0;
+        tx.update(ref2, { usedCount: current + 1 });
+      });
+    },
+
     /* ===== REVIEWS ===== */
     async addReview(data){
       const toSave = sanitizeForFirestore({ ...data, approved:false, featured:false, createdAt: new Date().toISOString() });
