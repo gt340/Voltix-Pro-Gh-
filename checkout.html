@@ -86,7 +86,7 @@
 <!-- DELIVERY METHOD -->
 <div class="co-section">
   <h4>🚚 Delivery Method</h4>
-  <div class="co-summary-row"><span id="coDeliveryLabel">Standard Delivery (1-3 days)</span><span id="coDeliveryPrice">Free</span></div>
+  <div class="co-summary-row"><span id="coDeliveryLabel">Standard Delivery (5 days)</span><span id="coDeliveryPrice">Free</span></div>
   <a href="cart.html" style="font-size:.72rem;color:var(--blue-electric);font-weight:700;">Change delivery option →</a>
 </div>
 
@@ -208,7 +208,7 @@ function renderCheckoutSummary(){
 
   if(checkoutSummary.deliveryMethod === 'express'){
     document.getElementById('coDeliveryLabel').textContent = 'Express Delivery (Same day)';
-    document.getElementById('coDeliveryPrice').textContent = 'Ghc20';
+    document.getElementById('coDeliveryPrice').textContent = 'Ghc35';
   }
 
   if(checkoutSummary.couponCode){
