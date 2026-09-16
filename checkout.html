@@ -46,6 +46,8 @@
 .co-summary-row.total{border-top:1px solid rgba(255,255,255,.12);margin-top:.5rem;padding-top:.8rem;font-size:1.15rem;font-weight:900;color:#fff;}
 .co-summary-row.total .amt{background:linear-gradient(90deg,var(--gold),var(--blue-electric));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .co-coupon-tag{display:inline-flex;align-items:center;gap:.35rem;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);color:#4ade80;font-size:.7rem;font-weight:800;padding:.3rem .7rem;border-radius:999px;margin-top:.5rem;}
+.co-referral-row{display:flex;justify-content:space-between;align-items:center;font-size:.82rem;flex-wrap:wrap;gap:.5rem;}
+.co-referral-toggle{display:flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:700;color:#4ade80;}
 
 .place-order-btn{width:calc(100% - 2.2rem);margin:0 1.1rem 1.5rem;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:900;font-size:.95rem;padding:1.1rem;border-radius:1rem;border:none;box-shadow:0 10px 30px rgba(14,165,233,.4);}
 .place-order-btn:disabled{opacity:.6;}
@@ -88,6 +90,22 @@
   <a href="cart.html" style="font-size:.72rem;color:var(--blue-electric);font-weight:700;">Change delivery option →</a>
 </div>
 
+<!-- REFERRAL BALANCE -->
+<div class="co-section" id="coReferralSection" style="display:none;">
+  <h4>💰 Your Referral Balance</h4>
+  <div class="co-referral-row">
+    <span id="coReferralAvailable">Available: Ghc0</span>
+    <label class="co-referral-toggle">
+      <input type="checkbox" id="coUseReferralToggle" onchange="toggleReferralCredit()">
+      Use my balance
+    </label>
+  </div>
+  <div id="coReferralAmountWrap" style="display:none;margin-top:.7rem;">
+    <input type="number" id="coReferralAmountInput" min="0" step="1" oninput="updateReferralCreditAmount()" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;">
+    <div style="font-size:.68rem;color:var(--text-muted);margin-top:.4rem;">Applied straight to your order total.</div>
+  </div>
+</div>
+
 <!-- PAYMENT METHOD -->
 <div class="co-section">
   <h4>💳 Payment Method</h4>
@@ -124,6 +142,7 @@
   <div id="coItemsList"></div>
   <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">Ghc0</span></div>
   <div class="co-summary-row discount" id="coDiscountRow" style="display:none;"><span>Discount</span><span id="coDiscount">-Ghc0</span></div>
+  <div class="co-summary-row discount" id="coReferralRow" style="display:none;"><span>Referral Balance</span><span id="coReferralApplied">-Ghc0</span></div>
   <div class="co-summary-row"><span>Delivery</span><span id="coDeliveryLine">Free</span></div>
   <div class="co-summary-row total"><span>Total</span><span class="amt" id="coTotal">Ghc0</span></div>
   <div id="coCouponTag" style="display:none;"></div>
@@ -170,12 +189,19 @@ function renderCheckoutSummary(){
   const subtotal = checkoutSummary.subtotal || cartTotal();
   const discount = checkoutSummary.discount || 0;
   const delivery = checkoutSummary.delivery || 0;
-  const total = checkoutSummary.total || subtotal;
+  const preReferralTotal = checkoutSummary.total || subtotal;
+  const total = Math.max(0, preReferralTotal - referralCreditToApply);
 
   document.getElementById('coSubtotal').textContent = `Ghc${subtotal}`;
   if(discount > 0){
     document.getElementById('coDiscountRow').style.display = 'flex';
     document.getElementById('coDiscount').textContent = `-Ghc${discount}`;
+  }
+  if(referralCreditToApply > 0){
+    document.getElementById('coReferralRow').style.display = 'flex';
+    document.getElementById('coReferralApplied').textContent = `-Ghc${referralCreditToApply}`;
+  } else {
+    document.getElementById('coReferralRow').style.display = 'none';
   }
   document.getElementById('coDeliveryLine').textContent = delivery > 0 ? `Ghc${delivery}` : 'Free';
   document.getElementById('coTotal').textContent = `Ghc${total}`;
@@ -197,7 +223,49 @@ function renderCheckoutSummary(){
 }
 
 function getFinalTotal(){
-  return checkoutSummary.total || cartTotal();
+  const base = checkoutSummary.total || cartTotal();
+  return Math.max(0, base - referralCreditToApply);
+}
+
+/* ===== REFERRAL BALANCE AT CHECKOUT ===== */
+let myReferrerBalance = 0;
+let referralCreditToApply = 0;
+
+async function initReferralCreditUI(){
+  if(!myReferrer) return;
+  if(VDB) loadReferralCreditUI(); else window.addEventListener('vdb-ready', loadReferralCreditUI);
+}
+async function loadReferralCreditUI(){
+  try{
+    const referrer = await VDB.getReferrerByCode(myReferrer.code);
+    if(referrer && (referrer.balance||0) > 0){
+      myReferrerBalance = referrer.balance;
+      document.getElementById('coReferralSection').style.display = 'block';
+      document.getElementById('coReferralAvailable').textContent = `Available: Ghc${myReferrerBalance}`;
+    }
+  } catch(err){ console.error('Could not load referral balance:', err); }
+}
+function toggleReferralCredit(){
+  const checked = document.getElementById('coUseReferralToggle').checked;
+  document.getElementById('coReferralAmountWrap').style.display = checked ? 'block' : 'none';
+  if(checked){
+    const base = checkoutSummary.total || cartTotal();
+    const maxApply = Math.min(myReferrerBalance, base);
+    document.getElementById('coReferralAmountInput').max = maxApply;
+    document.getElementById('coReferralAmountInput').value = maxApply;
+    referralCreditToApply = maxApply;
+  } else {
+    referralCreditToApply = 0;
+  }
+  renderCheckoutSummary();
+}
+function updateReferralCreditAmount(){
+  const base = checkoutSummary.total || cartTotal();
+  const maxApply = Math.min(myReferrerBalance, base);
+  let val = Number(document.getElementById('coReferralAmountInput').value) || 0;
+  val = Math.max(0, Math.min(val, maxApply));
+  referralCreditToApply = val;
+  renderCheckoutSummary();
 }
 
 function placeOrder(){
@@ -214,6 +282,12 @@ function placeOrder(){
 
   const total = getFinalTotal();
   const btn = document.getElementById('placeOrderBtn');
+
+  if(total <= 0){
+    // Fully covered by referral balance — nothing to actually charge.
+    completeOrder(name, phone, region, city, address, 0, 'Referral Balance');
+    return;
+  }
 
   if(selectedPayMethod === 'cod'){
     completeOrder(name, phone, region, city, address, total, 'Cash on Delivery');
@@ -243,9 +317,17 @@ function completeOrder(name, phone, region, city, address, total, paymentMethod)
     date: new Date().toISOString(),
     items: cart,
     total, paymentMethod,
+    referralCreditUsed: referralCreditToApply || 0,
     customer: { name, phone, region, city, address },
     status: 'Processing'
   };
+
+  // Actually deduct the balance they chose to spend — transaction-guarded in
+  // VDB so it can't go negative even if this fires twice.
+  if(referralCreditToApply > 0 && myReferrer){
+    VDB.spendReferralBalance(myReferrer.code, referralCreditToApply)
+      .catch(err => console.error('Failed to deduct referral balance:', err));
+  }
 
   let orders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
   orders.unshift(order);
@@ -283,6 +365,7 @@ function completeOrder(name, phone, region, city, address, total, paymentMethod)
 }
 
 initVoltixApp('checkout', renderCheckoutSummary);
+initReferralCreditUI();
 
 const origUpdateBadgesCo = updateNavBadges;
 updateNavBadges = function(){
