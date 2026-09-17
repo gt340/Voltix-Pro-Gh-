@@ -225,6 +225,12 @@ header{position:sticky;top:0;z-index:50;background:linear-gradient(to right,rgba
 .promo-cta{display:inline-block;background:#fff;color:#111;font-weight:800;padding:.6rem 1.2rem;border-radius:.7rem;font-size:.78rem;text-decoration:none;}
 .promo-image{width:84px;height:84px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 8px 16px rgba(0,0,0,.4));}
 @media(max-width:420px){.promo-banner{flex-wrap:wrap;text-align:center;justify-content:center;}}
+.coupon-banner-live{display:flex;align-items:center;gap:.8rem;padding:.9rem 1.1rem;background:linear-gradient(135deg,rgba(250,204,21,.18),rgba(250,204,21,.06));border:1px solid rgba(250,204,21,.4);border-radius:1.1rem;}
+.coupon-banner-live .icon{font-size:1.6rem;}
+.coupon-banner-live .text{flex:1;}
+.coupon-banner-live .title{font-weight:900;font-size:.85rem;color:var(--gold);}
+.coupon-banner-live .sub{font-size:.68rem;color:var(--text-secondary);margin-top:.1rem;}
+.coupon-banner-live .copy-btn{background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:var(--navy-deep);font-weight:800;font-size:.72rem;padding:.55rem .9rem;border-radius:.6rem;border:none;white-space:nowrap;}
 .modal-header{text-align:center;margin-bottom:1.75rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(14,165,233,.2);}
 .modal-icon{font-size:2.75rem;margin-bottom:.75rem;}
 .modal-title{font-size:1.6rem;font-weight:900;margin-bottom:.4rem;background:linear-gradient(135deg,#0ea5e9,#1e40af);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
@@ -356,6 +362,9 @@ footer{border-top:1px solid rgba(255,255,255,.1);padding:3rem 1rem;background:li
 
 <!-- PROMO BANNER (admin-editable — see Admin Dashboard → 📢 Promo) -->
 <div id="promoBannerContainer" style="margin:.9rem;"></div>
+
+<!-- COUPON BANNER (auto-driven by whichever coupon is marked Featured in Admin → 🎟️ Coupons) -->
+<div id="couponBannerContainer" style="margin:.9rem;"></div>
 
 <!-- HEADER -->
 <header>
@@ -873,6 +882,12 @@ window.HDB = {
       cb(s.exists() ? (s.data().promoBanner || null) : null);
     });
   },
+  subscribeCoupons(cb){
+    return onSnapshot(collection(db,"coupons"), snap=>{
+      const list=[]; snap.forEach(d=>list.push({id:d.id,...d.data()}));
+      cb(list);
+    });
+  },
   subscribeHeroMedia(cb){
     return onSnapshot(doc(db,"settings","store"), s=>{
       cb(s.exists() ? (s.data().heroMedia || null) : null);
@@ -979,6 +994,7 @@ function initFirebaseFeeds(){
       }
     });
     window.HDB.subscribePromoBanner(renderPromoBanner);
+    window.HDB.subscribeCoupons(renderCouponBanner);
     window.HDB.subscribeHeroMedia(renderHeroMedia);
     window.HDB.subscribeFounderMedia(founderMedia=>{
       if(!founderMedia || !founderMedia.url) return; // keeps the static founder.jpg fallback
@@ -1066,6 +1082,50 @@ function renderPromoBanner(promo){
       </div>
       ${promo.image ? `<img src="${promo.image}" class="promo-image" alt="">` : ''}
     </div>`;
+}
+
+function renderCouponBanner(list){
+  const box = document.getElementById('couponBannerContainer');
+  if(!box) return;
+  const now = new Date();
+  const featured = list.find(c =>
+    c.featured &&
+    c.active !== false &&
+    (!c.expiresAt || new Date(c.expiresAt) >= now) &&
+    (!c.maxUses || (c.usedCount||0) < c.maxUses)
+  );
+  if(!featured){ box.innerHTML = ''; return; }
+  const valueLabel = featured.type === 'fixed' ? `Ghc${featured.value} off` : `${featured.value}% off`;
+  const minLabel = featured.minOrder ? ` orders over Ghc${featured.minOrder}` : ' your order';
+  box.innerHTML = `
+    <div class="coupon-banner-live">
+      <span class="icon">🎉</span>
+      <div class="text">
+        <div class="title">Use code ${featured.code}</div>
+        <div class="sub">${valueLabel} on${minLabel}</div>
+      </div>
+      <button class="copy-btn" onclick="copyCouponBannerCode('${featured.code}')">Copy Code</button>
+    </div>`;
+}
+function copyCouponBannerCode(code){
+  navigator.clipboard.writeText(code).then(()=>{
+    showToast(`${code} copied — paste it in your cart!`);
+  }).catch(()=>{
+    showToast(`Your code: ${code}`);
+  });
+}
+function showToast(msg){
+  let t = document.getElementById('homeToast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'homeToast';
+    t.style.cssText = 'position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(10,17,40,.95);border:1px solid rgba(14,165,233,.4);color:#fff;padding:.75rem 1.4rem;border-radius:999px;font-size:.8rem;font-weight:700;z-index:200;opacity:0;transition:all .3s;backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  requestAnimationFrame(()=>{ t.style.opacity='1'; t.style.transform='translateX(-50%) translateY(0)'; });
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 2200);
 }
 
 /* ---------- PRODUCT DETAIL MODAL ---------- */
