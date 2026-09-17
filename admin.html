@@ -424,9 +424,13 @@ body{padding-bottom:1rem;}
       <label>Expiry Date (optional)</label>
       <input type="date" id="couponExpiryInput">
     </div>
-    <label style="display:flex;align-items:center;gap:.6rem;font-size:.82rem;font-weight:700;margin:.8rem 0 1.1rem;">
+    <label style="display:flex;align-items:center;gap:.6rem;font-size:.82rem;font-weight:700;margin:.8rem 0;">
       <input type="checkbox" id="couponActiveInput" checked style="width:1.1rem;height:1.1rem;"> Active (customers can use it right away)
     </label>
+    <label style="display:flex;align-items:center;gap:.6rem;font-size:.82rem;font-weight:700;margin:0 0 1.1rem;">
+      <input type="checkbox" id="couponFeaturedInput" style="width:1.1rem;height:1.1rem;"> 📣 Feature on storefront banner (home &amp; shop pages)
+    </label>
+    <div class="admin-note" style="margin:0 0 1rem;">Only feature one coupon at a time — if you feature a new one, unfeature the old one first.</div>
     <button type="button" class="admin-login-btn ripple" style="width:100%;" onclick="saveCouponForm()">💾 Save Coupon</button>
 
     <div class="admin-note" style="margin:1.3rem 0 .8rem;">Existing coupons:</div>
@@ -1698,6 +1702,7 @@ async function saveCouponForm(){
     maxUses: maxUses ? Number(maxUses) : null,
     expiresAt: expiry || null,
     active: document.getElementById('couponActiveInput').checked,
+    featured: document.getElementById('couponFeaturedInput').checked,
     createdAt: new Date().toISOString()
   };
 
@@ -1711,6 +1716,7 @@ async function saveCouponForm(){
     document.getElementById('couponMinOrderInput').value = '';
     document.getElementById('couponMaxUsesInput').value = '';
     document.getElementById('couponExpiryInput').value = '';
+    document.getElementById('couponFeaturedInput').checked = false;
   } catch(err){
     alert('Failed: ' + err.message);
   } finally {
@@ -1735,10 +1741,11 @@ function renderAdminCoupons(list){
         <b style="font-size:.9rem;">${c.code}</b>
         <span class="admin-status-pill ${statusClass}">${statusLabel}</span>
       </div>
-      <div class="admin-sale-detail">${valueLabel}${c.minOrder ? ` · Min order Ghc${c.minOrder}` : ''}${c.expiresAt ? ` · Expires ${c.expiresAt}` : ''}</div>
+      <div class="admin-sale-detail">${valueLabel}${c.minOrder ? ` · Min order Ghc${c.minOrder}` : ''}${c.expiresAt ? ` · Expires ${c.expiresAt}` : ''}${c.featured ? ' · 📣 Featured on banner' : ''}</div>
       <div class="admin-sale-commission">${usageLabel}</div>
       <div class="admin-sale-btns">
         <button class="admin-mini-btn" onclick="toggleCouponActive('${c.code}', ${!c.active})">${c.active ? '⏸️ Deactivate' : '▶️ Activate'}</button>
+        <button class="admin-mini-btn" onclick="toggleCouponFeatured('${c.code}', ${!c.featured})">${c.featured ? '📣 Unfeature' : '📣 Feature'}</button>
         <button class="admin-mini-btn" style="background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#f87171;" onclick="handleDeleteCoupon('${c.code}')">🗑️ Delete</button>
       </div>
     </div>`;
@@ -1746,6 +1753,9 @@ function renderAdminCoupons(list){
 }
 function toggleCouponActive(code, newActive){
   VDB.saveCoupon({ code, active: newActive }).catch(err => alert('Failed: ' + err.message));
+}
+function toggleCouponFeatured(code, newFeatured){
+  VDB.saveCoupon({ code, featured: newFeatured }).catch(err => alert('Failed: ' + err.message));
 }
 function handleDeleteCoupon(code){
   if(!confirm(`Delete coupon ${code}? This can't be undone.`)) return;
