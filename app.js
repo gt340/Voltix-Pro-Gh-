@@ -221,7 +221,7 @@ function shareProductCard(id, e){
     getFirestore, collection, doc, setDoc, addDoc, deleteDoc, getDoc, onSnapshot, getDocs, query, where, runTransaction
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const {
-    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
+    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   const {
     getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
@@ -394,7 +394,6 @@ function shareProductCard(id, e){
       });
     },
 
-    async addReferrer(data){ const ref2 = await addDoc(collection(db,"referrers"),sanitizeForFirestore({...data,createdAt:new Date().toISOString(),balance:0,totalEarned:0,totalWithdrawn:0})); return ref2.id; },
     subscribeReferrers(cb){ return onSnapshot(collection(db,"referrers"), snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); l.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)); cb(l); }); },
     async getReferrerByCode(code){
       const snap = await getDocs(query(collection(db,"referrers"), where("code","==",code)));
@@ -651,10 +650,60 @@ function shareProductCard(id, e){
     adminLogin(email,pw){ return signInWithEmailAndPassword(auth,email,pw); },
     adminLogout(){ return signOut(auth); },
     watchAdminAuth(cb){ onAuthStateChanged(auth,u=>cb(u)); },
-    adminResetPassword(email){ return sendPasswordResetEmail(auth,email); }
+    adminResetPassword(email){ return sendPasswordResetEmail(auth,email); },
+    async checkIsAdmin(){
+      // Anyone can sign in with a Firebase account now (referrers included) —
+      // this is the actual gate for admin.html: only a UID that has a
+      // matching doc in /admins counts as a real admin.
+      const user = auth.currentUser;
+      if(!user) return false;
+      const snap = await getDoc(doc(db,"admins",user.uid));
+      return snap.exists();
+    },
+
+    /* ===== REFERRER ACCOUNTS (real Firebase login, separate from admin) ===== */
+    async referrerSignup(email, password, profile){
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db,"referrers",cred.user.uid), sanitizeForFirestore({
+        ...profile, email,
+        createdAt: new Date().toISOString(),
+        balance:0, totalEarned:0, totalWithdrawn:0
+      }));
+      return cred.user.uid;
+    },
+    referrerLogin(email, password){ return signInWithEmailAndPassword(auth, email, password); },
+    referrerLogout(){ return signOut(auth); },
+    referrerForgotPassword(email){ return sendPasswordResetEmail(auth, email); },
+    watchReferrerAuth(cb){ onAuthStateChanged(auth, u=>cb(u)); },
+    async getMyReferrerProfile(){
+      const user = auth.currentUser;
+      if(!user) return null;
+      const snap = await getDoc(doc(db,"referrers",user.uid));
+      return snap.exists() ? { uid:user.uid, ...snap.data() } : null;
+    }
   };
 
-  VDB.watchAdminAuth((user) => { isAdminAuthed = !!user; });
+  VDB.watchAdminAuth(async (user) => { isAdminAuthed = user ? await VDB.checkIsAdmin() : false; });
+
+  // Keeps the shared `myReferrer` global in sync with whoever is actually
+  // logged in right now, on every page that loads app.js — so a login on
+  // account.html carries through to checkout's "use my balance" etc.
+  // without each page re-implementing this.
+  onAuthStateChanged(auth, async (user) => {
+    if(!user){ myReferrer = null; localStorage.removeItem('voltixMyReferrer'); return; }
+    try{
+      const snap = await getDoc(doc(db,"referrers",user.uid));
+      if(snap.exists()){
+        myReferrer = { uid:user.uid, ...snap.data() };
+        localStorage.setItem('voltixMyReferrer', JSON.stringify(myReferrer));
+      } else {
+        myReferrer = null;
+        localStorage.removeItem('voltixMyReferrer');
+      }
+    } catch(e){
+      myReferrer = null;
+    }
+  });
 
   window.dispatchEvent(new Event('vdb-ready'));
 })();
