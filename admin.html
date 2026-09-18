@@ -616,7 +616,15 @@ function handleAdminLoginSubmit(e){
   const btn = document.getElementById('adminLoginBtn');
   btn.textContent = 'Signing in...';
   btn.disabled = true;
-  VDB.adminLogin(email, password).then(()=>{
+  VDB.adminLogin(email, password).then(async ()=>{
+    const isAdmin = await VDB.checkIsAdmin();
+    if(!isAdmin){
+      await VDB.adminLogout();
+      alert('This account is not an admin account.');
+      btn.textContent = 'Sign In';
+      btn.disabled = false;
+      return;
+    }
     showToast('Welcome back!');
   }).catch(err=>{
     alert('Login failed: ' + err.message);
@@ -1779,12 +1787,16 @@ function renderPromoBannerForm(promo){
 
 function checkAdminAuthState(){
   if(!VDB){ window.addEventListener('vdb-ready', checkAdminAuthState); return; }
-  VDB.watchAdminAuth(user=>{
-    if(user){
+  VDB.watchAdminAuth(async user=>{
+    if(user && await VDB.checkIsAdmin()){
       document.getElementById('adminLoginWrap').style.display='none';
       document.getElementById('adminDashboard').style.display='block';
       initAdminDashboard();
     } else {
+      // Covers both "not signed in" and "signed in but not an admin" (e.g. a
+      // referrer account) — sign the latter out so they don't sit in limbo
+      // holding a session that isn't going to get them in here.
+      if(user) VDB.adminLogout();
       document.getElementById('adminLoginWrap').style.display='flex';
       document.getElementById('adminDashboard').style.display='none';
     }
