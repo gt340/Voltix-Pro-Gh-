@@ -28,6 +28,7 @@
 .refer-type-toggle{display:flex;gap:.5rem;}
 .refer-type-btn{flex:1;padding:.75rem .5rem;border-radius:.7rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--text-secondary);font-weight:700;font-size:.8rem;}
 .refer-type-btn.active{background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;border-color:transparent;}
+.refer-forgot-link{display:block;width:100%;text-align:center;background:none;border:none;color:var(--blue-electric);font-size:.75rem;font-weight:700;margin-top:.8rem;text-decoration:underline;}
 .rules-text-block h4{color:var(--gold);font-size:.85rem;margin:1.1rem 0 .5rem;}
 .rules-text-block h4:first-child{margin-top:0;}
 .rules-text-block ul{padding-left:1.1rem;font-size:.78rem;color:var(--text-secondary);line-height:1.7;}
@@ -85,10 +86,24 @@
     </div>
 
     <div id="referSignupArea">
-      <form onsubmit="handleReferrerSignup(event)">
-        <div class="al-field"><label>Full Name</label><input type="text" id="referName" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;" required></div>
+      <div class="refer-type-toggle" style="margin-top:.5rem;">
+        <button type="button" class="refer-type-btn active" id="referAuthLoginTab" onclick="setReferAuthMode('login')">Log In</button>
+        <button type="button" class="refer-type-btn" id="referAuthSignupTab" onclick="setReferAuthMode('signup')">Sign Up</button>
+      </div>
+
+      <form id="referLoginForm" onsubmit="handleReferrerLogin(event)">
+        <div class="al-field" style="margin-top:1rem;"><label>Email</label><input type="email" id="referLoginEmail" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;" required></div>
+        <div class="al-field" style="margin-top:.9rem;"><label>Password</label><input type="password" id="referLoginPassword" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;" required></div>
+        <button type="submit" class="al-btn ripple" style="margin-top:1.1rem;">🔑 Log In</button>
+        <button type="button" class="refer-forgot-link" onclick="handleReferrerForgotPassword()">Forgot password?</button>
+      </form>
+
+      <form id="referSignupForm" onsubmit="handleReferrerSignup(event)" style="display:none;">
+        <div class="al-field" style="margin-top:1rem;"><label>Full Name</label><input type="text" id="referName" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;" required></div>
         <div class="al-field" style="margin-top:.9rem;"><label>WhatsApp Number</label><input type="tel" id="referPhone" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;" required></div>
-        <button type="submit" class="al-btn ripple" style="margin-top:1.1rem;">🚀 Get My Referral Link</button>
+        <div class="al-field" style="margin-top:.9rem;"><label>Email</label><input type="email" id="referSignupEmail" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;" required></div>
+        <div class="al-field" style="margin-top:.9rem;"><label>Password (min. 6 characters)</label><input type="password" id="referSignupPassword" minlength="6" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;border-radius:.7rem;font-size:.85rem;" required></div>
+        <button type="submit" class="al-btn ripple" style="margin-top:1.1rem;">🚀 Create My Referral Account</button>
       </form>
     </div>
 
@@ -112,6 +127,7 @@
 
       <button class="al-btn ripple" id="referWithdrawBtn" onclick="openWithdrawModal()" disabled style="margin-top:1rem;">💸 Withdraw or Redeem Airtime</button>
       <div class="refer-hint">💡 You can also spend this balance toward an earpods order at checkout.</div>
+      <button type="button" class="refer-forgot-link" style="margin-top:.9rem;" onclick="handleReferrerLogoutClick()">Log out of this referral account</button>
     </div>
 
     <button class="refer-rules-link" onclick="closeCenterModal('referModal'); openRulesModal();">📋 Referral Rules &amp; Regulations</button>
@@ -376,7 +392,14 @@ function openReferFromAccount(){
   } else {
     document.getElementById('referSignupArea').style.display = 'block';
     document.getElementById('referDashboardArea').style.display = 'none';
+    setReferAuthMode('login');
   }
+}
+function setReferAuthMode(mode){
+  document.getElementById('referAuthLoginTab').classList.toggle('active', mode==='login');
+  document.getElementById('referAuthSignupTab').classList.toggle('active', mode==='signup');
+  document.getElementById('referLoginForm').style.display = mode==='login' ? 'block' : 'none';
+  document.getElementById('referSignupForm').style.display = mode==='signup' ? 'block' : 'none';
 }
 let referBalanceUnsub = null;
 let currentReferrerBalance = 0;
@@ -457,17 +480,65 @@ async function handleReferrerSignup(e){
   e.preventDefault();
   const name = document.getElementById('referName').value;
   const phone = document.getElementById('referPhone').value;
+  const email = document.getElementById('referSignupEmail').value.trim();
+  const password = document.getElementById('referSignupPassword').value;
   const code = 'VLX-' + phone.replace(/\D/g,'').slice(-4) + Math.random().toString(36).slice(2,5).toUpperCase();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = 'Creating account...';
   try{
-    await VDB.addReferrer({ name, phone, code });
-    myReferrer = { name, phone, code };
-    localStorage.setItem('voltixMyReferrer', JSON.stringify(myReferrer));
+    await VDB.referrerSignup(email, password, { name, phone, code });
+    // app.js's own auth listener populates `myReferrer` — give it a moment.
+    await new Promise(r=>setTimeout(r, 500));
     document.getElementById('referSignupArea').style.display = 'none';
     document.getElementById('referDashboardArea').style.display = 'block';
     document.getElementById('myReferralCodeDisplay').textContent = code;
     subscribeToMyReferralBalance();
-    showToast('Referral code created!');
-  } catch(err){ showToast('Failed: ' + err.message); }
+    showToast('Referral account created!');
+  } catch(err){
+    showToast('Failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🚀 Create My Referral Account';
+  }
+}
+async function handleReferrerLogin(e){
+  e.preventDefault();
+  const email = document.getElementById('referLoginEmail').value.trim();
+  const password = document.getElementById('referLoginPassword').value;
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = 'Logging in...';
+  try{
+    await VDB.referrerLogin(email, password);
+    await new Promise(r=>setTimeout(r, 500));
+    if(myReferrer){
+      document.getElementById('referSignupArea').style.display = 'none';
+      document.getElementById('referDashboardArea').style.display = 'block';
+      document.getElementById('myReferralCodeDisplay').textContent = myReferrer.code;
+      subscribeToMyReferralBalance();
+      showToast('Welcome back!');
+    } else {
+      showToast('Logged in, but no referral profile is linked to this account.');
+    }
+  } catch(err){
+    showToast('Login failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🔑 Log In';
+  }
+}
+async function handleReferrerForgotPassword(){
+  const email = document.getElementById('referLoginEmail').value.trim();
+  if(!email){ showToast('Enter your email first, then tap Forgot Password again'); return; }
+  try{
+    await VDB.referrerForgotPassword(email);
+    showToast('✅ Reset email sent to ' + email);
+  } catch(err){
+    showToast('Failed: ' + err.message);
+  }
+}
+async function handleReferrerLogoutClick(){
+  if(referBalanceUnsub) referBalanceUnsub();
+  await VDB.referrerLogout();
+  closeCenterModal('referModal');
+  showToast('Logged out of your referral account');
 }
 function copyReferralLink(){
   if(!myReferrer) return;
