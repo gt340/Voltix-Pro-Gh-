@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Voltix Pro GH – Kaisa Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #020617;
+      color: #e2e8f0;
+      min-height: 100dvh;
+      padding-bottom: 40px;
+    }
+    .header {
+      background: linear-gradient(180deg, #0f172a, #020617);
+      padding: 12px 16px 8px;
+      text-align: center;
+      border-bottom: 1px solid #1e293b;
+    }
+    .logo {
+      width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+      border: 3px solid #3b82f6; box-shadow: 0 0 16px rgba(59,130,246,0.5);
+    }
+    .brand {
+      font-size: 1.15rem; font-weight: 800; margin-top: 4px;
+      background: linear-gradient(90deg, #60a5fa, #e2e8f0, #fbbf24);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .tagline { font-size: 0.7rem; color: #fbbf24; letter-spacing: 1px; }
+    .balance-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #1e293b; margin: 10px 12px; padding: 10px 14px;
+      border-radius: 10px; border: 1px solid #334155;
+    }
+    .balance { font-weight: 700; color: #60a5fa; }
+    .btn {
+      background: #1e293b; color: #f1f5f9; border: 1px solid #334155;
+      padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+      cursor: pointer; touch-action: manipulation; text-decoration: none; display: inline-block;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #3b82f6); border: none; color: white;
+      box-shadow: 0 0 10px rgba(59,130,246,0.4);
+    }
+    .btn-gold { background: linear-gradient(135deg, #b45309, #fbbf24); border: none; color: #0f172a; }
+    .btn-green { background: #22c55e; border: none; color: #052e16; }
+    .section {
+      margin: 12px; background: #0f172a; border-radius: 12px; padding: 14px; border: 1px solid #1e293b;
+    }
+    .section h2 {
+      font-size: 0.95rem; color: #94a3b8; margin-bottom: 10px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mode-card {
+      background: #1e293b; border-radius: 10px; padding: 14px 10px; text-align: center;
+      border: 1px solid #334155; cursor: pointer;
+    }
+    .mode-card:active { transform: scale(0.97); }
+    .mode-card.wide { grid-column: 1 / -1; }
+    .mode-card h3 { font-size: 0.95rem; margin-bottom: 4px; }
+    .mode-card p { font-size: 0.75rem; color: #94a3b8; }
+    .diff-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+    .diff-row button {
+      flex: 1; background: #1e293b; color: #cbd5e1; border: 1px solid #334155;
+      padding: 9px 6px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+    }
+    .diff-row button.active { background: #22c55e; color: #052e16; border-color: #22c55e; }
+    .leaderboard-item {
+      display: flex; justify-content: space-between; padding: 8px 0;
+      border-bottom: 1px solid #1e293b; font-size: 0.9rem;
+    }
+    .rank { font-weight: 700; color: #fbbf24; width: 28px; display: inline-block; }
+    .hidden { display: none !important; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+    }
+    .modal-content {
+      background: #0f172a; border: 1px solid #334155; border-radius: 14px;
+      padding: 20px; max-width: 360px; width: 100%; text-align: center;
+    }
+    .modal-content h3 { margin-bottom: 10px; color: #fbbf24; }
+    input {
+      width: 100%; padding: 10px; margin: 8px 0; border-radius: 8px;
+      border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 1rem;
+    }
+
+    /* ---------- Game screen ---------- */
+    #game-screen { display: none; padding: 0 6px; }
+    #connStatus {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; padding: 5px 14px;
+      border-radius: 20px; display: none; align-items: center; gap: 6px; margin: 8px auto 0;
+      background: #1e293b; color: #94a3b8; width: fit-content;
+    }
+    #game-container { position: relative; margin: 10px auto; max-width: 100%; width: fit-content; }
+    canvas {
+      display: block; background: #1a1208; border-radius: 10px; max-width: 100%; height: auto;
+      touch-action: none;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 0 0 3px #3d2817, 0 0 0 6px #6b4423;
+    }
+    #ui { width: 100%; max-width: 1000px; margin: 0 auto; padding: 6px 10px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .scores { display: flex; justify-content: space-around; background: #16213e; border-radius: 12px; padding: 12px; font-size: 1.1rem; }
+    .score-box { text-align: center; }
+    .score-box .label { font-size: 0.75rem; opacity: 0.7; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .score-box .value { font-size: 1.6rem; font-weight: 700; }
+    .player .value { color: #4ade80; }
+    .ai .value { color: #f87171; }
+    .progress-wrap { display: flex; gap: 8px; align-items: center; font-size: 0.7rem; opacity: 0.85; }
+    .progress-wrap span:first-child { width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .progress-wrap .bar { flex: 1; height: 8px; background: #222; border-radius: 4px; overflow: hidden; }
+    .progress-wrap .fill { height: 100%; width: 0%; border-radius: 4px; transition: width 0.35s ease; }
+    .progress-wrap .fill.you { background: linear-gradient(90deg, #16a34a, #4ade80); }
+    .progress-wrap .fill.ai { background: linear-gradient(90deg, #b91c1c, #f87171); }
+    #status { text-align: center; font-size: 1rem; min-height: 24px; font-weight: 500; }
+    .power-bar-container { width: 100%; height: 14px; background: #333; border-radius: 7px; overflow: hidden; display: none; }
+    .power-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); transition: width 0.05s linear; }
+    .controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .controls button {
+      background: #0f3460; color: white; border: none; padding: 10px 14px; border-radius: 10px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer; touch-action: manipulation;
+    }
+    .controls button:active { filter: brightness(1.1); }
+    #emojiBar { display: none; justify-content: center; gap: 6px; flex-wrap: wrap; }
+    #emojiBar button { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 6px 10px; font-size: 1.2rem; cursor: pointer; }
+    #emojiFloat { position: fixed; top: 40%; left: 50%; transform: translateX(-50%); font-size: 3rem; pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 50; }
+    .instructions { font-size: 0.8rem; opacity: 0.75; text-align: center; line-height: 1.4; }
+    .legend { display: flex; justify-content: center; gap: 14px; font-size: 0.75rem; flex-wrap: wrap; }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .dot.yellow { background: #facc15; }
+    .dot.red { background: #ef4444; }
+    .dot.white { background: #f8fafc; border: 1px solid #94a3b8; }
+    .dot.cue { background: #f8fafc; border: 2px solid #3b82f6; }
+    #winOverlay {
+      display: none; position: fixed; inset: 0; z-index: 60;
+      background: rgba(0,0,0,0.72); backdrop-filter: blur(4px); align-items: center; justify-content: center;
+    }
+    #winOverlay.show { display: flex; }
+    .win-card {
+      background: linear-gradient(160deg, #16213e, #0f3460); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: 28px 32px; text-align: center; max-width: 340px; width: 90%;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .win-card h2 { font-size: 1.5rem; margin-bottom: 8px; }
+    .win-card p { opacity: 0.85; margin-bottom: 18px; font-size: 0.95rem; }
+    .win-card .btn { width: 100%; margin-top: 8px; padding: 12px; font-size: 0.95rem; }
+  
+    /* ---------- Site-wide announcements banner ---------- */
+    #anncBar { position: relative; z-index: 80; }
+    .annc-card {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-left: 4px solid #fbbf24;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      position: relative;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .annc-card img { max-width: 64px; max-height: 64px; border-radius: 6px; flex-shrink: 0; object-fit: cover; }
+    .annc-card .annc-body { flex: 1; min-width: 0; line-height: 1.35; word-break: break-word; }
+    .annc-card audio { width: 100%; max-width: 260px; margin-top: 6px; height: 32px; display: block; }
+    .annc-card .annc-close {
+      background: none; border: none; color: #94a3b8; font-size: 1.15rem; cursor: pointer;
+      line-height: 1; padding: 2px 4px; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="anncBar"></div>
+  <!-- HEADER -->
+  <div class="header">
+    <img src="logo.png" alt="Voltix Pro" class="logo" onerror="this.style.display='none'" />
+    <div class="brand">VOLTIX PRO GH</div>
+    <div class="tagline">PREMIUM EARPODS • 🎱 KAISA CHALLENGE</div>
+  </div>
+
+  <!-- BALANCE + NAV -->
+  <div class="balance-bar">
+    <div>Balls: <span class="balance" id="ballBalance">0</span></div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+      <a href="foosball.html" class="btn" style="padding:6px 10px;" title="Foosball">⚽</a>
+      <a href="damii.html" class="btn" style="padding:6px 10px;" title="Damii">♟️</a>
+      <a href="ludo.html" class="btn" style="padding:6px 10px;" title="Ludo">🎲</a>
+      <a href="chat.html" class="btn" style="padding:6px 10px;" title="Chat">💬</a>
+      <a href="home.html" class="btn" style="padding:6px 10px;" title="Store">🛍️</a>
+      <a href="foosball.html?buy=1" class="btn btn-gold" style="padding:6px 10px;">Buy Balls</a>
+    </div>
+  </div>
+
+  <!-- MENU -->
+  <div id="menu-screen">
+    <div class="section">
+      <h2>Play Now</h2>
+      <div class="diff-row" id="diffRow">
+        <button type="button" data-diff="easy">Easy</button>
+        <button type="button" data-diff="normal" class="active">Normal</button>
+        <button type="button" data-diff="hard">Hard</button>
+      </div>
+      <div class="mode-grid">
+        <div class="mode-card wide" id="playAiBtn">
+          <h3>⚡ vs AI</h3>
+          <p id="aiPrizeLine">Free to play<br>Beat the AI on Normal or Hard to win a prize</p>
+        </div>
+        <div class="mode-card" id="challengeBtn">
+          <h3>👥 Challenge Friend</h3>
+          <p>Online • Free for host<br>Friend joins for 1 ball</p>
+        </div>
+        <div class="mode-card" id="localBtn">
+          <h3>🤝 Pass &amp; Play</h3>
+          <p>Same phone<br>Free</p>
+        </div>
+      </div>
+      <p style="font-size:0.75rem; color:#64748b; text-align:center; margin-top:10px;">
+        First to <span id="menuTarget">60</span> points wins. Easy is practice only — no prize or leaderboard credit.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>Kaisa Champions</h2>
+      <div id="leaderboardList">Loading…</div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen">
+    <div id="connStatus">● OFFLINE</div>
+
+    <div id="game-container">
+      <canvas id="game" width="1000" height="560"></canvas>
+    </div>
+
+    <div id="ui">
+      <div class="scores">
+        <div class="score-box player">
+          <div class="label" id="p1Label">YOU</div>
+          <div class="value" id="playerScore">0</div>
+        </div>
+        <div class="score-box">
+          <div class="label">TARGET</div>
+          <div class="value" style="color:#94a3b8" id="targetVal">60</div>
+        </div>
+        <div class="score-box ai">
+          <div class="label" id="p2Label">AI</div>
+          <div class="value" id="aiScore">0</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <span id="p1Short">You</span>
+        <div class="bar"><div class="fill you" id="playerProgress"></div></div>
+        <span id="playerPct">0%</span>
+      </div>
+      <div class="progress-wrap">
+        <span id="p2Short">AI</span>
+        <div class="bar"><div class="fill ai" id="aiProgress"></div></div>
+        <span id="aiPct">0%</span>
+      </div>
+
+      <div id="status">Your turn – drag to aim &amp; set power</div>
+
+      <div class="power-bar-container" id="powerContainer">
+        <div class="power-bar" id="powerBar"></div>
+      </div>
+
+      <div id="emojiBar">
+        <button type="button" data-emoji="🔥">🔥</button>
+        <button type="button" data-emoji="😂">😂</button>
+        <button type="button" data-emoji="💪">💪</button>
+        <button type="button" data-emoji="👏">👏</button>
+        <button type="button" data-emoji="😱">😱</button>
+        <button type="button" data-emoji="🏆">🏆</button>
+      </div>
+      <div id="emojiFloat"></div>
+
+      <div class="controls">
+        <button type="button" id="newGameBtn">New Game</button>
+        <button type="button" id="hintBtn">Hint</button>
+        <button type="button" id="muteBtn" title="Toggle sound">🔊</button>
+        <button type="button" id="quitBtn">Quit to Menu</button>
+      </div>
+
+      <div class="legend">
+        <span><span class="dot yellow"></span> Kaisa 6</span>
+        <span><span class="dot red"></span> Red 3</span>
+        <span><span class="dot white"></span> Others 2</span>
+        <span><span class="dot cue"></span> Cue</span>
+        <span>15 object balls</span>
+      </div>
+
+      <div class="instructions">
+        Drag from your cue ball to aim. Longer drag = more power.<br>
+        Score to keep your turn • Scratch = +2 to your opponent
+      </div>
+    </div>
+  </div>
+
+  <!-- WIN OVERLAY -->
+  <div id="winOverlay">
+    <div class="win-card">
+      <h2 id="winTitle">You win!</h2>
+      <p id="winMsg">Well played.</p>
+      <button type="button" class="btn btn-gold hidden" id="claimPrizeBtn">🎁 Claim Prize</button>
+      <button type="button" class="btn btn-green" id="winReplayBtn">Play Again</button>
+      <button type="button" class="btn" id="winMenuBtn">Back to Menu</button>
+    </div>
+  </div>
+
+  <!-- CHALLENGE MODAL -->
+  <div class="modal hidden" id="challengeModal">
+    <div class="modal-content">
+      <h3>Challenge Friend</h3>
+      <p style="font-size:0.85rem; color:#94a3b8;">Create a room (free for you) or join with a code (costs 1 ball). Play live on separate phones.</p>
+      <button class="btn btn-primary" style="width:100%; margin:8px 0;" id="createRoomBtn">Create Room</button>
+      <input type="text" id="joinCode" placeholder="Enter room code" maxlength="6" style="text-transform:uppercase;" />
+      <button class="btn" style="width:100%; margin-top:6px;" id="joinRoomBtn">Join Room</button>
+      <button class="btn" style="width:100%; margin-top:10px;" id="closeChallengeBtn">Cancel</button>
+      <div id="roomDisplay" style="margin-top:10px; color:#60a5fa; font-weight:700;"></div>
+      <div id="roomActions" class="hidden" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+        <button class="btn btn-gold" style="flex:1; min-width:130px;" id="shareLinkBtn">🔗 Share Invite Link</button>
+        <button class="btn btn-gold" style="flex:1; min-width:130px;" id="shareGroupBtn">💬 Post to Group Chat</button>
+      </div>
+      <div id="challengeStatus" style="font-size:0.8rem; color:#f87171; margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- WINNER PHONE CAPTURE MODAL -->
+  <div class="modal hidden" id="winnerModal">
+    <div class="modal-content">
+      <h3>🎉 You Won!</h3>
+      <p style="font-size:0.85rem; color:#94a3b8;" id="winnerPrizeText">Prize: —</p>
+      <p style="font-size:0.8rem; color:#94a3b8; margin:8px 0;">Enter your phone number so we can send your prize.</p>
+      <input type="tel" id="winnerPhone" placeholder="e.g. 024xxxxxxx" />
+      <button class="btn btn-gold" style="width:100%; margin-top:8px;" id="submitWinnerBtn">Submit</button>
+      <button class="btn" style="width:100%; margin-top:6px;" id="closeWinnerBtn">Close</button>
+      <div id="winnerStatus" style="font-size:0.8rem; margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    // =====================================================
+    //  Same Firebase project as the Foosball game / store
+    // =====================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+      authDomain: "voltix-pro-dc363.firebaseapp.com",
+      projectId: "voltix-pro-dc363",
+      storageBucket: "voltix-pro-dc363.firebasestorage.app",
+      messagingSenderId: "778425016855",
+      appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252",
+      measurementId: "G-5BQWW8P46P"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ---------- Site-wide announcements banner (posted from Admin) ----------
+    (function loadAnnouncementBanner() {
+      const bar = document.getElementById("anncBar");
+      if (!bar) return;
+      function escAnnc(s) {
+        return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+      db.collection("announcements").where("active", "==", true).limit(20).get()
+        .then(snap => {
+          if (snap.empty) return;
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0))
+            .slice(0, 5);
+          docs.forEach(a => {
+            const card = document.createElement("div");
+            card.className = "annc-card";
+            let html = "";
+            if (a.imageUrl) html += `<img src="${escAnnc(a.imageUrl)}" alt="" />`;
+            html += `<div class="annc-body">`;
+            if (a.text) html += `<div>${escAnnc(a.text)}</div>`;
+            if (a.audioUrl) html += `<audio controls src="${escAnnc(a.audioUrl)}"></audio>`;
+            html += `</div><button type="button" class="annc-close" aria-label="Dismiss">✕</button>`;
+            card.innerHTML = html;
+            card.querySelector(".annc-close").onclick = () => card.remove();
+            bar.appendChild(card);
+          });
+        })
+        .catch(() => {});
+    })();
+
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('game');
+    const ctx = canvas.getContext('2d');
+    const playerScoreEl = $('playerScore');
+    const aiScoreEl = $('aiScore');
+    const statusEl = $('status');
+    const powerContainer = $('powerContainer');
+    const powerBar = $('powerBar');
+    const newGameBtn = $('newGameBtn');
+    const hintBtn = $('hintBtn');
+    const muteBtn = $('muteBtn');
+    const winOverlay = $('winOverlay');
+    const winTitle = $('winTitle');
+    const winMsg = $('winMsg');
+    const winReplayBtn = $('winReplayBtn');
+    const playerProgress = $('playerProgress');
+    const aiProgress = $('aiProgress');
+    const playerPct = $('playerPct');
+    const aiPct = $('aiPct');
+    const diffRow = $('diffRow');
+    const p1Label = $('p1Label');
+    const p2Label = $('p2Label');
+    const p1Short = $('p1Short');
+    const p2Short = $('p2Short');
+    const menuScreen = $('menu-screen');
+    const gameScreen = $('game-screen');
+
+
+    // ---------- Sound ----------
+    let audioCtx = null, muted = false;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function beep(freq, dur, type, vol, slide) {
+      if (muted) return;
+      try {
+        ensureAudio();
+        const t = audioCtx.currentTime;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type || 'sine';
+        o.frequency.setValueAtTime(freq, t);
+        if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, slide), t + dur);
+        g.gain.setValueAtTime(vol || 0.12, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(t); o.stop(t + dur + 0.02);
+      } catch (e) {}
+    }
+    const SFX = {
+      hit: () => { beep(180, 0.06, 'triangle', 0.1); beep(90, 0.08, 'sine', 0.06); },
+      pot: () => { beep(520, 0.12, 'sine', 0.1, 280); setTimeout(() => beep(680, 0.1, 'sine', 0.08), 50); },
+      scratch: () => beep(140, 0.2, 'sawtooth', 0.07, 60),
+      turn: () => beep(330, 0.08, 'sine', 0.06),
+      win: () => { beep(523, 0.12, 'sine', 0.1); setTimeout(() => beep(659, 0.12, 'sine', 0.1), 120); setTimeout(() => beep(784, 0.25, 'sine', 0.12), 240); },
+      lose: () => { beep(300, 0.15, 'triangle', 0.08, 120); setTimeout(() => beep(180, 0.25, 'triangle', 0.07, 80), 150); },
+      shoot: () => beep(220, 0.05, 'square', 0.05)
+    };
+    muteBtn.addEventListener('click', () => {
+      muted = !muted;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
+      if (!muted) ensureAudio();
+    });
+
+    // In an online match the host runs the physics, so sounds it makes are
+    // queued and sent to the guest in the next state message.
+    const SFXraw = Object.assign({}, SFX);
+    let pendingSfx = [];
+    Object.keys(SFXraw).forEach((k) => {
+      SFX[k] = (...args) => {
+        SFXraw[k](...args);
+        if (mode === 'online' && isHost) pendingSfx.push(k);
+      };
+    });
+
+    const TABLE_W = 1000, TABLE_H = 560;
+    const BALL_R = 14, POCKET_R = 26;
+    const FRICTION = 0.987, CUSHION_BOUNCE = 0.87, MIN_VEL = 0.08, MAX_POWER = 22;
+    const RAIL = 32;
+    // Playing surface = the felt inside the cushions. Balls stay on it (they never roll over the wood).
+    const CUSH = RAIL + 6;
+    const PL = CUSH, PR = TABLE_W - CUSH, PT = CUSH, PB = TABLE_H - CUSH;
+    let WIN_SCORE = 60; // admin can change this (gameSettings.kaisaWinScore)
+
+    function resizeCanvas() {
+      const maxW = Math.min(window.innerWidth - 12, 1000);
+      const ratio = TABLE_H / TABLE_W;
+      canvas.style.width = maxW + 'px';
+      canvas.style.height = (maxW * ratio) + 'px';
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const pockets = [
+      {x: PL, y: PT}, {x: TABLE_W/2, y: PT}, {x: PR, y: PT},
+      {x: PL, y: PB}, {x: TABLE_W/2, y: PB}, {x: PR, y: PB}
+    ];
+
+    // Difficulty presets
+    const DIFF = {
+      easy:   { noise: 0.32, powerJitter: 3.5, missChance: 0.35, thinkMs: [900, 1400] },
+      normal: { noise: 0.14, powerJitter: 2.0, missChance: 0.15, thinkMs: [600, 1000] },
+      hard:   { noise: 0.05, powerJitter: 1.0, missChance: 0.04, thinkMs: [400, 700] }
+    };
+    let difficulty = 'normal';
+
+    // ---- Match state ----
+    // mode: 'ai' | 'local' (pass & play) | 'online'
+    // In every mode "player" = P1 (host, in online) and "ai" = P2 (AI / guest).
+    let mode = null;
+    let isHost = true;
+    let balls = [];
+    let playerScore = 0, aiScore = 0;
+    let currentPlayer = 'player';
+    let isMoving = false, gameOver = false;
+    let aimStart = null, aimCurrent = null, power = 0, isAiming = false;
+    let lastPotted = [], turnPoints = 0, scratched = false;
+    let note = null;          // last thing that happened: {k:'score'|'scratch', who, n}
+    let winner = null;        // 'player' | 'ai'
+    let recorded = false;     // win already saved to Firestore?
+    let prizeClaimed = false;
+    let gameToken = 0, aiTimer = null;
+    let roomInfo = { hostName: 'P1', guestName: 'P2' };
+
+    // ---- Account state ----
+    let currentUser = null;
+    let userData = { balls: 0, wins: 0, name: 'Player' };
+    let settings = { kaisaAiPrize: 'Free earpods discount', kaisaWinScore: 60 };
+
+    function myKey() { return (mode === 'online' && !isHost) ? 'ai' : 'player'; }
+    function oppName() { return isHost ? roomInfo.guestName : roomInfo.hostName; }
+
+
+    function createBall(id, x, y, color, points, isCue = false, stripe = false, num = 0) {
+      return {
+        id, x, y, vx: 0, vy: 0, color, points, isCue, stripe, num,
+        radius: BALL_R, pocketed: false, homeX: x, homeY: y
+      };
+    }
+
+    // 15 object balls in triangle rack + 2 cues (Kaisa-style points)
+    function resetBalls() {
+      const gap = BALL_R * 2.05;
+      const apexX = TABLE_W * 0.72;
+      const apexY = TABLE_H * 0.5;
+      // Standard triangle positions (5 rows)
+      const rack = [];
+      let id = 2;
+      for (let row = 0; row < 5; row++) {
+        for (let i = 0; i <= row; i++) {
+          const x = apexX + row * gap * 0.87;
+          const y = apexY - (row * gap) / 2 + i * gap;
+          rack.push({ x, y, id: id++ });
+        }
+      }
+      // Colors: 1 yellow Kaisa (6), reds (3), rest mixed solids (2)
+      const specs = [
+        { color: '#facc15', points: 6, stripe: false, num: 1 },  // Kaisa
+        { color: '#ef4444', points: 3, stripe: false, num: 3 },
+        { color: '#ef4444', points: 3, stripe: false, num: 5 },
+        { color: '#f97316', points: 2, stripe: false, num: 9 },
+        { color: '#3b82f6', points: 2, stripe: false, num: 2 },
+        { color: '#8b5cf6', points: 2, stripe: true, num: 12 },
+        { color: '#22c55e', points: 2, stripe: false, num: 6 },
+        { color: '#eab308', points: 2, stripe: true, num: 10 },
+        { color: '#ef4444', points: 3, stripe: true, num: 11 },
+        { color: '#0ea5e9', points: 2, stripe: true, num: 13 },
+        { color: '#a855f7', points: 2, stripe: false, num: 4 },
+        { color: '#14b8a6', points: 2, stripe: true, num: 14 },
+        { color: '#f43f5e', points: 2, stripe: false, num: 7 },
+        { color: '#6366f1', points: 2, stripe: true, num: 15 },
+        { color: '#1e293b', points: 2, stripe: false, num: 8 }   // 8-ball
+      ];
+      balls = [
+        createBall(0, TABLE_W * 0.22, TABLE_H * 0.5, '#f8fafc', 0, true),
+        createBall(1, TABLE_W * 0.28, TABLE_H * 0.38, '#e2e8f0', 0, true)
+      ];
+      for (let i = 0; i < 15; i++) {
+        const r = rack[i];
+        const s = specs[i];
+        balls.push(createBall(r.id, r.x, r.y, s.color, s.points, false, s.stripe, s.num));
+      }
+    }
+    function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+    function isInPocket(ball) {
+      for (const p of pockets) {
+        if (Math.hypot(ball.x - p.x, ball.y - p.y) < POCKET_R - 4) return true;
+      }
+      return false;
+    }
+
+    function resolveBallCollision(b1, b2) {
+      const dx = b2.x - b1.x, dy = b2.y - b1.y;
+      const d = Math.hypot(dx, dy);
+      if (d === 0 || d > BALL_R * 2) return;
+      const overlap = BALL_R * 2 - d;
+      const nx = dx / d, ny = dy / d;
+      b1.x -= nx * overlap / 2; b1.y -= ny * overlap / 2;
+      b2.x += nx * overlap / 2; b2.y += ny * overlap / 2;
+      const dvx = b1.vx - b2.vx, dvy = b1.vy - b2.vy;
+      const dvn = dvx * nx + dvy * ny;
+      if (dvn > 0) return;
+      b1.vx -= dvn * nx; b1.vy -= dvn * ny;
+      b2.vx += dvn * nx; b2.vy += dvn * ny;
+      if (Math.abs(dvn) > 1.2) SFX.hit();
+    }
+
+    function updatePhysics() {
+      let anyMoving = false;
+      for (const b of balls) {
+        if (b.pocketed) continue;
+        b.vx *= FRICTION; b.vy *= FRICTION;
+        if (Math.abs(b.vx) < MIN_VEL && Math.abs(b.vy) < MIN_VEL) {
+          b.vx = 0; b.vy = 0;
+        } else anyMoving = true;
+        b.x += b.vx; b.y += b.vy;
+        if (b.x < PL + BALL_R) { b.x = PL + BALL_R; b.vx = -b.vx * CUSHION_BOUNCE; }
+        if (b.x > PR - BALL_R) { b.x = PR - BALL_R; b.vx = -b.vx * CUSHION_BOUNCE; }
+        if (b.y < PT + BALL_R) { b.y = PT + BALL_R; b.vy = -b.vy * CUSHION_BOUNCE; }
+        if (b.y > PB - BALL_R) { b.y = PB - BALL_R; b.vy = -b.vy * CUSHION_BOUNCE; }
+        if (isInPocket(b)) {
+          b.pocketed = true; b.vx = 0; b.vy = 0;
+          lastPotted.push(b);
+        }
+      }
+      for (let i = 0; i < balls.length; i++) {
+        for (let j = i + 1; j < balls.length; j++) {
+          if (!balls[i].pocketed && !balls[j].pocketed) resolveBallCollision(balls[i], balls[j]);
+        }
+      }
+      // Collisions can shove a ball into a cushion — keep every ball on the felt
+      for (const b of balls) {
+        if (b.pocketed) continue;
+        b.x = Math.min(PR - BALL_R, Math.max(PL + BALL_R, b.x));
+        b.y = Math.min(PB - BALL_R, Math.max(PT + BALL_R, b.y));
+      }
+      return anyMoving;
+    }
+
+    // ---------- Cue-ball placement ----------
+    function freeSpot(ball, cx, cy) {
+      for (let t = 0; t < 60; t++) {
+        const x = t === 0 ? cx : 80 + Math.random() * (TABLE_W * 0.4);
+        const y = t === 0 ? cy : PT + BALL_R + Math.random() * (PB - PT - 2 * BALL_R);
+        const clear = !balls.some(o => o !== ball && !o.pocketed && Math.hypot(o.x - x, o.y - y) < BALL_R * 2.4);
+        if (clear) return { x, y };
+      }
+      return { x: cx, y: cy };
+    }
+    function respawnCue(cue) {
+      if (!cue || !cue.pocketed) return;
+      const home = cue.id === 0
+        ? { x: TABLE_W * 0.22, y: TABLE_H * 0.5 }
+        : { x: TABLE_W * 0.28, y: TABLE_H * 0.38 };
+      const p = freeSpot(cue, home.x, home.y);
+      cue.x = p.x; cue.y = p.y; cue.vx = 0; cue.vy = 0; cue.pocketed = false;
+    }
+
+    // ---------- Potted balls ----------
+    function processPottedBalls() {
+      if (lastPotted.length === 0) return 0;
+      let points = 0;
+      scratched = false;
+      const shooterIsP1 = currentPlayer === 'player';
+      for (const b of lastPotted) {
+        if (b.isCue) {
+          SFX.scratch();
+          scratched = true;
+          if (shooterIsP1) aiScore += 2; else playerScore += 2;
+        } else {
+          points += b.points;
+          SFX.pot();
+        }
+      }
+      for (const b of lastPotted) {
+        if (!b.isCue) {
+          b.x = b.homeX + (Math.random() - 0.5) * 20;
+          b.y = b.homeY + (Math.random() - 0.5) * 20;
+          b.pocketed = false;
+          let tries = 0;
+          while (tries < 10) {
+            let overlap = false;
+            for (const other of balls) {
+              if (other !== b && !other.pocketed && dist(b, other) < BALL_R * 2.2) { overlap = true; break; }
+            }
+            if (!overlap) break;
+            b.x = b.homeX + (Math.random() - 0.5) * 40;
+            b.y = b.homeY + (Math.random() - 0.5) * 40;
+            tries++;
+          }
+        }
+      }
+      lastPotted = [];
+      return points;
+    }
+
+    // ---------- End of a shot (host / AI / pass-and-play only) ----------
+    function endTurn(pointsScored) {
+      if (gameOver) return;
+      const shooter = currentPlayer;
+      respawnCue(balls[0]);
+      respawnCue(balls[1]);
+
+      if (scratched) note = { k: 'scratch', who: shooter };
+      else if (pointsScored > 0) note = { k: 'score', who: shooter, n: pointsScored };
+      else note = null;
+      scratched = false;
+
+      if (pointsScored > 0) {
+        if (shooter === 'player') playerScore += pointsScored; else aiScore += pointsScored;
+        turnPoints += pointsScored;
+      } else {
+        turnPoints = 0;
+      }
+      updateScoreUI();
+      if (checkWin(shooter)) { sendState(true); return; }
+
+      if (pointsScored <= 0) {
+        currentPlayer = shooter === 'player' ? 'ai' : 'player';
+        SFX.turn();
+      }
+      refreshStatus();
+      sendState(true);
+      scheduleAI();
+    }
+
+    function scheduleAI() {
+      if (mode !== 'ai' || currentPlayer !== 'ai' || gameOver) return;
+      const d = DIFF[difficulty];
+      const token = gameToken;
+      clearTimeout(aiTimer);
+      aiTimer = setTimeout(() => { if (token === gameToken) aiShoot(); },
+        d.thinkMs[0] + Math.random() * (d.thinkMs[1] - d.thinkMs[0]));
+    }
+
+    function updateScoreUI() {
+      playerScoreEl.textContent = playerScore;
+      aiScoreEl.textContent = aiScore;
+      const pp = Math.min(100, (playerScore / WIN_SCORE) * 100);
+      const ap = Math.min(100, (aiScore / WIN_SCORE) * 100);
+      playerProgress.style.width = pp + '%';
+      aiProgress.style.width = ap + '%';
+      playerPct.textContent = Math.round(pp) + '%';
+      aiPct.textContent = Math.round(ap) + '%';
+    }
+
+    // ---------- Status line ----------
+    function myTurn() {
+      if (gameOver) return false;
+      if (mode === 'ai') return currentPlayer === 'player';
+      if (mode === 'local') return true;
+      return currentPlayer === myKey();
+    }
+    function noteText() {
+      if (!note) return '';
+      let who;
+      if (mode === 'local') who = note.who === 'player' ? 'P1' : 'P2';
+      else if (note.who === myKey()) who = 'You';
+      else who = mode === 'ai' ? 'AI' : oppName();
+      if (note.k === 'score') return `${who} +${note.n}`;
+      if (note.k === 'scratch') return `${who} scratched (+2 to opponent)`;
+      return '';
+    }
+    function refreshStatus() {
+      if (gameOver) return;
+      let s;
+      if (isMoving) s = 'Balls moving…';
+      else if (mode === 'ai') s = currentPlayer === 'player' ? 'Your turn – drag from your cue ball' : `AI (${difficulty}) is thinking…`;
+      else if (mode === 'local') s = (currentPlayer === 'player' ? 'P1' : 'P2') + ' turn – drag from your cue ball';
+      else s = myTurn() ? 'Your turn – drag from your cue ball' : `${oppName()}'s turn…`;
+      const n = noteText();
+      statusEl.textContent = n ? `${n} — ${s}` : s;
+    }
+
+    // ---------- Win handling ----------
+    function checkWin(shooter) {
+      if (playerScore < WIN_SCORE && aiScore < WIN_SCORE) return false;
+      gameOver = true; isMoving = false;
+      if (playerScore > aiScore) winner = 'player';
+      else if (aiScore > playerScore) winner = 'ai';
+      else winner = shooter || 'player';
+      showWin();
+      return true;
+    }
+
+    function showWin() {
+      const iWon = mode === 'ai' ? winner === 'player'
+                 : mode === 'online' ? winner === myKey()
+                 : false;
+      let title;
+      if (mode === 'ai') title = iWon ? '🎉 You win!' : 'AI wins';
+      else if (mode === 'local') title = winner === 'player' ? '🎉 Player 1 wins!' : '🎉 Player 2 wins!';
+      else title = iWon ? '🎉 You win!' : `${oppName()} wins`;
+
+      let msg = `Final: ${playerScore} – ${aiScore}`;
+      const prizeEligible = mode === 'ai' && iWon && difficulty !== 'easy';
+      if (mode === 'ai' && iWon && difficulty === 'easy') msg += '\nEasy is practice — try Normal or Hard to win a prize.';
+
+      statusEl.textContent = title;
+      winTitle.textContent = title;
+      winMsg.style.whiteSpace = 'pre-line';
+      winMsg.textContent = msg;
+      $('claimPrizeBtn').classList.toggle('hidden', !(prizeEligible && !prizeClaimed));
+      winReplayBtn.classList.toggle('hidden', mode === 'online');
+      winOverlay.classList.add('show');
+      if (mode === 'local') SFXraw.win(); else if (iWon) SFXraw.win(); else SFXraw.lose();
+
+      if (mode === 'online' && isHost) finalizeMatchDoc();
+      if (iWon && !recorded && !(mode === 'ai' && difficulty === 'easy')) {
+        recorded = true;
+        recordWin();
+      }
+    }
+
+    // ---------- AI (difficulty-scaled) ----------
+    function aiShoot() {
+      if (gameOver || currentPlayer !== 'ai' || mode !== 'ai' || isMoving) return;
+      const cfg = DIFF[difficulty];
+      const aiCue = balls[1];
+      respawnCue(aiCue);
+      const objectBalls = balls.filter(b => !b.pocketed && !b.isCue);
+      if (!objectBalls.length) {
+        currentPlayer = 'player';
+        refreshStatus();
+        return;
+      }
+
+      let best = null, bestScore = -1e9;
+      for (const target of objectBalls) {
+        for (const pocket of pockets) {
+          const tpx = pocket.x - target.x, tpy = pocket.y - target.y;
+          const tpd = Math.hypot(tpx, tpy) || 1;
+          const ux = tpx / tpd, uy = tpy / tpd;
+          const ghostX = target.x - ux * BALL_R * 2;
+          const ghostY = target.y - uy * BALL_R * 2;
+          const aimDx = ghostX - aiCue.x, aimDy = ghostY - aiCue.y;
+          const aimDist = Math.hypot(aimDx, aimDy) || 1;
+          let blocked = false;
+          const steps = Math.max(4, Math.floor(aimDist / 12));
+          for (let s = 1; s < steps; s++) {
+            const px = aiCue.x + (aimDx / steps) * s;
+            const py = aiCue.y + (aimDy / steps) * s;
+            for (const o of balls) {
+              if (o === aiCue || o === target || o.pocketed) continue;
+              if (Math.hypot(px - o.x, py - o.y) < BALL_R * 2.1) { blocked = true; break; }
+            }
+            if (blocked) break;
+          }
+          if (blocked) continue;
+          const cutDot = (aimDx / aimDist) * ux + (aimDy / aimDist) * uy;
+          let score = target.points * 12 + cutDot * 8 - aimDist * 0.02 - tpd * 0.015;
+          if (target.points >= 6) score += 4;
+          if (score > bestScore) {
+            bestScore = score;
+            best = {
+              angle: Math.atan2(aimDy, aimDx),
+              power: Math.min(MAX_POWER - 1, 7 + Math.min(10, aimDist / 35) + Math.min(4, tpd / 50))
+            };
+          }
+        }
+      }
+      if (!best || Math.random() < cfg.missChance) {
+        objectBalls.sort((a, b) => b.points - a.points);
+        const target = objectBalls[Math.floor(Math.random() * Math.min(3, objectBalls.length))];
+        best = {
+          angle: Math.atan2(target.y - aiCue.y, target.x - aiCue.x),
+          power: 8 + Math.random() * 5
+        };
+      }
+      const noise = (Math.random() - 0.5) * cfg.noise;
+      const pj = (Math.random() - 0.5) * cfg.powerJitter;
+      aiCue.vx = Math.cos(best.angle + noise) * (best.power + pj);
+      aiCue.vy = Math.sin(best.angle + noise) * (best.power + pj);
+      SFX.shoot();
+      isMoving = true;
+      statusEl.textContent = `AI (${difficulty}) shooting...`;
+    }
+
+    // ---------- Input ----------
+    function activeCue() {
+      return currentPlayer === 'player' ? balls[0] : balls[1];
+    }
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = TABLE_W / rect.width, scaleY = TABLE_H / rect.height;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+
+    function onPointerDown(e) {
+      if (!mode || gameOver || isMoving || !myTurn()) return;
+      e.preventDefault();
+      ensureAudio();
+      const pos = getPos(e);
+      const cue = activeCue();
+      if (cue.pocketed) return;
+      if (dist(pos, cue) < BALL_R * 2.5) {
+        isAiming = true;
+        aimStart = { x: cue.x, y: cue.y };
+        aimCurrent = pos;
+        powerContainer.style.display = 'block';
+      }
+    }
+    function onPointerMove(e) {
+      if (!isAiming) return;
+      e.preventDefault();
+      aimCurrent = getPos(e);
+      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
+      power = Math.min(Math.hypot(dx, dy) / 8, MAX_POWER);
+      powerBar.style.width = (power / MAX_POWER * 100) + '%';
+    }
+    function onPointerUp(e) {
+      if (!isAiming) return;
+      e.preventDefault();
+      isAiming = false;
+      powerContainer.style.display = 'none';
+      powerBar.style.width = '0%';
+      if (power < 1.5) { aimStart = null; aimCurrent = null; return; }
+      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const vx = (dx / d) * power, vy = (dy / d) * power;
+      aimStart = null; aimCurrent = null;
+      if (mode === 'online' && !isHost) {
+        // Guest: the host runs the physics — just send the shot.
+        sendShot(vx, vy);
+        isMoving = true;
+        statusEl.textContent = 'Balls moving…';
+        return;
+      }
+      const cue = activeCue();
+      cue.vx = vx; cue.vy = vy;
+      SFX.shoot();
+      isMoving = true;
+      statusEl.textContent = 'Balls moving…';
+      sendState(true);
+    }
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('mousemove', onPointerMove);
+    canvas.addEventListener('mouseup', onPointerUp);
+    canvas.addEventListener('mouseleave', onPointerUp);
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+    canvas.addEventListener('touchend', onPointerUp, { passive: false });
+
+
+    // ---------- Pseudo-3D render ----------
+    function lighten(hex, p) {
+      const n = parseInt(hex.replace('#', ''), 16);
+      return `rgb(${Math.min(255,(n>>16)+p)},${Math.min(255,((n>>8)&255)+p)},${Math.min(255,(n&255)+p)})`;
+    }
+    function darken(hex, p) {
+      const n = parseInt(hex.replace('#', ''), 16);
+      return `rgb(${Math.max(0,(n>>16)-p)},${Math.max(0,((n>>8)&255)-p)},${Math.max(0,(n&255)-p)})`;
+    }
+
+    function drawTable() {
+      const rail = RAIL;
+      // Outer cabinet wood
+      const woodGrad = ctx.createLinearGradient(0, 0, TABLE_W, TABLE_H);
+      woodGrad.addColorStop(0, '#5c3a1e');
+      woodGrad.addColorStop(0.25, '#8b5a2b');
+      woodGrad.addColorStop(0.55, '#6b4423');
+      woodGrad.addColorStop(1, '#3d2314');
+      ctx.fillStyle = woodGrad;
+      ctx.fillRect(0, 0, TABLE_W, TABLE_H);
+
+      // Raised rail top edge (3D bevel)
+      ctx.fillStyle = 'rgba(255, 210, 140, 0.22)';
+      ctx.fillRect(0, 0, TABLE_W, 6);
+      ctx.fillRect(0, 0, 6, TABLE_H);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, TABLE_H - 6, TABLE_W, 6);
+      ctx.fillRect(TABLE_W - 6, 0, 6, TABLE_H);
+
+      // Inner drop shadow under rails
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(rail - 6, rail - 6, TABLE_W - (rail - 6) * 2, TABLE_H - (rail - 6) * 2);
+
+      // Felt with depth lighting
+      const felt = ctx.createRadialGradient(
+        TABLE_W * 0.45, TABLE_H * 0.35, 40,
+        TABLE_W * 0.5, TABLE_H * 0.55, TABLE_W * 0.75
+      );
+      felt.addColorStop(0, '#12995a');
+      felt.addColorStop(0.4, '#0b6b3c');
+      felt.addColorStop(0.75, '#085530');
+      felt.addColorStop(1, '#043822');
+      ctx.fillStyle = felt;
+      ctx.fillRect(rail, rail, TABLE_W - rail * 2, TABLE_H - rail * 2);
+
+      // Cushion rubber strip (raised lip)
+      ctx.strokeStyle = '#064028';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(rail + 4, rail + 4, TABLE_W - (rail + 4) * 2, TABLE_H - (rail + 4) * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rail + 8, rail + 8, TABLE_W - (rail + 8) * 2, TABLE_H - (rail + 8) * 2);
+
+      // Diamond rail markers
+      ctx.fillStyle = 'rgba(255, 236, 180, 0.55)';
+      const marks = [0.25, 0.5, 0.75];
+      for (const m of marks) {
+        ctx.beginPath();
+        ctx.moveTo(TABLE_W * m, 8);
+        ctx.lineTo(TABLE_W * m + 5, 16);
+        ctx.lineTo(TABLE_W * m, 24);
+        ctx.lineTo(TABLE_W * m - 5, 16);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(TABLE_W * m, TABLE_H - 8);
+        ctx.lineTo(TABLE_W * m + 5, TABLE_H - 16);
+        ctx.lineTo(TABLE_W * m, TABLE_H - 24);
+        ctx.lineTo(TABLE_W * m - 5, TABLE_H - 16);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Pockets – deep 3D holes
+      for (const p of pockets) {
+        const isCorner = (p.x === PL || p.x === PR) && (p.y === PT || p.y === PB);
+        const pr = isCorner ? POCKET_R + 2 : POCKET_R;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, pr + 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#1a1008';
+        ctx.fill();
+        const pg = ctx.createRadialGradient(p.x - 3, p.y - 3, 1, p.x, p.y, pr);
+        pg.addColorStop(0, '#2a2a2a');
+        pg.addColorStop(0.45, '#0d0d0d');
+        pg.addColorStop(1, '#000');
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, pr, 0, Math.PI * 2);
+        ctx.fillStyle = pg;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, pr + 1, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(200, 160, 80, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Foot spot
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.beginPath();
+      ctx.arc(TABLE_W * 0.72, TABLE_H * 0.5, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // Head string hint
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 8]);
+      ctx.beginPath();
+      ctx.moveTo(TABLE_W * 0.25, rail + 10);
+      ctx.lineTo(TABLE_W * 0.25, TABLE_H - rail - 10);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawBall(b) {
+      if (b.pocketed) return;
+      const r = b.radius;
+      const x = b.x, y = b.y;
+
+      // Soft contact shadow on felt
+      ctx.beginPath();
+      ctx.ellipse(x + 4, y + r * 0.62, r * 1.05, r * 0.38, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fill();
+
+      // Main sphere body
+      const body = ctx.createRadialGradient(
+        x - r * 0.38, y - r * 0.42, r * 0.05,
+        x, y + r * 0.1, r * 1.05
+      );
+      body.addColorStop(0, lighten(b.color, 85));
+      body.addColorStop(0.22, lighten(b.color, 35));
+      body.addColorStop(0.55, b.color);
+      body.addColorStop(0.82, darken(b.color, 30));
+      body.addColorStop(1, darken(b.color, 55));
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = body;
+      ctx.fill();
+
+      // Stripe band
+      if (b.stripe) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, r - 0.5, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.fillRect(x - r, y - r * 0.32, r * 2, r * 0.64);
+        // number disc on stripe
+        if (b.num) {
+          ctx.beginPath();
+          ctx.arc(x, y, r * 0.38, 0, Math.PI * 2);
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+          ctx.fillStyle = '#111';
+          ctx.font = `bold ${Math.max(9, r * 0.7)}px system-ui`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(b.num), x, y + 0.5);
+        }
+        ctx.restore();
+      } else if (b.num && !b.isCue) {
+        // Solid number circle
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.font = `bold ${Math.max(9, r * 0.72)}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(b.num), x, y + 0.5);
+      }
+
+      // Specular highlight (glossy 3.8D)
+      ctx.beginPath();
+      ctx.ellipse(x - r * 0.32, y - r * 0.36, r * 0.3, r * 0.18, -0.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x - r * 0.18, y - r * 0.22, r * 0.1, r * 0.06, -0.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fill();
+
+      // Rim
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Player cue mark
+      if (b.id === 0) {
+        ctx.beginPath();
+        ctx.arc(x + 1, y + 1, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#1d4ed8';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = '#60a5fa';
+        ctx.fill();
+      }
+    }
+
+    function drawCueStick() {
+      if (!isAiming || !aimStart || !aimCurrent) return;
+      const cue = activeCue();
+      if (!cue || cue.pocketed) return;
+      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 5) return;
+      const nx = dx / d, ny = dy / d;
+      const tipGap = BALL_R + 4 + power * 0.6;
+      const stickLen = 140 + power * 2;
+      const tipX = cue.x - nx * tipGap, tipY = cue.y - ny * tipGap;
+      const buttX = tipX - nx * stickLen, buttY = tipY - ny * stickLen;
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tipX + 3, tipY + 4);
+      ctx.lineTo(buttX + 3, buttY + 4);
+      ctx.stroke();
+      const sg = ctx.createLinearGradient(tipX, tipY, buttX, buttY);
+      sg.addColorStop(0, '#f5e6c8');
+      sg.addColorStop(0.2, '#d4a574');
+      sg.addColorStop(0.7, '#6b4423');
+      sg.addColorStop(1, '#3d2817');
+      ctx.strokeStyle = sg;
+      ctx.lineWidth = 5.5;
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(buttX, buttY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(tipX, tipY, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#3b82f6';
+      ctx.fill();
+    }
+
+    function drawAim() {
+      if (!isAiming || !aimStart || !aimCurrent) return;
+      const cue = activeCue();
+      if (cue.pocketed) return;
+      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 5) return;
+      const nx = dx / d, ny = dy / d;
+      ctx.beginPath();
+      ctx.moveTo(cue.x + nx * (BALL_R + 2), cue.y + ny * (BALL_R + 2));
+      ctx.lineTo(cue.x + nx * Math.min(d * 1.8, 200), cue.y + ny * Math.min(d * 1.8, 200));
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function render() {
+      drawTable();
+      for (const b of balls) drawBall(b);
+      drawCueStick();
+      drawAim();
+    }
+
+    // ---------- Game loop ----------
+    function gameLoop() {
+      if (mode) {
+        const guest = mode === 'online' && !isHost;
+        if (guest) {
+          // Guest never simulates — it eases toward the host's latest positions.
+          for (const b of balls) {
+            if (b.tx !== undefined) { const k = Net.direct ? 0.55 : 0.16; b.x += (b.tx - b.x) * k; b.y += (b.ty - b.y) * k; }
+          }
+        } else if (isMoving) {
+          for (let i = 0; i < 3; i++) {
+            if (!updatePhysics()) {
+              isMoving = false;
+              endTurn(processPottedBalls());
+              break;
+            }
+          }
+          if (isMoving) sendState(false);
+        }
+        render();
+      }
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ---------- Accounts (same anonymous-auth + users/{uid} setup as Foosball) ----------
+    let authReadyPromise = null;
+    function ensureAuth() {
+      if (authReadyPromise) return authReadyPromise;
+      authReadyPromise = new Promise((resolve, reject) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          try {
+            if (user) {
+              currentUser = user;
+              await loadUser();
+            } else {
+              const cred = await auth.signInAnonymously();
+              currentUser = cred.user;
+              await createUserDoc();
+            }
+            unsubscribe();
+            resolve(currentUser);
+          } catch (err) {
+            unsubscribe();
+            authReadyPromise = null;
+            reject(err);
+          }
+        }, (err) => { authReadyPromise = null; reject(err); });
+      });
+      return authReadyPromise;
+    }
+    async function waitForAuth() {
+      try { await ensureAuth(); return true; }
+      catch (err) {
+        console.error('Auth failed:', err);
+        alert('Sign-in failed: ' + (err.message || 'unknown error') + '\nCheck your internet connection and reload the page.');
+        return false;
+      }
+    }
+    async function createUserDoc() {
+      const ref = db.collection('users').doc(currentUser.uid);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        await ref.set({
+          balls: 0, wins: 0,
+          name: 'Player' + Math.floor(Math.random() * 9000 + 1000),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      await loadUser();
+    }
+    async function loadUser() {
+      const snap = await db.collection('users').doc(currentUser.uid).get();
+      if (snap.exists) {
+        userData = snap.data();
+        $('ballBalance').textContent = userData.balls || 0;
+      }
+    }
+    async function loadSettings() {
+      try {
+        const snap = await db.collection('gameSettings').doc('main').get();
+        if (snap.exists) settings = { ...settings, ...snap.data() };
+      } catch (e) { console.warn('settings', e); }
+      const ws = parseInt(settings.kaisaWinScore, 10);
+      WIN_SCORE = (ws >= 10 && ws <= 500) ? ws : 60;
+      $('menuTarget').textContent = WIN_SCORE;
+      $('targetVal').textContent = WIN_SCORE;
+      const p = $('aiPrizeLine');
+      p.textContent = '';
+      p.append('Free to play', document.createElement('br'),
+        'Beat the AI on Normal or Hard to win: ' + (settings.kaisaAiPrize || 'a prize'));
+    }
+    async function loadLeaderboard() {
+      const list = $('leaderboardList');
+      try {
+        const snap = await db.collection('kaisaLeaderboard').orderBy('wins', 'desc').limit(10).get();
+        list.textContent = '';
+        if (snap.empty) {
+          const p = document.createElement('p');
+          p.style.color = '#64748b';
+          p.textContent = 'No players yet. Be the first!';
+          list.appendChild(p);
+          return;
+        }
+        let rank = 1;
+        snap.forEach(doc => {
+          const d = doc.data();
+          const row = document.createElement('div');
+          row.className = 'leaderboard-item';
+          const left = document.createElement('span');
+          const r = document.createElement('span');
+          r.className = 'rank'; r.textContent = '#' + rank;
+          left.append(r, ' ' + (d.name || 'Player'));
+          const right = document.createElement('span');
+          right.textContent = (d.wins || 0) + ' wins';
+          row.append(left, right);
+          list.appendChild(row);
+          rank++;
+        });
+      } catch (err) {
+        list.textContent = "Couldn't load leaderboard: " + err.message;
+        list.style.color = '#f87171';
+      }
+    }
+
+    async function recordWin() {
+      if (!currentUser) return;
+      try {
+        await db.collection('users').doc(currentUser.uid).update({
+          kaisaWins: firebase.firestore.FieldValue.increment(1)
+        });
+        const lbRef = db.collection('kaisaLeaderboard').doc(currentUser.uid);
+        const lbSnap = await lbRef.get();
+        if (lbSnap.exists) {
+          await lbRef.update({ wins: firebase.firestore.FieldValue.increment(1), name: userData.name });
+        } else {
+          await lbRef.set({ name: userData.name, wins: 1, uid: currentUser.uid });
+        }
+      } catch (err) { console.warn('recordWin failed', err); }
+    }
+
+    // ---------- Prize claim (vs AI, Normal/Hard) ----------
+    $('claimPrizeBtn').onclick = () => {
+      $('winnerPrizeText').textContent = 'Prize: ' + (settings.kaisaAiPrize || '—');
+      $('winnerPhone').value = userData.phone || '';
+      $('winnerStatus').textContent = '';
+      $('winnerModal').classList.remove('hidden');
+    };
+    $('closeWinnerBtn').onclick = () => $('winnerModal').classList.add('hidden');
+    $('submitWinnerBtn').onclick = async () => {
+      const phone = $('winnerPhone').value.trim();
+      const st = $('winnerStatus');
+      if (!phone) { st.textContent = 'Please enter a phone number.'; st.style.color = '#f87171'; return; }
+      $('submitWinnerBtn').disabled = true;
+      try {
+        await db.collection('winners').add({
+          uid: currentUser.uid,
+          name: userData.name || 'Player',
+          phone,
+          prize: settings.kaisaAiPrize || '',
+          mode: 'ai',
+          game: 'kaisa',
+          difficulty,
+          finalScore: { you: playerScore, opponent: aiScore },
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await db.collection('users').doc(currentUser.uid).update({ phone });
+        userData.phone = phone;
+        prizeClaimed = true;
+        $('claimPrizeBtn').classList.add('hidden');
+        st.style.color = '#86efac';
+        st.textContent = "Submitted! We'll contact you about your prize.";
+        setTimeout(() => $('winnerModal').classList.add('hidden'), 1800);
+      } catch (err) {
+        st.style.color = '#f87171';
+        st.textContent = "Couldn't submit: " + err.message;
+      }
+      $('submitWinnerBtn').disabled = false;
+    };
+
+    // ---------- Starting / leaving a game ----------
+    function setLabels() {
+      if (mode === 'ai') {
+        p1Label.textContent = 'YOU'; p2Label.textContent = 'AI';
+        p1Short.textContent = 'You'; p2Short.textContent = 'AI';
+      } else if (mode === 'local') {
+        p1Label.textContent = 'P1'; p2Label.textContent = 'P2';
+        p1Short.textContent = 'P1'; p2Short.textContent = 'P2';
+      } else {
+        const me = 'YOU';
+        p1Label.textContent = isHost ? me : roomInfo.hostName;
+        p2Label.textContent = isHost ? roomInfo.guestName : me;
+        p1Short.textContent = isHost ? 'You' : roomInfo.hostName;
+        p2Short.textContent = isHost ? roomInfo.guestName : 'You';
+      }
+    }
+
+    function startGame(m) {
+      mode = m;
+      gameToken++; clearTimeout(aiTimer);
+      playerScore = 0; aiScore = 0; currentPlayer = 'player';
+      gameOver = false; isMoving = false; isAiming = false;
+      turnPoints = 0; lastPotted = []; scratched = false; note = null; winner = null;
+      recorded = false; prizeClaimed = false; pendingSfx = [];
+      resetBalls();
+      setLabels();
+      updateScoreUI();
+      winOverlay.classList.remove('show');
+      powerContainer.style.display = 'none';
+      menuScreen.style.display = 'none';
+      gameScreen.style.display = 'block';
+      $('targetVal').textContent = WIN_SCORE;
+      const online = m === 'online';
+      $('emojiBar').style.display = online ? 'flex' : 'none';
+      $('connStatus').style.display = online ? 'flex' : 'none';
+      newGameBtn.style.display = online ? 'none' : '';
+      resizeCanvas();
+      refreshStatus();
+      ensureAudio();
+      if (online && isHost) sendState(true);
+    }
+
+    function quitToMenu() {
+      gameToken++; clearTimeout(aiTimer);
+      if (mode === 'online') {
+        Net.send({ t: 'bye' }, true);
+        if (isHost && matchCode && !gameOver) {
+          db.collection('matches').doc(matchCode).update({ status: 'cancelled' }).catch(() => {});
+        }
+        setTimeout(() => Net.close(), 400);   // let the goodbye go out first
+        clearInterval(helloTimer);
+        if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+        matchCode = null;
+      }
+      mode = null; isMoving = false; isAiming = false;
+      winOverlay.classList.remove('show');
+      gameScreen.style.display = 'none';
+      menuScreen.style.display = 'block';
+      if (currentUser) loadUser();
+      loadLeaderboard();
+    }
+
+    // ---------- Network layer: WebRTC (direct / TURN) + automatic Firestore relay ----------
+    // Every message is sent over the direct WebRTC channel when it is open. When it is not
+    // (blocked NAT, strict carrier, still connecting) the very same message goes through a
+    // Firestore "relay" instead, so a match can ALWAYS connect and play, on any network.
+    const STUN_SERVERS = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+    function iceConfig() {
+      let extra = [];
+      try {
+        const j = JSON.parse(settings.iceServersJson || '[]');
+        if (Array.isArray(j)) extra = j.filter(s => s && s.urls);
+      } catch (e) { console.warn('Bad iceServersJson in settings', e); }
+      return { iceServers: STUN_SERVERS.concat(extra), iceCandidatePoolSize: 2 };
+    }
+
+    const Net = (() => {
+      let pc = null, dc = null, unsubSignal = null, unsubRelay = null;
+      let code = null, role = null, relayTs = 0, lastStateRelay = 0;
+      const api = {
+        onMessage: () => {},
+        onStatus: () => {},
+        get active() { return !!code; },
+        get direct() { return !!dc && dc.readyState === 'open'; }
+      };
+      const signalCol = () => db.collection('matches').doc(code).collection('signal');
+      const relayCol = () => db.collection('matches').doc(code).collection('relay');
+
+      function startRelay() {
+        const me = role;
+        unsubRelay = relayCol().orderBy('ts').onSnapshot((snap) => {
+          snap.docChanges().forEach((ch) => {
+            if (ch.type !== 'added') return;
+            const d = ch.doc.data();
+            if (!d || d.from === me) return;
+            try { api.onMessage(JSON.parse(d.d)); } catch (e) {}
+          });
+        }, (err) => console.warn('relay listen error', err));
+      }
+
+      function relaySend(obj, important) {
+        if (!code) return;
+        const now = Date.now();
+        // State snapshots are streamed often; over the relay keep only ~5 per second (turn-end ones always go)
+        if (obj.t === 's' && !important) {
+          if (now - lastStateRelay < 220) return;
+          lastStateRelay = now;
+        }
+        relayTs = Math.max(now, relayTs + 1); // strictly increasing per sender => ordered delivery
+        relayCol().add({ from: role, ts: relayTs, d: JSON.stringify(obj) }).catch(() => {});
+      }
+
+      function wireChannel(ch) {
+        dc = ch;
+        ch.onopen = () => api.onStatus('direct');
+        ch.onclose = () => api.onStatus('relay');
+        ch.onerror = () => api.onStatus('relay');
+        ch.onmessage = (e) => { try { api.onMessage(JSON.parse(e.data)); } catch (err) {} };
+      }
+
+      async function startRtc() {
+        if (typeof RTCPeerConnection === 'undefined') return;
+        pc = new RTCPeerConnection(iceConfig());
+        const me = role, other = role === 'host' ? 'guest' : 'host';
+        pc.onicecandidate = (e) => {
+          if (e.candidate && code) signalCol().add({ type: 'ice', from: me, candidate: e.candidate.toJSON() }).catch(() => {});
+        };
+        pc.onconnectionstatechange = () => {
+          if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) api.onStatus('relay');
+        };
+        let chain = Promise.resolve();
+        const pendingIce = [];
+        const flushIce = async () => {
+          while (pendingIce.length) { try { await pc.addIceCandidate(pendingIce.shift()); } catch (e) {} }
+        };
+        const handle = async (msg) => {
+          if (!pc) return;
+          try {
+            if (msg.type === 'offer' && me === 'guest') {
+              await pc.setRemoteDescription(msg.sdp);
+              await flushIce();
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await signalCol().add({ type: 'answer', from: 'guest', sdp: { type: answer.type, sdp: answer.sdp } });
+            } else if (msg.type === 'answer' && me === 'host') {
+              await pc.setRemoteDescription(msg.sdp);
+              await flushIce();
+            } else if (msg.type === 'ice' && msg.candidate) {
+              if (pc.remoteDescription) await pc.addIceCandidate(msg.candidate);
+              else pendingIce.push(msg.candidate); // ICE can arrive before the offer/answer — hold it
+            }
+          } catch (e) { /* late/duplicate candidates are harmless */ }
+        };
+        unsubSignal = signalCol().onSnapshot((snap) => {
+          snap.docChanges().forEach((change) => {
+            if (change.type !== 'added') return;
+            const msg = change.doc.data();
+            if (msg.from !== other) return;
+            chain = chain.then(() => handle(msg));   // process strictly one at a time
+          });
+        });
+        if (me === 'host') {
+          wireChannel(pc.createDataChannel('game', { ordered: true }));
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await signalCol().add({ type: 'offer', from: 'host', sdp: { type: offer.type, sdp: offer.sdp } });
+        } else {
+          pc.ondatachannel = (e) => wireChannel(e.channel);
+        }
+      }
+
+      api.open = async (c, r) => {
+        api.close();
+        code = c; role = r;
+        startRelay();                       // relay is live immediately
+        try { await startRtc(); }           // …while the direct channel negotiates in the background
+        catch (e) { console.warn('WebRTC unavailable — using relay only', e); }
+        api.onStatus(api.direct ? 'direct' : 'relay');
+      };
+      api.send = (obj, important) => {
+        if (!code) return;
+        if (api.direct) { try { dc.send(JSON.stringify(obj)); return; } catch (e) {} }
+        relaySend(obj, important);
+      };
+      api.close = () => {
+        if (unsubSignal) { unsubSignal(); unsubSignal = null; }
+        if (unsubRelay) { unsubRelay(); unsubRelay = null; }
+        if (dc) { try { dc.close(); } catch (e) {} dc = null; }
+        if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+        code = null; role = null;
+      };
+      return api;
+    })();
+
+    // ---------- Match transport glue ----------
+    let unsubMatch = null, matchCode = null, stateSeq = 0, lastStateQ = 0, gotState = false, helloTimer = null;
+    let lastStateSend = 0;
+    const EMOJIS = ['🔥', '😂', '💪', '👏', '😱', '🏆'];
+
+    function setConn(text, kind) {
+      const el = $('connStatus');
+      el.textContent = text;
+      const colors = { ok: ['#166534', '#86efac'], bad: ['#7f1d1d', '#fca5a5'], warn: ['#9a3412', '#fdba74'] };
+      const c = colors[kind] || ['#1e293b', '#94a3b8'];
+      el.style.background = c[0]; el.style.color = c[1];
+    }
+    Net.onStatus = (k) => {
+      if (mode !== 'online') return;
+      if (k === 'direct') setConn('● Live • direct', 'ok');
+      else setConn('● Live • relay', 'warn');
+    };
+    Net.onMessage = handleNetMessage;
+
+    function handleNetMessage(msg) {
+      if (!msg || mode !== 'online') return;
+      if (msg.t === 's' && !isHost) applyState(msg);
+      else if (msg.t === 'shot' && isHost) handleShot(msg);
+      else if (msg.t === 'hi' && isHost) sendState(true);
+      else if (msg.t === 'emoji' && EMOJIS.includes(msg.e)) showEmoji(msg.e);
+      else if (msg.t === 'bye' && !gameOver) {
+        setConn('● Opponent left', 'bad');
+        statusEl.textContent = 'Opponent left the match';
+      }
+    }
+
+    // The guest keeps asking for the table until the host's first state arrives
+    function startHello() {
+      clearInterval(helloTimer);
+      gotState = false;
+      helloTimer = setInterval(() => {
+        if (gotState || mode !== 'online') { clearInterval(helloTimer); return; }
+        Net.send({ t: 'hi' }, true);
+      }, 1500);
+      Net.send({ t: 'hi' }, true);
+    }
+
+    // Host → guest: full table state (~30 fps while balls move, plus at every turn change)
+    function sendState(force) {
+      if (mode !== 'online' || !isHost || !Net.active) return;
+      const now = performance.now();
+      if (!force && now - lastStateSend < 33) return;
+      lastStateSend = now;
+      Net.send({
+        t: 's', q: ++stateSeq,
+        b: balls.map(b => [b.id, Math.round(b.x * 10) / 10, Math.round(b.y * 10) / 10, b.pocketed ? 1 : 0]),
+        ps: playerScore, as: aiScore, cp: currentPlayer,
+        mv: isMoving ? 1 : 0, ov: gameOver ? 1 : 0, win: winner,
+        w: WIN_SCORE, n: note, sf: pendingSfx.splice(0)
+      }, !!force);
+    }
+
+    // Guest → host: a shot (velocity vector for the guest's cue ball)
+    function sendShot(vx, vy) { Net.send({ t: 'shot', vx, vy }, true); }
+
+    function handleShot(msg) {
+      const ok = currentPlayer === 'ai' && !isMoving && !gameOver;
+      const vx = Number(msg.vx), vy = Number(msg.vy);
+      const sp = Math.hypot(vx, vy);
+      if (ok && isFinite(sp) && sp >= 1.5) {
+        const k = Math.min(sp, MAX_POWER) / sp;
+        const cue = balls[1];
+        respawnCue(cue);
+        cue.vx = vx * k; cue.vy = vy * k;
+        SFX.shoot();
+        isMoving = true;
+        refreshStatus();
+      }
+      sendState(true); // always answer, so a rejected shot un-sticks the guest
+    }
+
+    function applyState(m) {
+      if (!balls.length || !Array.isArray(m.b)) return;
+      if (m.q && m.q <= lastStateQ) return;   // stale snapshot that arrived late over the other path
+      if (m.q) lastStateQ = m.q;
+      gotState = true;
+      for (const [id, x, y, p] of m.b) {
+        const b = balls.find(o => o.id === id);
+        if (!b) continue;
+        if (p) { b.pocketed = true; continue; }
+        if (b.pocketed || b.tx === undefined) { b.x = x; b.y = y; }
+        b.pocketed = false;
+        b.tx = x; b.ty = y;
+      }
+      playerScore = m.ps; aiScore = m.as; currentPlayer = m.cp;
+      isMoving = !!m.mv;
+      if (m.w) WIN_SCORE = m.w;
+      note = m.n || null;
+      (m.sf || []).forEach(k => { if (SFXraw[k] && k !== 'win' && k !== 'lose') SFXraw[k](); });
+      updateScoreUI();
+      if (m.ov && !gameOver) {
+        gameOver = true; isMoving = false;
+        winner = m.win === 'ai' ? 'ai' : 'player';
+        showWin();
+      } else if (!gameOver) {
+        refreshStatus();
+      }
+    }
+
+    function finalizeMatchDoc() {
+      if (!matchCode) return;
+      db.collection('matches').doc(matchCode).update({
+        status: 'finished',
+        hostScore: playerScore,
+        guestScore: aiScore,
+        winner: winner === 'player' ? 'host' : 'guest',
+        finishedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+    }
+
+    // ---------- Emoji reactions ----------
+    function showEmoji(emoji) {
+      const el = $('emojiFloat');
+      el.textContent = emoji;
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.opacity = '0'; }, 1200);
+    }
+    document.querySelectorAll('#emojiBar button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const e = btn.dataset.emoji;
+        showEmoji(e);
+        Net.send({ t: 'emoji', e }, true);
+      });
+    });
+
+    // ---------- Rooms ----------
+    function makeCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let s = '';
+      for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+      return s;
+    }
+    function challengeMsg(text, isError) {
+      const el = $('challengeStatus');
+      el.style.color = isError === false ? '#86efac' : '#f87171';
+      el.textContent = text || '';
+    }
+    function closeChallengeModal() {
+      // Cancel a room nobody has joined yet
+      if (matchCode && isHost && mode !== 'online') {
+        db.collection('matches').doc(matchCode).update({ status: 'cancelled' }).catch(() => {});
+        if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+        matchCode = null;
+      }
+      $('createRoomBtn').disabled = false;
+      $('roomDisplay').textContent = '';
+      $('roomActions').classList.add('hidden');
+      challengeMsg('');
+      $('challengeModal').classList.add('hidden');
+    }
+
+    $('challengeBtn').onclick = () => $('challengeModal').classList.remove('hidden');
+    $('closeChallengeBtn').onclick = closeChallengeModal;
+
+    $('createRoomBtn').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      challengeMsg('');
+      const code = makeCode();
+      matchCode = code;
+      isHost = true;
+      $('createRoomBtn').disabled = true;
+      try {
+        await db.collection('matches').doc(code).set({
+          game: 'kaisa',
+          hostId: currentUser.uid,
+          hostName: userData.name,
+          guestId: null,
+          status: 'waiting',
+          firstTo: WIN_SCORE,
+          hostScore: 0,
+          guestScore: 0,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (err) {
+        $('createRoomBtn').disabled = false;
+        matchCode = null;
+        challengeMsg("Couldn't create room: " + err.message);
+        return;
+      }
+      $('roomDisplay').textContent = 'Room code: ' + code + ' – waiting for friend…';
+      $('roomActions').classList.remove('hidden');
+      let started = false;
+      unsubMatch = db.collection('matches').doc(code).onSnapshot(async (snap) => {
+        const d = snap.data();
+        if (!d || started || d.status !== 'playing' || !d.guestId) return;
+        started = true;
+        roomInfo = { hostName: userData.name || 'P1', guestName: d.guestName || 'Friend' };
+        $('challengeModal').classList.add('hidden');
+        $('roomActions').classList.add('hidden');
+        $('createRoomBtn').disabled = false;
+        lastStateQ = 0; stateSeq = 0;
+        await Net.open(code, 'host');
+        startGame('online');
+        Net.onStatus(Net.direct ? 'direct' : 'relay');
+      });
+    };
+
+    $('shareLinkBtn').onclick = async () => {
+      if (!matchCode) return;
+      const url = new URL('kaisa.html?joinCode=' + matchCode, location.href).href;
+      const text = 'Join my Kaisa Challenge on Voltix Pro! Room code: ' + matchCode + '\n' + url;
+      if (navigator.share) {
+        try { await navigator.share({ text }); return; } catch (e) { /* cancelled — fall through */ }
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        challengeMsg('Link copied — paste it to your friend.', false);
+      } catch (e) {
+        window.prompt('Copy this and send it to your friend:', text);
+      }
+    };
+
+    $('shareGroupBtn').onclick = async () => {
+      if (!matchCode || !currentUser) return;
+      try {
+        await db.collection('groupChat').add({
+          uid: currentUser.uid, name: userData.name || 'Player',
+          text: '', type: 'challenge', game: 'kaisa', code: matchCode, url: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        challengeMsg('Posted to the group chat ✓', false);
+      } catch (err) { challengeMsg("Couldn't post: " + err.message); }
+    };
+
+    $('joinRoomBtn').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      challengeMsg('');
+      const code = $('joinCode').value.trim().toUpperCase();
+      if (!code) return;
+      if ((userData.balls || 0) < 1) { challengeMsg('You need 1 ball to join a challenge.'); return; }
+      const ref = db.collection('matches').doc(code);
+      $('joinRoomBtn').disabled = true;
+      try {
+        const snap = await ref.get();
+        if (!snap.exists) { challengeMsg('Room not found.'); return; }
+        const d = snap.data();
+        if (d.game !== 'kaisa') {
+          const dest = d.game === 'damii' ? 'damii.html' : d.game === 'ludo' ? 'ludo.html' : 'foosball.html';
+          window.location.href = dest + '?joinCode=' + encodeURIComponent(code);
+          return;
+        }
+        if (d.hostId === currentUser.uid) { challengeMsg("That's your own room."); return; }
+        // Claim the seat atomically so two friends can't both join
+        await db.runTransaction(async (tx) => {
+          const cur = await tx.get(ref);
+          if (!cur.exists || cur.data().status !== 'waiting') throw new Error('Room already started or finished.');
+          tx.update(ref, { guestId: currentUser.uid, guestName: userData.name, status: 'playing' });
+        });
+        // Only the guest pays 1 ball
+        await db.collection('users').doc(currentUser.uid).update({
+          balls: firebase.firestore.FieldValue.increment(-1)
+        });
+        userData.balls = (userData.balls || 1) - 1;
+        $('ballBalance').textContent = userData.balls;
+
+        matchCode = code;
+        isHost = false;
+        WIN_SCORE = d.firstTo || WIN_SCORE;
+        roomInfo = { hostName: d.hostName || 'P1', guestName: userData.name || 'P2' };
+        $('challengeModal').classList.add('hidden');
+        lastStateQ = 0;
+        await Net.open(code, 'guest');
+        startGame('online');
+        Net.onStatus(Net.direct ? 'direct' : 'relay');
+        startHello();
+      } catch (err) {
+        challengeMsg(err.message || 'Could not join.');
+      } finally {
+        $('joinRoomBtn').disabled = false;
+      }
+    };
+
+    // ---------- Menu wiring ----------
+    diffRow.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        difficulty = btn.dataset.diff;
+        diffRow.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+    $('playAiBtn').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      startGame('ai');
+    };
+    $('localBtn').onclick = () => startGame('local');
+
+    newGameBtn.addEventListener('click', () => { if (mode && mode !== 'online') startGame(mode); });
+    winReplayBtn.addEventListener('click', () => { if (mode && mode !== 'online') startGame(mode); });
+    $('winMenuBtn').addEventListener('click', quitToMenu);
+    $('quitBtn').addEventListener('click', quitToMenu);
+    hintBtn.addEventListener('click', () => {
+      if (gameOver || isMoving) return;
+      statusEl.textContent = 'Hint: Aim yellow Kaisa (6) into a pocket. Scoring keeps your turn!';
+    });
+    window.addEventListener('pagehide', () => {
+      if (mode === 'online') Net.send({ t: 'bye' }, true);
+    });
+
+    // ---------- Boot ----------
+    resetBalls();
+    updateScoreUI();
+    requestAnimationFrame(gameLoop);
+    (async () => {
+      const okAuth = await waitForAuth();
+      await loadSettings();
+      loadLeaderboard();
+      if (okAuth) {
+        // Arriving from a shared invite link (?joinCode=ABCDE)
+        const shared = new URLSearchParams(window.location.search).get('joinCode');
+        if (shared) {
+          $('challengeModal').classList.remove('hidden');
+          $('joinCode').value = shared.toUpperCase();
+          window.history.replaceState({}, '', 'kaisa.html');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
