@@ -1,0 +1,2050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Voltix Pro GH – Foosball Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #020617;
+      color: #e2e8f0;
+      min-height: 100dvh;
+      padding-bottom: 40px;
+    }
+    .header {
+      background: linear-gradient(180deg, #0f172a, #020617);
+      padding: 12px 16px 8px;
+      text-align: center;
+      border-bottom: 1px solid #1e293b;
+    }
+    .logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #3b82f6;
+      box-shadow: 0 0 16px rgba(59,130,246,0.5);
+    }
+    .brand {
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin-top: 4px;
+      background: linear-gradient(90deg, #60a5fa, #e2e8f0, #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline { font-size: 0.7rem; color: #fbbf24; letter-spacing: 1px; }
+    .balance-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e293b;
+      margin: 10px 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+    }
+    .balance { font-weight: 700; color: #60a5fa; }
+    .btn {
+      background: #1e293b;
+      color: #f1f5f9;
+      border: 1px solid #334155;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      border: none;
+      color: white;
+      box-shadow: 0 0 10px rgba(59,130,246,0.4);
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #b45309, #fbbf24);
+      border: none;
+      color: #0f172a;
+    }
+    .btn-danger { background: #7f1d1d; border-color: #991b1b; }
+    .section {
+      margin: 12px;
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid #1e293b;
+    }
+    .section h2 {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .banner {
+      background: linear-gradient(135deg, #1e3a8a, #0f172a);
+      border: 1px solid #3b82f6;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .banner h3 { color: #fbbf24; margin-bottom: 4px; }
+    .banner p { font-size: 0.85rem; color: #cbd5e1; }
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .mode-card {
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 14px 10px;
+      text-align: center;
+      border: 1px solid #334155;
+      cursor: pointer;
+    }
+    .mode-card:active { transform: scale(0.97); }
+    .mode-card h3 { font-size: 0.95rem; margin-bottom: 4px; }
+    .mode-card p { font-size: 0.75rem; color: #94a3b8; }
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.9rem;
+    }
+    .rank { font-weight: 700; color: #fbbf24; width: 28px; }
+    #game-screen { display: none; }
+    #game-wrap {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto;
+      aspect-ratio: 0.62;
+      background: #14532d;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 0 3px #1e40af;
+      border: 4px solid #0f172a;
+    }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .game-ui {
+      text-align: center;
+      padding: 8px;
+    }
+    .score-row {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin: 6px 0;
+    }
+    .hidden { display: none !important; }
+    .modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-content {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 20px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+    .modal-content h3 { margin-bottom: 10px; color: #fbbf24; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 1rem;
+    }
+    .shop-price { font-size: 1.4rem; font-weight: 800; color: #fbbf24; margin: 8px 0; }
+  
+    /* ---------- Site-wide announcements banner ---------- */
+    #anncBar { position: relative; z-index: 80; }
+    .annc-card {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-left: 4px solid #fbbf24;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      position: relative;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .annc-card img { max-width: 64px; max-height: 64px; border-radius: 6px; flex-shrink: 0; object-fit: cover; }
+    .annc-card .annc-body { flex: 1; min-width: 0; line-height: 1.35; word-break: break-word; }
+    .annc-card audio { width: 100%; max-width: 260px; margin-top: 6px; height: 32px; display: block; }
+    .annc-card .annc-close {
+      background: none; border: none; color: #94a3b8; font-size: 1.15rem; cursor: pointer;
+      line-height: 1; padding: 2px 4px; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="anncBar"></div>
+  <!-- HEADER -->
+  <div class="header">
+    <img src="logo.png" alt="Voltix Pro" class="logo" onerror="this.style.display='none'" />
+    <div class="brand">VOLTIX PRO GH</div>
+    <div class="tagline">PREMIUM EARPODS • FOOSBALL CHALLENGE</div>
+  </div>
+
+  <!-- BALANCE + NAV -->
+  <div class="balance-bar">
+    <div>Balls: <span class="balance" id="ballBalance">0</span></div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+      <a href="kaisa.html" class="btn" style="padding:6px 10px;" title="Kaisa">🎱</a>
+      <a href="damii.html" class="btn" style="padding:6px 10px;" title="Damii">♟️</a>
+      <a href="ludo.html" class="btn" style="padding:6px 10px;" title="Ludo">🎲</a>
+      <a href="chat.html" class="btn" id="openChatBtn" style="padding:6px 10px;" title="Chat">💬</a>
+      <a href="home.html" class="btn" style="padding:6px 10px;" title="Store">🛍️</a>
+      <button class="btn btn-gold" id="buyBallsBtn">Buy Balls</button>
+    </div>
+  </div>
+
+  <!-- MAIN MENU -->
+  <div id="menu-screen">
+    <!-- Music picker -->
+    <div class="section" id="musicSection" style="display:none;">
+      <h2>🎵 Music</h2>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <select id="musicSelect" style="flex:1; min-width:140px;"></select>
+        <button class="btn" id="musicPlayBtn">▶ Play</button>
+      </div>
+    </div>
+
+    <!-- Banners from admin -->
+    <div class="section" id="bannersSection">
+      <h2>Active Challenges</h2>
+      <div id="bannersList">Loading banners…</div>
+    </div>
+
+    <div class="section">
+      <h2>Play Now</h2>
+      <div class="mode-grid">
+        <div class="mode-card" id="playAiBtn">
+          <h3>⚡ vs AI</h3>
+          <p>Free to play<br>Win a prize</p>
+        </div>
+        <div class="mode-card" id="challengeBtn">
+          <h3>👥 Challenge Friend</h3>
+          <p>Free for host<br>First to 5</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>More Games</h2>
+      <div class="mode-grid">
+        <a href="kaisa.html" style="text-decoration:none; color:inherit; display:block;">
+          <div class="mode-card">
+            <h3>🎱 Kaisa Challenge</h3>
+            <p>Pool • vs AI, online friend or pass &amp; play</p>
+          </div>
+        </a>
+        <a href="damii.html" style="text-decoration:none; color:inherit; display:block;">
+          <div class="mode-card">
+            <h3>♟️ Damii</h3>
+            <p>Ghanaian draughts • vs Hard AI or online friend</p>
+          </div>
+        </a>
+        <a href="ludo.html" style="text-decoration:none; color:inherit; display:block;">
+          <div class="mode-card wide">
+            <h3>🎲 Ludo</h3>
+            <p>Classic board game • vs 1–3 Hard AIs, online friend, or local/custom (up to 4 players, mix humans &amp; AI)</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Voltix Champions</h2>
+      <div id="leaderboardList">Loading…</div>
+    </div>
+
+    <div class="section" style="text-align:center; font-size:0.8rem; color:#64748b;">
+      <p>You need balls to play. Buy once and challenge friends or the AI.</p>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen">
+    <div class="game-ui">
+      <div id="connStatus" style="font-size:0.72rem; font-weight:700; letter-spacing:0.05em; padding:5px 14px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; margin-bottom:10px; background:#1e293b; color:#94a3b8;">● OFFLINE</div>
+      <div class="score-row" style="display:flex; align-items:center; justify-content:center; gap:16px;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+          <div style="width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#1d4ed8,#3b82f6); display:flex; align-items:center; justify-content:center; font-size:1.3rem; box-shadow:0 0 0 2px #1e3a8a;">🛡️</div>
+          <span style="font-size:0.7rem; color:#93c5fd; font-weight:700; letter-spacing:0.05em;">YOU</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:8px; font-weight:800; font-size:1.8rem;">
+          <span id="pScore" style="color:#60a5fa;">0</span>
+          <span style="color:#475569; font-size:1rem;">-</span>
+          <span id="aScore" style="color:#f87171;">0</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+          <div id="oppBadge" style="width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#991b1b,#ef4444); display:flex; align-items:center; justify-content:center; font-size:1.3rem; box-shadow:0 0 0 2px #7f1d1d;">🤖</div>
+          <span id="oppLabel" style="font-size:0.7rem; color:#fca5a5; font-weight:700; letter-spacing:0.05em;">AI</span>
+        </div>
+      </div>
+      <div style="text-align:center; font-size:0.75rem; color:#64748b; margin-top:6px;" id="matchFormatLabel">First to <span id="bestOf">5</span></div>
+      <div id="matchClockDisplay" style="text-align:center; font-size:0.9rem; color:#fbbf24; font-weight:700; margin-top:2px; display:none;">
+        <span id="halfLabel">1st Half</span> — <span id="clockText">2:00</span>
+      </div>
+      <div id="gameStatus" style="font-size:0.85rem; color:#94a3b8; min-height:1.3em; text-align:center; margin-top:2px;">Drag bottom half to move rods</div>
+    </div>
+    <div id="game-wrap">
+      <canvas id="c"></canvas>
+    </div>
+    <!-- In-match emoji reactions -->
+    <div id="emojiBar" style="display:none; text-align:center; margin-top:8px; gap:6px; flex-wrap:wrap; justify-content:center;">
+      <button class="btn emoji-btn" data-emoji="🔥" style="padding:6px 10px; font-size:1.2rem;">🔥</button>
+      <button class="btn emoji-btn" data-emoji="😂" style="padding:6px 10px; font-size:1.2rem;">😂</button>
+      <button class="btn emoji-btn" data-emoji="💪" style="padding:6px 10px; font-size:1.2rem;">💪</button>
+      <button class="btn emoji-btn" data-emoji="👏" style="padding:6px 10px; font-size:1.2rem;">👏</button>
+      <button class="btn emoji-btn" data-emoji="😱" style="padding:6px 10px; font-size:1.2rem;">😱</button>
+      <button class="btn emoji-btn" data-emoji="🏆" style="padding:6px 10px; font-size:1.2rem;">🏆</button>
+    </div>
+    <div id="emojiFloat" style="position:fixed; top:40%; left:50%; transform:translateX(-50%); font-size:3rem; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:50;"></div>
+    <div style="text-align:center; margin-top:10px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-primary" id="throwBallBtn">⚽ Throw Ball</button>
+      <button class="btn" id="quitBtn">Quit to Menu</button>
+    </div>
+  </div>
+
+  <!-- BUY BALLS MODAL -->
+  <div class="modal hidden" id="buyModal">
+    <div class="modal-content">
+      <h3>Buy Balls</h3>
+      <p>10 Balls = <span id="ballPrice">GHc 10</span></p>
+      <div class="shop-price" id="shopPrice">GHc 10</div>
+      <p style="font-size:0.8rem; color:#94a3b8; margin:8px 0;">
+        You'll be taken to a secure Paystack payment window. Balls are credited automatically once payment is confirmed.
+      </p>
+      <input type="number" id="buyQty" value="1" min="1" max="20" placeholder="Packages" />
+      <button class="btn btn-primary" style="width:100%; margin-top:8px;" id="confirmBuyBtn">Pay with Paystack</button>
+      <button class="btn" style="width:100%; margin-top:6px;" id="closeBuyBtn">Cancel</button>
+      <div class="status" id="buyStatus" style="font-size:0.8rem; color:#94a3b8; margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- CHALLENGE MODAL -->
+  <div class="modal hidden" id="challengeModal">
+    <div class="modal-content">
+      <h3>Challenge Friend</h3>
+      <p style="font-size:0.85rem; color:#94a3b8;">Create a room (free for you) or join with a code (costs 1 ball). First to 5 goals.</p>
+      <button class="btn btn-primary" style="width:100%; margin:8px 0;" id="createRoomBtn">Create Room</button>
+      <input type="text" id="joinCode" placeholder="Enter room code" maxlength="6" style="text-transform:uppercase;" />
+      <button class="btn" style="width:100%; margin-top:6px;" id="joinRoomBtn">Join Room</button>
+      <button class="btn" style="width:100%; margin-top:10px;" id="closeChallengeBtn">Cancel</button>
+      <div id="roomDisplay" style="margin-top:10px; color:#60a5fa; font-weight:700;"></div>
+      <button class="btn btn-gold hidden" style="width:100%; margin-top:8px;" id="shareToChatBtn">💬 Share to Chat</button>
+    </div>
+  </div>
+
+  <!-- WINNER PHONE CAPTURE MODAL -->
+  <div class="modal hidden" id="winnerModal">
+    <div class="modal-content">
+      <h3>🎉 You Won!</h3>
+      <p style="font-size:0.85rem; color:#94a3b8;" id="winnerPrizeText">Prize: —</p>
+      <p style="font-size:0.8rem; color:#94a3b8; margin:8px 0;">
+        Enter your phone number so we can send your prize.
+      </p>
+      <input type="tel" id="winnerPhone" placeholder="e.g. 024xxxxxxx" />
+      <button class="btn btn-gold" style="width:100%; margin-top:8px;" id="submitWinnerBtn">Submit</button>
+      <div class="status" id="winnerStatus" style="font-size:0.8rem; margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <!-- DRAW DECISION MODAL -->
+  <div class="modal hidden" id="drawModal">
+    <div class="modal-content">
+      <h3>🤝 It's a Draw!</h3>
+      <p style="font-size:0.85rem; color:#94a3b8; margin:8px 0;">
+        Want to keep playing for the chance to beat the AI and win <span id="drawPrizeText">the prize</span>?
+        Continuing costs <b>GHc 5</b> for 5 extra balls and adds another full half.
+      </p>
+      <button class="btn btn-gold" style="width:100%; margin:6px 0;" id="drawYesBtn">Yes, Continue (GHc 5)</button>
+      <button class="btn" style="width:100%;" id="drawRejectBtn">Reject — End as Draw</button>
+      <div class="status" id="drawStatus" style="font-size:0.8rem; margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <!-- Paystack Inline JS -->
+  <script src="https://js.paystack.co/v1/inline.js"></script>
+
+  <script>
+    // =====================================================
+    //  PASTE YOUR FIREBASE CONFIG HERE
+    // =====================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+      authDomain: "voltix-pro-dc363.firebaseapp.com",
+      projectId: "voltix-pro-dc363",
+      storageBucket: "voltix-pro-dc363.firebasestorage.app",
+      messagingSenderId: "778425016855",
+      appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252",
+      measurementId: "G-5BQWW8P46P"
+    };
+    // =====================================================
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ---------- Site-wide announcements banner (posted from Admin) ----------
+    (function loadAnnouncementBanner() {
+      const bar = document.getElementById("anncBar");
+      if (!bar) return;
+      function escAnnc(s) {
+        return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+      db.collection("announcements").where("active", "==", true).limit(20).get()
+        .then(snap => {
+          if (snap.empty) return;
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0))
+            .slice(0, 5);
+          docs.forEach(a => {
+            const card = document.createElement("div");
+            card.className = "annc-card";
+            let html = "";
+            if (a.imageUrl) html += `<img src="${escAnnc(a.imageUrl)}" alt="" />`;
+            html += `<div class="annc-body">`;
+            if (a.text) html += `<div>${escAnnc(a.text)}</div>`;
+            if (a.audioUrl) html += `<audio controls src="${escAnnc(a.audioUrl)}"></audio>`;
+            html += `</div><button type="button" class="annc-close" aria-label="Dismiss">✕</button>`;
+            card.innerHTML = html;
+            card.querySelector(".annc-close").onclick = () => card.remove();
+            bar.appendChild(card);
+          });
+        })
+        .catch(() => {});
+    })();
+
+    // Paystack public key (safe to expose client-side)
+    const PAYSTACK_PUBLIC_KEY = "pk_live_9136ecd40ccc704b3e337e4168138f97186bff96";
+
+    // ---- Sound effects (synthesized, no external files needed) ----
+    const SFX = (() => {
+      let ctx = null;
+      function getCtx() {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") ctx.resume();
+        return ctx;
+      }
+      function tone(freq, duration, type = "sine", startGain = 0.15, delay = 0) {
+        try {
+          const c = getCtx();
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = type;
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(startGain, c.currentTime + delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + delay + duration);
+          osc.connect(gain);
+          gain.connect(c.destination);
+          osc.start(c.currentTime + delay);
+          osc.stop(c.currentTime + delay + duration);
+        } catch (e) { /* audio not available, ignore */ }
+      }
+      return {
+        click: () => tone(440, 0.06, "square", 0.08),
+        goal: () => { tone(523, 0.12, "triangle"); tone(659, 0.14, "triangle", 0.15, 0.1); },
+        win: () => {
+          [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, "triangle", 0.16, i * 0.12));
+        },
+        lose: () => { tone(300, 0.25, "sawtooth", 0.12); tone(200, 0.35, "sawtooth", 0.1, 0.15); },
+        purchase: () => { tone(660, 0.08, "sine", 0.12); tone(880, 0.1, "sine", 0.12, 0.08); }
+      };
+    })();
+
+    // ---- Custom match audio (admin-uploaded, real football-style layering) ----
+    // Falls back to the synthesized SFX above when the admin hasn't uploaded a clip.
+    const MatchAudio = (() => {
+      let kick = null, goal = null, crowd = null, commentator = null;
+      let lastKickTime = 0;
+      const KICK_COOLDOWN_MS = 120; // avoid spamming the sound on repeated collisions
+
+      function loadClip(url, loop = false) {
+        if (!url) return null;
+        const a = new Audio(url);
+        a.loop = loop;
+        return a;
+      }
+
+      return {
+        setClips(urls) {
+          kick = loadClip(urls.sfxKickUrl);
+          goal = loadClip(urls.sfxGoalUrl);
+          crowd = loadClip(urls.sfxCrowdUrl, true);
+          if (crowd) crowd.volume = 0.25; // ambient, stays quiet under everything else
+          commentator = loadClip(urls.sfxCommentatorUrl);
+        },
+        playKick() {
+          const now = Date.now();
+          if (now - lastKickTime < KICK_COOLDOWN_MS) return;
+          lastKickTime = now;
+          if (kick) { kick.currentTime = 0; kick.play().catch(() => {}); }
+        },
+        playGoal() {
+          if (goal) { goal.currentTime = 0; goal.play().catch(() => {}); }
+          else SFX.goal();
+          if (commentator) {
+            setTimeout(() => { commentator.currentTime = 0; commentator.play().catch(() => {}); }, 450);
+          }
+        },
+        startCrowd() {
+          if (crowd) { crowd.currentTime = 0; crowd.play().catch(() => {}); }
+        },
+        stopCrowd() {
+          if (crowd) crowd.pause();
+        }
+      };
+    })();
+
+    // ---- Global state ----
+    let currentUser = null;
+    let userData = { balls: 0, wins: 0, name: "Player" };
+    let settings = { ballPackage: 10, ballPriceGhc: 10, aiPrize: "Free earpods discount", prizes: {1: "GHc 50", 2: "GHc 30", 3: "GHc 20"} };
+    let gameMode = null; // 'ai' | 'multi'
+    let matchId = null;
+    let isHost = false;
+
+    // ---- Auth (anonymous for simplicity) ----
+    let authReadyPromise = null;
+    function ensureAuth() {
+      if (authReadyPromise) return authReadyPromise;
+      authReadyPromise = new Promise((resolve, reject) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          try {
+            if (user) {
+              currentUser = user;
+              await loadUser();
+            } else {
+              const cred = await auth.signInAnonymously();
+              currentUser = cred.user;
+              await createUserDoc();
+            }
+            unsubscribe();
+            resolve(currentUser);
+          } catch (err) {
+            unsubscribe();
+            authReadyPromise = null; // allow a retry on next call
+            reject(err);
+          }
+        }, (err) => {
+          authReadyPromise = null;
+          reject(err);
+        });
+      });
+      return authReadyPromise;
+    }
+
+    // Use this before any action that needs currentUser — never hangs silently.
+    async function waitForAuth() {
+      try {
+        await ensureAuth();
+        return true;
+      } catch (err) {
+        console.error("Auth failed:", err);
+        alert("Sign-in failed: " + (err.message || "unknown error") + "\nCheck your internet connection and reload the page.");
+        return false;
+      }
+    }
+
+    async function createUserDoc() {
+      const ref = db.collection("users").doc(currentUser.uid);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        await ref.set({
+          balls: 0,
+          wins: 0,
+          name: "Player" + Math.floor(Math.random()*9000+1000),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      await loadUser();
+    }
+
+    async function loadUser() {
+      const snap = await db.collection("users").doc(currentUser.uid).get();
+      if (snap.exists) {
+        userData = snap.data();
+        document.getElementById("ballBalance").textContent = userData.balls || 0;
+      }
+    }
+
+    async function loadSettings() {
+      const snap = await db.collection("gameSettings").doc("main").get();
+      if (snap.exists) settings = { ...settings, ...snap.data() };
+      document.getElementById("ballPrice").textContent = "GHc " + settings.ballPriceGhc;
+      document.getElementById("shopPrice").textContent = "GHc " + settings.ballPriceGhc;
+      if (settings.tableBgUrl) loadTableBackground(settings.tableBgUrl);
+      loadSpriteImage(settings.rodBlue1Url, (img) => rodBlueImages[1] = img);
+      loadSpriteImage(settings.rodBlue2Url, (img) => rodBlueImages[2] = img);
+      loadSpriteImage(settings.rodBlue3Url, (img) => rodBlueImages[3] = img);
+      loadSpriteImage(settings.rodRed1Url, (img) => rodRedImages[1] = img);
+      loadSpriteImage(settings.rodRed2Url, (img) => rodRedImages[2] = img);
+      loadSpriteImage(settings.rodRed3Url, (img) => rodRedImages[3] = img);
+      loadSpriteImage(settings.ballSpriteUrl, (img) => ballSpriteImage = img);
+      MatchAudio.setClips(settings);
+      applyTurnSettings();
+    }
+
+    // ---- Background music player ----
+    const bgAudio = new Audio();
+    bgAudio.loop = true;
+    let musicPlaying = false;
+
+    async function loadMusicOptions() {
+      const snap = await db.collection("gameMusic").orderBy("createdAt", "desc").limit(20).get({ source: "server" });
+      const section = document.getElementById("musicSection");
+      const select = document.getElementById("musicSelect");
+      if (snap.empty) { section.style.display = "none"; return; }
+      section.style.display = "block";
+      select.innerHTML = "";
+      snap.forEach(doc => {
+        const m = doc.data();
+        const opt = document.createElement("option");
+        opt.value = m.url;
+        opt.textContent = m.title;
+        select.appendChild(opt);
+      });
+    }
+
+    document.getElementById("musicPlayBtn").onclick = () => {
+      const select = document.getElementById("musicSelect");
+      const btn = document.getElementById("musicPlayBtn");
+      if (!select.value) return;
+      if (musicPlaying && bgAudio.src === select.value) {
+        bgAudio.pause();
+        musicPlaying = false;
+        btn.textContent = "▶ Play";
+      } else {
+        bgAudio.src = select.value;
+        bgAudio.play().catch(() => {});
+        musicPlaying = true;
+        btn.textContent = "⏸ Pause";
+      }
+    };
+
+    document.getElementById("musicSelect").onchange = () => {
+      if (musicPlaying) {
+        bgAudio.src = document.getElementById("musicSelect").value;
+        bgAudio.play().catch(() => {});
+      }
+    };
+
+    // Cloudinary on-the-fly image optimization — shrinks/compresses images
+    // by editing the URL, so a full-resolution phone photo doesn't get sent
+    // to every visitor at full size. No re-upload needed.
+    function cloudinaryOptimize(url, widthPx) {
+      if (!url || !url.includes("/upload/")) return url;
+      return url.replace("/upload/", `/upload/w_${widthPx},q_auto,f_auto/`);
+    }
+
+    async function loadBanners() {
+      const snap = await db.collection("banners").where("active", "==", true).limit(10).get();
+      const list = document.getElementById("bannersList");
+      if (snap.empty) {
+        list.innerHTML = '<p style="color:#64748b; font-size:0.85rem;">No active challenges right now. Check back soon!</p>';
+        return;
+      }
+      // Sort newest-first client-side (avoids needing a Firestore composite index)
+      const banners = snap.docs
+        .map(doc => doc.data())
+        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+        .slice(0, 5);
+      list.innerHTML = "";
+      banners.forEach(b => {
+        list.innerHTML += `
+          <div class="banner">
+            ${b.imageUrl ? `<img src="${cloudinaryOptimize(b.imageUrl, 640)}" loading="lazy" style="width:100%; border-radius:8px; margin-bottom:8px; max-height:160px; object-fit:cover;">` : ""}
+            <h3>${b.title || "Challenge"}</h3>
+            <p>${b.description || ""}</p>
+            <p style="margin-top:6px; color:#fbbf24; font-size:0.8rem;">Prize: ${b.prize || "See admin"}</p>
+          </div>`;
+      });
+    }
+
+    async function loadLeaderboard() {
+      const snap = await db.collection("leaderboard").orderBy("wins", "desc").limit(10).get();
+      const list = document.getElementById("leaderboardList");
+      if (snap.empty) {
+        list.innerHTML = '<p style="color:#64748b;">No players yet. Be the first!</p>';
+        return;
+      }
+      list.innerHTML = "";
+      let rank = 1;
+      snap.forEach(doc => {
+        const d = doc.data();
+        list.innerHTML += `
+          <div class="leaderboard-item">
+            <span><span class="rank">#${rank}</span> ${d.name || "Player"}</span>
+            <span>${d.wins || 0} wins</span>
+          </div>`;
+        rank++;
+      });
+    }
+
+    // ---- Buy balls (demo – admin can confirm real payments) ----
+    document.getElementById("buyBallsBtn").onclick = () => {
+      document.getElementById("buyModal").classList.remove("hidden");
+    };
+    document.getElementById("closeBuyBtn").onclick = () => {
+      document.getElementById("buyModal").classList.add("hidden");
+    };
+    document.getElementById("confirmBuyBtn").onclick = async () => {
+      const qty = parseInt(document.getElementById("buyQty").value) || 1;
+      const ballsToAdd = qty * (settings.ballPackage || 10);
+      const cost = qty * (settings.ballPriceGhc || 10);
+      const statusEl = document.getElementById("buyStatus");
+      const confirmBtn = document.getElementById("confirmBuyBtn");
+
+      if (!currentUser) {
+        const ok = await waitForAuth();
+        if (!ok || !currentUser) return;
+      }
+
+      confirmBtn.disabled = true;
+      statusEl.textContent = "Opening secure payment window...";
+
+      const handler = PaystackPop.setup({
+        key: PAYSTACK_PUBLIC_KEY,
+        email: `${currentUser.uid}@voltix-player.app`, // anonymous auth has no email; Paystack requires one
+        amount: cost * 100, // Paystack expects amount in pesewas (kobo-equivalent)
+        currency: "GHS",
+        metadata: {
+          userId: currentUser.uid,
+          balls: ballsToAdd,
+          custom_fields: [
+            { display_name: "User ID", variable_name: "user_id", value: currentUser.uid },
+            { display_name: "Balls", variable_name: "balls", value: String(ballsToAdd) }
+          ]
+        },
+        callback: function (response) {
+          // Payment popup succeeded — now verify server-side before crediting anything.
+          statusEl.textContent = "Verifying payment...";
+          fetch("/api/verify-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reference: response.reference,
+              userId: currentUser.uid,
+              balls: ballsToAdd,
+              amountGhc: cost
+            })
+          })
+            .then(res => res.json())
+            .then(async (data) => {
+              if (data.success) {
+                statusEl.textContent = "Payment confirmed! Balls added ✓";
+                SFX.purchase();
+                await loadUser();
+                setTimeout(() => {
+                  document.getElementById("buyModal").classList.add("hidden");
+                  statusEl.textContent = "";
+                }, 1500);
+              } else {
+                statusEl.textContent = "Payment could not be verified. Contact support with reference: " + response.reference;
+              }
+              confirmBtn.disabled = false;
+            })
+            .catch(() => {
+              statusEl.textContent = "Verification failed. Contact support with reference: " + response.reference;
+              confirmBtn.disabled = false;
+            });
+        },
+        onClose: function () {
+          statusEl.textContent = "Payment window closed.";
+          confirmBtn.disabled = false;
+        }
+      });
+      handler.openIframe();
+    };
+
+    // ---- Play vs AI ----
+    document.getElementById("playAiBtn").onclick = async () => {
+      SFX.click();
+      if (!currentUser) {
+        const ok = await waitForAuth();
+        if (!ok || !currentUser) return;
+      }
+      // vs AI is now free to play
+      gameMode = "ai";
+      startGame();
+    };
+
+    // ---- Challenge Friend ----
+    document.getElementById("challengeBtn").onclick = () => {
+      document.getElementById("challengeModal").classList.remove("hidden");
+    };
+    document.getElementById("closeChallengeBtn").onclick = () => {
+      document.getElementById("challengeModal").classList.add("hidden");
+    };
+
+    // ========== WEBRTC MULTIPLAYER ==========
+    let pc = null;
+    let dataChannel = null;
+    let unsubSignal = null;
+    let remoteRodTargets = [0.5, 0.5, 0.5]; // guest/host opponent rods
+    let lastStateSend = 0;
+
+    const iceServers = {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }
+      ],
+      iceCandidatePoolSize: 2
+    };
+    // Admin can add a TURN relay (Admin → Connection). It lets players on strict
+    // mobile networks connect when a direct link is impossible.
+    function applyTurnSettings() {
+      try {
+        const extra = JSON.parse(settings.iceServersJson || "[]");
+        if (Array.isArray(extra)) {
+          extra.filter(s => s && s.urls).forEach(s => iceServers.iceServers.push(s));
+        }
+      } catch (e) { console.warn("Bad iceServersJson in settings", e); }
+    }
+
+    function cleanupWebRTC() {
+      if (unsubSignal) { unsubSignal(); unsubSignal = null; }
+      if (dataChannel) { try { dataChannel.close(); } catch(e){} dataChannel = null; }
+      if (pc) { try { pc.close(); } catch(e){} pc = null; }
+    }
+
+    async function setupHostWebRTC(code) {
+      cleanupWebRTC();
+      pc = new RTCPeerConnection(iceServers);
+      dataChannel = pc.createDataChannel("foosball", { ordered: true });
+      setupDataChannel(dataChannel);
+
+      pc.onicecandidate = async (e) => {
+        if (e.candidate) {
+          await db.collection("matches").doc(code).collection("signal").add({
+            type: "ice",
+            from: "host",
+            candidate: e.candidate.toJSON()
+          });
+        }
+      };
+
+      // Listen for guest answer + ICE
+      unsubSignal = db.collection("matches").doc(code).collection("signal")
+        .onSnapshot(async (snap) => {
+          for (const change of snap.docChanges()) {
+            if (change.type !== "added") continue;
+            const msg = change.doc.data();
+            if (msg.from === "guest") {
+              if (msg.type === "answer" && msg.sdp) {
+                await pc.setRemoteDescription(msg.sdp);
+              } else if (msg.type === "ice" && msg.candidate) {
+                try { await pc.addIceCandidate(msg.candidate); } catch(e){}
+              }
+            }
+          }
+        });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await db.collection("matches").doc(code).collection("signal").add({
+        type: "offer",
+        from: "host",
+        sdp: { type: offer.type, sdp: offer.sdp }
+      });
+    }
+
+    async function setupGuestWebRTC(code) {
+      cleanupWebRTC();
+      pc = new RTCPeerConnection(iceServers);
+
+      pc.ondatachannel = (e) => {
+        dataChannel = e.channel;
+        setupDataChannel(dataChannel);
+      };
+
+      pc.onicecandidate = async (e) => {
+        if (e.candidate) {
+          await db.collection("matches").doc(code).collection("signal").add({
+            type: "ice",
+            from: "guest",
+            candidate: e.candidate.toJSON()
+          });
+        }
+      };
+
+      // Listen for host offer + ICE
+      unsubSignal = db.collection("matches").doc(code).collection("signal")
+        .onSnapshot(async (snap) => {
+          for (const change of snap.docChanges()) {
+            if (change.type !== "added") continue;
+            const msg = change.doc.data();
+            if (msg.from === "host") {
+              if (msg.type === "offer" && msg.sdp) {
+                await pc.setRemoteDescription(msg.sdp);
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await db.collection("matches").doc(code).collection("signal").add({
+                  type: "answer",
+                  from: "guest",
+                  sdp: { type: answer.type, sdp: answer.sdp }
+                });
+              } else if (msg.type === "ice" && msg.candidate) {
+                try { await pc.addIceCandidate(msg.candidate); } catch(e){}
+              }
+            }
+          }
+        });
+    }
+
+    function setConnStatus(text, color) {
+      const el = document.getElementById("connStatus");
+      if (!el) return;
+      el.textContent = text;
+      el.style.background = color || "#1e293b";
+      el.style.color = color === "#166534" ? "#86efac" : color === "#9a3412" ? "#fdba74" : "#94a3b8";
+    }
+
+    function setupDataChannel(channel) {
+      channel.onopen = () => {
+        console.log("WebRTC data channel open");
+        setConnStatus("● Connected", "#166534");
+        setStatus("Connected! Drag to play");
+        document.getElementById("emojiBar").style.display = "flex";
+      };
+      channel.onclose = () => {
+        setConnStatus("● Disconnected", "#7f1d1d");
+        setStatus("Connection closed");
+      };
+      channel.onerror = (e) => {
+        console.warn("DC error", e);
+        setConnStatus("● Error", "#9a3412");
+      };
+      channel.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.t === "state" && !isHost) {
+            // Guest receives authoritative state (already flipped coordinates from host)
+            if (msg.ball) {
+              ball.x = msg.ball.x; ball.y = msg.ball.y;
+              ball.vx = msg.ball.vx; ball.vy = msg.ball.vy;
+            }
+            if (msg.rods) {
+              // After flip: guest sees opponent (host) rods at top = visual top
+              for (let i = 0; i < 3; i++) {
+                if (rods[i]) rods[i].x = msg.rods[i];
+              }
+            }
+            if (typeof msg.ps === "number") {
+              // Host's score is "opponent" for guest
+              aiScore = msg.ps;
+              document.getElementById("aScore").textContent = aiScore;
+            }
+            if (typeof msg.as === "number") {
+              playerScore = msg.as;
+              document.getElementById("pScore").textContent = playerScore;
+            }
+            if (msg.over) {
+              gameOver = true;
+              setStatus(playerScore >= WIN_SCORE ? "🎉 You win the match!" : "Opponent wins the match");
+            }
+          } else if (msg.t === "input" && isHost) {
+            // Host receives guest rod targets → map to top rods (0,1,2)
+            if (msg.rods && rods.length >= 6) {
+              for (let i = 0; i < 3; i++) {
+                if (typeof msg.rods[i] === "number") {
+                  rods[i].targetX = msg.rods[i];
+                }
+              }
+            }
+          } else if (msg.t === "emoji") {
+            showEmoji(msg.e);
+          }
+        } catch (err) {}
+      };
+    }
+
+    function showEmoji(emoji) {
+      const el = document.getElementById("emojiFloat");
+      el.textContent = emoji;
+      el.style.opacity = "1";
+      setTimeout(() => { el.style.opacity = "0"; }, 1200);
+    }
+
+    // Emoji buttons
+    document.querySelectorAll(".emoji-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const emoji = btn.dataset.emoji;
+        showEmoji(emoji);
+        if (dataChannel && dataChannel.readyState === "open") {
+          try { dataChannel.send(JSON.stringify({ t: "emoji", e: emoji })); } catch(e){}
+        }
+      });
+    });
+
+    function sendState() {
+      if (!dataChannel || dataChannel.readyState !== "open" || !isHost) return;
+      const now = performance.now();
+      if (now - lastStateSend < 33) return; // ~30 fps
+      lastStateSend = now;
+      const payload = {
+        t: "state",
+        ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy },
+        rods: [rods[0].x, rods[1].x, rods[2].x],
+        ps: playerScore,
+        as: aiScore,
+        over: gameOver
+      };
+      try { dataChannel.send(JSON.stringify(payload)); } catch(e){}
+    }
+
+    function sendInput() {
+      if (!dataChannel || dataChannel.readyState !== "open" || isHost) return;
+      const payload = {
+        t: "input",
+        rods: [rods[3].targetX, rods[4].targetX, rods[5].targetX]
+      };
+      try { dataChannel.send(JSON.stringify(payload)); } catch(e){}
+    }
+
+    // Listen for guest joining (host side)
+    function watchForGuest(code) {
+      return db.collection("matches").doc(code).onSnapshot(async (snap) => {
+        const data = snap.data();
+        if (data && data.status === "playing" && data.guestId && isHost) {
+          setStatus("Friend joined! Connecting…");
+          await setupHostWebRTC(code);
+          gameMode = "multi";
+          document.getElementById("challengeModal").classList.add("hidden");
+          startGame();
+        }
+      });
+    }
+
+    let unsubMatch = null;
+
+    document.getElementById("createRoomBtn").onclick = async () => {
+      if (!currentUser) {
+        const ok = await waitForAuth();
+        if (!ok || !currentUser) return;
+      }
+      // Host plays for free
+      const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+      matchId = code;
+      isHost = true;
+      await db.collection("matches").doc(code).set({
+        hostId: currentUser.uid,
+        hostName: userData.name,
+        guestId: null,
+        status: "waiting",
+        firstTo: 5,
+        hostScore: 0,
+        guestScore: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      document.getElementById("roomDisplay").textContent = "Room code: " + code + " – waiting for friend…";
+      setStatus("Waiting for friend to join room " + code);
+      if (unsubMatch) unsubMatch();
+      unsubMatch = watchForGuest(code);
+
+      const shareBtn = document.getElementById("shareToChatBtn");
+      shareBtn.classList.remove("hidden");
+      shareBtn.onclick = () => {
+        window.location.href = "chat.html?shareCode=" + encodeURIComponent(code);
+      };
+    };
+
+    document.getElementById("joinRoomBtn").onclick = async () => {
+      if (!currentUser) {
+        const ok = await waitForAuth();
+        if (!ok || !currentUser) return;
+      }
+      const code = document.getElementById("joinCode").value.trim().toUpperCase();
+      if (!code) return;
+      if ((userData.balls || 0) < 1) {
+        alert("You need 1 ball to join a challenge.");
+        return;
+      }
+      const ref = db.collection("matches").doc(code);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        alert("Room not found.");
+        return;
+      }
+      const data = snap.data();
+      if (data.game === "kaisa" || data.game === "damii" || data.game === "ludo") {
+        // This code belongs to another game's room — send them to the right game
+        window.location.href = data.game + ".html?joinCode=" + encodeURIComponent(code);
+        return;
+      }
+      if (data.status !== "waiting") {
+        alert("Room already started or finished.");
+        return;
+      }
+      await ref.update({
+        guestId: currentUser.uid,
+        guestName: userData.name,
+        status: "playing"
+      });
+      // Only guest pays 1 ball
+      await db.collection("users").doc(currentUser.uid).update({
+        balls: firebase.firestore.FieldValue.increment(-1)
+      });
+      matchId = code;
+      isHost = false;
+      gameMode = "multi";
+      document.getElementById("challengeModal").classList.add("hidden");
+      setStatus("Connecting to host…");
+      await setupGuestWebRTC(code);
+      startGame();
+    };
+
+    // ---- Game logic (simplified foosball – same as before, branded) ----
+    let WIN_SCORE = 5; // First to 5 goals (still used for multiplayer, unchanged for now)
+
+    // ---- Timed-match state (vs AI) ----
+    const HALF_SECONDS = 120; // 2 minutes per half
+    let matchClockSeconds = HALF_SECONDS;
+    let currentHalf = 1;
+    let inHalftimeBreak = false;
+    let awaitingDrawDecision = false;
+    let matchPrizeText = "";
+    let continuePurchasePending = false;
+    let playerScore = 0, aiScore = 0;
+    let gameOver = false;
+    let ball, rods = [];
+    let isDragging = false;
+    let lastTime = 0;
+    let stuckTimer = 0; // seconds ball has been nearly stopped
+    const STUCK_SPEED = 0.0012;
+    const STUCK_RESET_AFTER = 1.4; // seconds before auto throw
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    let W, H, scale;
+
+    const ROD_YS = [0.12, 0.28, 0.45, 0.62, 0.78, 0.90];
+    const PLAYERS_PER_ROD = [1, 2, 3, 3, 2, 1];
+    const BALL_R = 0.017, PLAYER_R = 0.026;
+
+    // Optional custom table background (set by admin via Cloudinary upload).
+    // Falls back to a plain green gradient if none is set.
+    let tableBgImage = null;
+    function loadTableBackground(url) {
+      if (!url) { tableBgImage = null; return; }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => { tableBgImage = img; };
+      img.src = url;
+    }
+
+    // Optional custom player/ball sprites — same idea, falls back to the
+    // gradient-shaded circles already in draw() if none is set.
+    let rodBlueImages = { 1: null, 2: null, 3: null };
+    let rodRedImages = { 1: null, 2: null, 3: null };
+    let ballSpriteImage = null;
+    function loadSpriteImage(url, setter) {
+      if (!url) { setter(null); return; }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => setter(img);
+      img.src = url;
+    }
+
+    function resize() {
+      const wrap = document.getElementById("game-wrap");
+      const rect = wrap.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      W = rect.width; H = rect.height; scale = Math.min(W, H);
+    }
+
+    function createRods() {
+      rods = [];
+      for (let i = 0; i < ROD_YS.length; i++) {
+        const isPlayer = i >= 3;
+        const count = PLAYERS_PER_ROD[i];
+        const players = [];
+        for (let j = 0; j < count; j++) {
+          const spacing = 0.22;
+          const start = 0.5 - ((count - 1) * spacing) / 2;
+          players.push({ offset: start + j * spacing });
+        }
+        rods.push({ y: ROD_YS[i], isPlayer, players, x: 0.5, targetX: 0.5 });
+      }
+    }
+
+    function resetBall(towardPlayer = false) {
+      stuckTimer = 0;
+      const dir = towardPlayer ? 1 : -1;
+      ball = {
+        x: 0.5,
+        y: 0.5,
+        vx: (Math.random() - 0.5) * 0.012,
+        vy: dir * (0.008 + Math.random() * 0.006)
+      };
+    }
+
+    function throwBall() {
+      if (gameOver) return;
+      // Either player can pick up and throw when ball is stuck or anytime
+      resetBall(Math.random() > 0.5);
+      setStatus("Ball thrown! Play on");
+      try { SFX.click(); } catch(e) {}
+    }
+
+    function startGame() {
+      document.getElementById("menu-screen").classList.add("hidden");
+      document.getElementById("game-screen").style.display = "block";
+      playerScore = 0; aiScore = 0; gameOver = false;
+      inHalftimeBreak = false;
+      awaitingDrawDecision = false;
+      continuePurchasePending = false;
+      matchPrizeText = settings.aiPrize || "a prize";
+      document.getElementById("pScore").textContent = "0";
+      document.getElementById("aScore").textContent = "0";
+      document.getElementById("oppLabel").textContent = gameMode === "multi" ? "OPP" : "AI";
+      document.getElementById("oppBadge").textContent = gameMode === "multi" ? "🛡️" : "🤖";
+
+      if (gameMode === "ai") {
+        // Timed match: 2 halves of 2 minutes each
+        currentHalf = 1;
+        matchClockSeconds = HALF_SECONDS;
+        document.getElementById("matchFormatLabel").style.display = "none";
+        document.getElementById("matchClockDisplay").style.display = "block";
+        updateClockDisplay();
+      } else {
+        // Multiplayer keeps the existing first-to-5 format for now
+        WIN_SCORE = 5;
+        document.getElementById("bestOf").textContent = "5";
+        document.getElementById("matchFormatLabel").style.display = "block";
+        document.getElementById("matchClockDisplay").style.display = "none";
+      }
+
+      createRods();
+      resetBall(true);
+      resize();
+      if (gameMode === "multi") {
+        setConnStatus("● Connecting…", "#9a3412");
+        setStatus("Drag bottom half to move your rods");
+        document.getElementById("emojiBar").style.display = "flex";
+      } else {
+        setConnStatus("● vs AI", "#1e293b");
+        setStatus("Drag bottom half to move your rods");
+        document.getElementById("emojiBar").style.display = "none";
+      }
+      requestAnimationFrame(loop);
+      MatchAudio.startCrowd();
+    }
+
+    function updateClockDisplay() {
+      const m = Math.floor(Math.max(0, matchClockSeconds) / 60);
+      const s = Math.floor(Math.max(0, matchClockSeconds) % 60);
+      document.getElementById("clockText").textContent = `${m}:${s.toString().padStart(2, "0")}`;
+      document.getElementById("halfLabel").textContent = currentHalf === 1 ? "1st Half" : "2nd Half";
+    }
+
+    function quitGame() {
+      MatchAudio.stopCrowd();
+      cleanupWebRTC();
+      if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+      document.getElementById("game-screen").style.display = "none";
+      document.getElementById("menu-screen").classList.remove("hidden");
+      loadUser();
+      loadLeaderboard();
+    }
+    document.getElementById("quitBtn").onclick = quitGame;
+    document.getElementById("throwBallBtn").onclick = throwBall;
+
+    function setStatus(msg) {
+      document.getElementById("gameStatus").textContent = msg;
+    }
+
+    function update(dt) {
+      if (gameOver) return;
+      const speed = Math.min(dt / 16, 2.5);
+      const dtSec = Math.min(dt / 1000, 0.05);
+
+      // Match clock (vs AI only, for now — multiplayer keeps first-to-5)
+      if (gameMode === "ai" && !inHalftimeBreak && !awaitingDrawDecision) {
+        matchClockSeconds -= dtSec;
+        if (matchClockSeconds <= 0) {
+          matchClockSeconds = 0;
+          updateClockDisplay();
+          handleHalfOrMatchEnd();
+          return;
+        }
+        updateClockDisplay();
+      }
+
+      // Move rods toward targets
+      for (const rod of rods) {
+        rod.x += (rod.targetX - rod.x) * 0.22 * speed;
+        rod.x = Math.max(0.18, Math.min(0.82, rod.x));
+      }
+
+      // Guest in multiplayer: only apply received state + send input (host owns physics)
+      if (gameMode === "multi" && !isHost) {
+        sendInput();
+        return;
+      }
+
+      // Physics only on host (or in AI mode)
+      ball.x += ball.vx * speed;
+      ball.y += ball.vy * speed;
+      // Less friction so ball keeps moving
+      ball.vx *= 0.997; ball.vy *= 0.997;
+
+      const spd = Math.hypot(ball.vx, ball.vy);
+      if (spd > 0.032) { ball.vx = (ball.vx / spd) * 0.032; ball.vy = (ball.vy / spd) * 0.032; }
+
+      // Side walls – bounce with a bit of energy so it doesn't die in corners
+      if (ball.x < BALL_R) {
+        ball.x = BALL_R;
+        ball.vx = Math.abs(ball.vx) * 0.95 + 0.002;
+      }
+      if (ball.x > 1 - BALL_R) {
+        ball.x = 1 - BALL_R;
+        ball.vx = -Math.abs(ball.vx) * 0.95 - 0.002;
+      }
+
+      const gw = 0.28;
+      const inGoal = ball.x > 0.5 - gw / 2 && ball.x < 0.5 + gw / 2;
+
+      if (ball.y < BALL_R) {
+        if (inGoal) {
+          playerScore++;
+          document.getElementById("pScore").textContent = playerScore;
+          if (gameMode === "ai") {
+            // Timed match — goals never end it directly, only full-time does
+            setStatus("GOAL!");
+            MatchAudio.playGoal();
+            setTimeout(() => { if (!gameOver) resetBall(false); }, 800);
+          } else if (playerScore >= WIN_SCORE) {
+            gameOver = true;
+            setStatus("🎉 You win the match!");
+            SFX.win();
+            onMatchEnd(true);
+          } else {
+            setStatus("GOAL!");
+            MatchAudio.playGoal();
+            setTimeout(() => { if (!gameOver) resetBall(false); }, 800);
+          }
+          ball.vx = 0; ball.vy = 0;
+          stuckTimer = 0;
+        } else {
+          ball.y = BALL_R;
+          ball.vy = Math.abs(ball.vy) * 0.92 + 0.0015;
+        }
+      }
+      if (ball.y > 1 - BALL_R) {
+        if (inGoal) {
+          aiScore++;
+          document.getElementById("aScore").textContent = aiScore;
+          if (gameMode === "ai") {
+            setStatus("AI scored");
+            MatchAudio.playGoal();
+            setTimeout(() => { if (!gameOver) resetBall(true); }, 800);
+          } else if (aiScore >= WIN_SCORE) {
+            gameOver = true;
+            setStatus(gameMode === "multi" ? "Opponent wins the match" : "AI wins the match");
+            SFX.lose();
+            onMatchEnd(false);
+          } else {
+            setStatus(gameMode === "multi" ? "Opponent scored" : "AI scored");
+            MatchAudio.playGoal();
+            setTimeout(() => { if (!gameOver) resetBall(true); }, 800);
+          }
+          ball.vx = 0; ball.vy = 0;
+          stuckTimer = 0;
+        } else {
+          ball.y = 1 - BALL_R;
+          ball.vy = -Math.abs(ball.vy) * 0.92 - 0.0015;
+        }
+      }
+
+      // Collisions with players
+      for (const rod of rods) {
+        for (const p of rod.players) {
+          const px = rod.x + (p.offset - 0.5) * 0.75;
+          const py = rod.y;
+          const dx = ball.x - px, dy = ball.y - py;
+          const dist = Math.hypot(dx, dy);
+          if (dist < BALL_R + PLAYER_R && dist > 0.001) {
+            const nx = dx / dist, ny = dy / dist;
+            ball.x = px + nx * (BALL_R + PLAYER_R);
+            ball.y = py + ny * (BALL_R + PLAYER_R);
+            const rodVel = (rod.targetX - rod.x) * 0.55;
+            const dot = ball.vx * nx + ball.vy * ny;
+            ball.vx = (ball.vx - 2 * dot * nx) * 0.95 + rodVel * 0.7;
+            ball.vy = (ball.vy - 2 * dot * ny) * 0.95;
+            // Stronger kick when player hits toward opponent goal
+            if (rod.isPlayer && ball.vy > 0) ball.vy *= 1.25;
+            if (!rod.isPlayer && ball.vy < 0) ball.vy *= 1.25;
+            stuckTimer = 0;
+            MatchAudio.playKick();
+          }
+        }
+      }
+
+      // ---- Stuck ball detection: auto throw after ~1.4s nearly stopped ----
+      const curSpd = Math.hypot(ball.vx, ball.vy);
+      if (curSpd < STUCK_SPEED) {
+        stuckTimer += dtSec;
+        if (stuckTimer > 0.6) {
+          setStatus("Ball stuck – throwing…");
+        }
+        if (stuckTimer >= STUCK_RESET_AFTER) {
+          throwBall();
+        }
+      } else {
+        stuckTimer = 0;
+      }
+
+      // ---- HARD AI ----
+      if (gameMode === "ai") {
+        // Predict where ball will be shortly
+        const predX = ball.x + ball.vx * 18;
+        const predY = ball.y + ball.vy * 18;
+
+        for (const rod of rods) {
+          if (rod.isPlayer) continue;
+
+          const distY = Math.abs(rod.y - ball.y);
+          const distPredY = Math.abs(rod.y - predY);
+
+          // Strong tracking when ball is near this rod
+          if (distY < 0.22) {
+            const target = Math.max(0.18, Math.min(0.82, predX));
+            rod.targetX += (target - rod.targetX) * 0.28;
+          } else if (distPredY < 0.28) {
+            // Move early toward predicted position
+            const target = Math.max(0.18, Math.min(0.82, predX));
+            rod.targetX += (target - rod.targetX) * 0.16;
+          } else {
+            // Default: stay roughly central but biased to ball X
+            const target = Math.max(0.22, Math.min(0.78, 0.5 + (ball.x - 0.5) * 0.55));
+            rod.targetX += (target - rod.targetX) * 0.06;
+          }
+
+          // Goalkeeper (top rod) tracks ball tightly
+          if (rod.y < 0.18) {
+            const gkTarget = Math.max(0.22, Math.min(0.78, ball.x + ball.vx * 10));
+            rod.targetX += (gkTarget - rod.targetX) * 0.32;
+          }
+
+          // Tiny jitter so it doesn't look robotic
+          rod.targetX += (Math.random() - 0.5) * 0.012;
+          rod.targetX = Math.max(0.18, Math.min(0.82, rod.targetX));
+        }
+      }
+
+      // Host sends state to guest
+      if (gameMode === "multi" && isHost) {
+        sendState();
+      }
+    }
+
+    function draw() {
+      ctx.save();
+      // Flip vertically for guest so they also feel "at the bottom"
+      const flip = (gameMode === "multi" && !isHost);
+      if (flip) {
+        ctx.translate(0, H);
+        ctx.scale(1, -1);
+      }
+
+      // ===== TABLE (pseudo-3D, or custom admin-uploaded image) =====
+      const frame = Math.max(8, scale * 0.035);
+      if (tableBgImage) {
+        ctx.drawImage(tableBgImage, 0, 0, W, H);
+      } else {
+      // Outer wood frame
+      ctx.fillStyle = "#3d2314";
+      ctx.fillRect(0, 0, W, H);
+      // Inner wood bevel
+      ctx.fillStyle = "#5c3a1e";
+      ctx.fillRect(frame * 0.4, frame * 0.4, W - frame * 0.8, H - frame * 0.8);
+      // Gold trim
+      ctx.strokeStyle = "#b45309";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(frame * 0.5, frame * 0.5, W - frame, H - frame);
+
+      // Playing surface (felt)
+      ctx.fillStyle = "#15803d";
+      ctx.fillRect(frame, frame, W - frame * 2, H - frame * 2);
+      // Depth shading on felt
+      const feltGrad = ctx.createLinearGradient(0, frame, 0, H - frame);
+      feltGrad.addColorStop(0, "rgba(0,0,0,0.18)");
+      feltGrad.addColorStop(0.5, "rgba(0,0,0,0)");
+      feltGrad.addColorStop(1, "rgba(0,0,0,0.22)");
+      ctx.fillStyle = feltGrad;
+      ctx.fillRect(frame, frame, W - frame * 2, H - frame * 2);
+
+      // Field markings
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(frame, H * 0.5);
+      ctx.lineTo(W - frame, H * 0.5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(W * 0.5, H * 0.5, scale * 0.1, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(W * 0.5, H * 0.5, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.fill();
+
+      // Goals (recessed)
+      const gw = W * 0.3;
+      const gh = Math.max(10, H * 0.04);
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(W * 0.5 - gw / 2, frame * 0.3, gw, gh);
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(W * 0.5 - gw / 2, frame * 0.3, gw, gh);
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(W * 0.5 - gw / 2, H - frame * 0.3 - gh, gw, gh);
+      ctx.strokeStyle = "#94a3b8";
+      ctx.strokeRect(W * 0.5 - gw / 2, H - frame * 0.3 - gh, gw, gh);
+      }
+
+      // ===== RODS + PLAYERS =====
+      for (const rod of rods) {
+        const ry = rod.y * H;
+        // Metallic rod
+        const rodGrad = ctx.createLinearGradient(0, ry - 3, 0, ry + 3);
+        rodGrad.addColorStop(0, "#cbd5e1");
+        rodGrad.addColorStop(0.5, "#64748b");
+        rodGrad.addColorStop(1, "#334155");
+        ctx.strokeStyle = rodGrad;
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(frame + 4, ry);
+        ctx.lineTo(W - frame - 4, ry);
+        ctx.stroke();
+
+        const isMine = flip ? !rod.isPlayer : rod.isPlayer;
+        const count = rod.players.length;
+        const groupImg = isMine ? rodBlueImages[count] : rodRedImages[count];
+        const pr = PLAYER_R * scale;
+
+        if (groupImg) {
+          // Draw the whole pre-made rod+players image, scaled so the outer
+          // players line up with where physics actually expects them.
+          const spacing = 0.22;
+          const spreadPx = (count - 1) * spacing * 0.75 * W;
+          const targetWidth = spreadPx + pr * 2.6;
+          const drawScale = targetWidth / groupImg.width;
+          const targetHeight = groupImg.height * drawScale;
+          const cx = rod.x * W;
+
+          // Shadow under the whole group
+          ctx.beginPath();
+          ctx.ellipse(cx + 2, ry + pr * 0.9, targetWidth * 0.42, pr * 0.25, 0, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.fill();
+
+          ctx.drawImage(groupImg, cx - targetWidth / 2, ry - targetHeight / 2, targetWidth, targetHeight);
+        } else {
+        // 3.8D animated foosball characters (procedural only – no other game logic touched)
+        const t = performance.now() * 0.001;
+        for (let pi = 0; pi < rod.players.length; pi++) {
+          const p = rod.players[pi];
+          const px = (rod.x + (p.offset - 0.5) * 0.75) * W;
+
+          // Subtle idle bob + slight lean from rod movement
+          const bob = Math.sin(t * 3.2 + pi * 1.7 + rod.y * 8) * pr * 0.06;
+          const lean = (rod.targetX - rod.x) * pr * 1.8;
+          const py = ry + bob;
+
+          const bodyColor = isMine ? "#3b82f6" : "#ef4444";
+          const darkColor = isMine ? "#1d4ed8" : "#b91c1c";
+          const midColor  = isMine ? "#2563eb" : "#dc2626";
+          const lightColor = isMine ? "#93c5fd" : "#fca5a5";
+          const jerseyAccent = isMine ? "#1e40af" : "#991b1b";
+
+          // Soft elliptical shadow on table
+          ctx.beginPath();
+          ctx.ellipse(px + 1.5 + lean * 0.3, ry + pr * 0.95, pr * 0.78, pr * 0.28, 0, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(0,0,0,0.38)";
+          ctx.fill();
+
+          // === FEET (slightly perspective-widened base) ===
+          ctx.fillStyle = "#0f172a";
+          ctx.beginPath();
+          ctx.ellipse(px - pr * 0.32 + lean * 0.15, py + pr * 0.92, pr * 0.28, pr * 0.14, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(px + pr * 0.32 + lean * 0.15, py + pr * 0.92, pr * 0.28, pr * 0.14, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // === LEGS (tapered cylinders with lighting) ===
+          // Left leg
+          const legGradL = ctx.createLinearGradient(px - pr * 0.55, 0, px - pr * 0.05, 0);
+          legGradL.addColorStop(0, darkColor);
+          legGradL.addColorStop(0.45, midColor);
+          legGradL.addColorStop(1, lightColor);
+          ctx.fillStyle = legGradL;
+          ctx.beginPath();
+          ctx.moveTo(px - pr * 0.42 + lean * 0.1, py + pr * 0.12);
+          ctx.lineTo(px - pr * 0.18 + lean * 0.1, py + pr * 0.12);
+          ctx.lineTo(px - pr * 0.12 + lean * 0.2, py + pr * 0.88);
+          ctx.lineTo(px - pr * 0.48 + lean * 0.2, py + pr * 0.88);
+          ctx.closePath();
+          ctx.fill();
+          // Right leg
+          const legGradR = ctx.createLinearGradient(px + pr * 0.05, 0, px + pr * 0.55, 0);
+          legGradR.addColorStop(0, lightColor);
+          legGradR.addColorStop(0.55, midColor);
+          legGradR.addColorStop(1, darkColor);
+          ctx.fillStyle = legGradR;
+          ctx.beginPath();
+          ctx.moveTo(px + pr * 0.18 + lean * 0.1, py + pr * 0.12);
+          ctx.lineTo(px + pr * 0.42 + lean * 0.1, py + pr * 0.12);
+          ctx.lineTo(px + pr * 0.48 + lean * 0.2, py + pr * 0.88);
+          ctx.lineTo(px + pr * 0.12 + lean * 0.2, py + pr * 0.88);
+          ctx.closePath();
+          ctx.fill();
+
+          // === TORSO (rounded 3D body with jersey shading) ===
+          const bw = pr * 1.22, bh = pr * 1.28;
+          const bx0 = px - bw * 0.5 + lean * 0.35;
+          const by0 = py - pr * 0.78;
+          // Body base shape
+          ctx.beginPath();
+          ctx.moveTo(bx0 + pr * 0.22, by0);
+          ctx.lineTo(bx0 + bw - pr * 0.22, by0);
+          ctx.quadraticCurveTo(bx0 + bw, by0, bx0 + bw, by0 + pr * 0.22);
+          ctx.lineTo(bx0 + bw * 0.96, by0 + bh - pr * 0.18);
+          ctx.quadraticCurveTo(bx0 + bw * 0.9, by0 + bh, bx0 + bw * 0.7, by0 + bh);
+          ctx.lineTo(bx0 + bw * 0.3, by0 + bh);
+          ctx.quadraticCurveTo(bx0 + bw * 0.1, by0 + bh, bx0 + bw * 0.04, by0 + bh - pr * 0.18);
+          ctx.lineTo(bx0, by0 + pr * 0.22);
+          ctx.quadraticCurveTo(bx0, by0, bx0 + pr * 0.22, by0);
+          ctx.closePath();
+          const bodyGrad = ctx.createLinearGradient(bx0, by0, bx0 + bw, by0 + bh);
+          bodyGrad.addColorStop(0, lightColor);
+          bodyGrad.addColorStop(0.35, bodyColor);
+          bodyGrad.addColorStop(0.7, midColor);
+          bodyGrad.addColorStop(1, darkColor);
+          ctx.fillStyle = bodyGrad;
+          ctx.fill();
+          // Subtle jersey stripe
+          ctx.fillStyle = jerseyAccent;
+          ctx.globalAlpha = 0.55;
+          ctx.fillRect(bx0 + bw * 0.12, by0 + bh * 0.38, bw * 0.76, pr * 0.18);
+          ctx.globalAlpha = 1;
+          // Edge highlight
+          ctx.strokeStyle = "rgba(255,255,255,0.22)";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          // Dark outline
+          ctx.strokeStyle = "rgba(0,0,0,0.3)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // === ARMS (simple 3D cylinders hanging at sides) ===
+          // Left arm
+          const armGradL = ctx.createLinearGradient(px - pr * 0.85, 0, px - pr * 0.45, 0);
+          armGradL.addColorStop(0, darkColor);
+          armGradL.addColorStop(1, lightColor);
+          ctx.fillStyle = armGradL;
+          (function() {
+            const ax = px - pr * 0.78 + lean * 0.4, ay = py - pr * 0.55, aw = pr * 0.28, ah = pr * 0.75, r = pr * 0.12;
+            ctx.beginPath();
+            ctx.moveTo(ax + r, ay);
+            ctx.lineTo(ax + aw - r, ay);
+            ctx.quadraticCurveTo(ax + aw, ay, ax + aw, ay + r);
+            ctx.lineTo(ax + aw, ay + ah - r);
+            ctx.quadraticCurveTo(ax + aw, ay + ah, ax + aw - r, ay + ah);
+            ctx.lineTo(ax + r, ay + ah);
+            ctx.quadraticCurveTo(ax, ay + ah, ax, ay + ah - r);
+            ctx.lineTo(ax, ay + r);
+            ctx.quadraticCurveTo(ax, ay, ax + r, ay);
+            ctx.closePath();
+            ctx.fill();
+          })();
+          // Right arm
+          const armGradR = ctx.createLinearGradient(px + pr * 0.45, 0, px + pr * 0.85, 0);
+          armGradR.addColorStop(0, lightColor);
+          armGradR.addColorStop(1, darkColor);
+          ctx.fillStyle = armGradR;
+          (function() {
+            const ax = px + pr * 0.5 + lean * 0.4, ay = py - pr * 0.55, aw = pr * 0.28, ah = pr * 0.75, r = pr * 0.12;
+            ctx.beginPath();
+            ctx.moveTo(ax + r, ay);
+            ctx.lineTo(ax + aw - r, ay);
+            ctx.quadraticCurveTo(ax + aw, ay, ax + aw, ay + r);
+            ctx.lineTo(ax + aw, ay + ah - r);
+            ctx.quadraticCurveTo(ax + aw, ay + ah, ax + aw - r, ay + ah);
+            ctx.lineTo(ax + r, ay + ah);
+            ctx.quadraticCurveTo(ax, ay + ah, ax, ay + ah - r);
+            ctx.lineTo(ax, ay + r);
+            ctx.quadraticCurveTo(ax, ay, ax + r, ay);
+            ctx.closePath();
+            ctx.fill();
+          })();
+
+          // === HEAD (3D sphere with face hint + hair/cap) ===
+          const hx = px + lean * 0.5;
+          const hy = py - pr * 1.05 + bob * 0.4;
+          const hr = pr * 0.52;
+          // Head sphere
+          const headGrad = ctx.createRadialGradient(hx - hr * 0.35, hy - hr * 0.4, hr * 0.1, hx, hy, hr);
+          headGrad.addColorStop(0, "#fef3c7");
+          headGrad.addColorStop(0.55, "#fbbf24");
+          headGrad.addColorStop(1, "#b45309");
+          ctx.beginPath();
+          ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+          ctx.fillStyle = headGrad;
+          ctx.fill();
+          ctx.strokeStyle = "rgba(0,0,0,0.22)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          // Simple eyes
+          ctx.fillStyle = "#1e293b";
+          ctx.beginPath();
+          ctx.ellipse(hx - hr * 0.22, hy - hr * 0.08, hr * 0.09, hr * 0.12, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(hx + hr * 0.22, hy - hr * 0.08, hr * 0.09, hr * 0.12, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Tiny smile
+          ctx.strokeStyle = "#92400e";
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          ctx.arc(hx, hy + hr * 0.12, hr * 0.22, 0.15, Math.PI - 0.15);
+          ctx.stroke();
+          // Cap / hair top
+          ctx.fillStyle = jerseyAccent;
+          ctx.beginPath();
+          ctx.ellipse(hx, hy - hr * 0.55, hr * 0.78, hr * 0.38, 0, Math.PI, Math.PI * 2);
+          ctx.fill();
+          // Cap brim
+          ctx.fillStyle = darkColor;
+          ctx.beginPath();
+          ctx.ellipse(hx, hy - hr * 0.32, hr * 0.85, hr * 0.12, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        }
+      }
+
+      // ===== BALL =====
+      const bx = ball.x * W, by = ball.y * H, br = BALL_R * scale;
+      ctx.beginPath();
+      ctx.ellipse(bx + 2, by + br * 0.6, br * 0.85, br * 0.35, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fill();
+      if (ballSpriteImage) {
+        const size = br * 2.4;
+        ctx.drawImage(ballSpriteImage, bx - size / 2, by - size / 2, size, size);
+      } else {
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      const ballGrad = ctx.createRadialGradient(bx - br * 0.35, by - br * 0.35, br * 0.1, bx, by, br);
+      ballGrad.addColorStop(0, "#ffffff");
+      ballGrad.addColorStop(0.5, "#e2e8f0");
+      ballGrad.addColorStop(1, "#94a3b8");
+      ctx.fillStyle = ballGrad;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.2)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // ===== Live score labels above each team (drawn in normal screen
+      // space, after the flip-restore, so text is never mirrored) =====
+      const gkRodMine = rods[flip ? 0 : 5];   // whichever rod is "mine" on screen
+      const gkRodOpp = rods[flip ? 5 : 0];
+      const screenY = (rod) => flip ? H - rod.y * H : rod.y * H;
+      ctx.font = `bold ${Math.round(scale * 0.035)}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#93c5fd";
+      ctx.fillText(String(playerScore), W * 0.5, screenY(gkRodMine) - scale * 0.05);
+      ctx.fillStyle = "#fca5a5";
+      ctx.fillText(String(aiScore), W * 0.5, screenY(gkRodOpp) + scale * 0.06);
+    }
+
+    function loop(ts) {
+      if (document.getElementById("game-screen").style.display === "none") return;
+      const dt = ts - lastTime || 16;
+      lastTime = ts;
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    async function onMatchEnd(playerWon) {
+      if (playerWon) {
+        await db.collection("users").doc(currentUser.uid).update({
+          wins: firebase.firestore.FieldValue.increment(1)
+        });
+        // Update leaderboard
+        const lbRef = db.collection("leaderboard").doc(currentUser.uid);
+        const lbSnap = await lbRef.get();
+        if (lbSnap.exists) {
+          await lbRef.update({ wins: firebase.firestore.FieldValue.increment(1), name: userData.name });
+        } else {
+          await lbRef.set({ name: userData.name, wins: 1, uid: currentUser.uid });
+        }
+        if (gameMode === "ai") {
+          document.getElementById("winnerPrizeText").textContent = "Prize: " + matchPrizeText;
+          document.getElementById("winnerPhone").value = userData.phone || "";
+          document.getElementById("winnerStatus").textContent = "";
+          document.getElementById("winnerModal").classList.remove("hidden");
+          return; // quitGame happens after they submit their phone number
+        }
+      }
+      setTimeout(quitGame, 2500);
+    }
+
+    document.getElementById("submitWinnerBtn").onclick = async () => {
+      const phone = document.getElementById("winnerPhone").value.trim();
+      const statusEl = document.getElementById("winnerStatus");
+      if (!phone) { statusEl.textContent = "Please enter a phone number."; statusEl.style.color = "#f87171"; return; }
+      try {
+        await db.collection("winners").add({
+          uid: currentUser.uid,
+          name: userData.name || "Player",
+          phone,
+          prize: matchPrizeText,
+          mode: gameMode,
+          finalScore: { you: playerScore, opponent: aiScore },
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // Keep this number on the profile too, for next time
+        await db.collection("users").doc(currentUser.uid).update({ phone });
+        statusEl.style.color = "#86efac";
+        statusEl.textContent = "Submitted! We'll contact you about your prize.";
+        setTimeout(() => {
+          document.getElementById("winnerModal").classList.add("hidden");
+          quitGame();
+        }, 1800);
+      } catch (err) {
+        statusEl.style.color = "#f87171";
+        statusEl.textContent = "Couldn't submit: " + err.message;
+      }
+    };
+
+    // ---- Halftime / full-time / draw handling (vs AI) ----
+    function handleHalfOrMatchEnd() {
+      if (currentHalf === 1) {
+        inHalftimeBreak = true;
+        gameOver = true;
+        setStatus("⏸ Half Time — 2nd half starts shortly…");
+        setTimeout(() => {
+          currentHalf = 2;
+          matchClockSeconds = HALF_SECONDS;
+          inHalftimeBreak = false;
+          gameOver = false;
+          resetBall(true);
+          updateClockDisplay();
+          setStatus("2nd Half — Drag bottom half to move your rods");
+        }, 4000);
+      } else {
+        gameOver = true;
+        if (playerScore === aiScore) {
+          awaitingDrawDecision = true;
+          setStatus("Full time — it's a draw!");
+          document.getElementById("drawPrizeText").textContent = matchPrizeText;
+          document.getElementById("drawStatus").textContent = "";
+          document.getElementById("drawModal").classList.remove("hidden");
+        } else if (playerScore > aiScore) {
+          setStatus("🎉 Full time! You win the match!");
+          SFX.win();
+          onMatchEnd(true);
+        } else {
+          setStatus("Full time — AI wins the match");
+          SFX.lose();
+          onMatchEnd(false);
+        }
+      }
+    }
+
+    document.getElementById("drawRejectBtn").onclick = () => {
+      document.getElementById("drawModal").classList.add("hidden");
+      setStatus("Match ended in a draw");
+      setTimeout(quitGame, 1500);
+    };
+
+    document.getElementById("drawYesBtn").onclick = async () => {
+      const statusEl = document.getElementById("drawStatus");
+      const yesBtn = document.getElementById("drawYesBtn");
+      if (!currentUser) {
+        const ok = await waitForAuth();
+        if (!ok || !currentUser) return;
+      }
+      yesBtn.disabled = true;
+      statusEl.style.color = "#94a3b8";
+      statusEl.textContent = "Opening secure payment window...";
+
+      const CONTINUE_BALLS = 5, CONTINUE_COST_GHC = 5;
+      const handler = PaystackPop.setup({
+        key: PAYSTACK_PUBLIC_KEY,
+        email: `${currentUser.uid}@voltix-player.app`,
+        amount: CONTINUE_COST_GHC * 100,
+        currency: "GHS",
+        metadata: {
+          userId: currentUser.uid,
+          balls: CONTINUE_BALLS,
+          type: "continue",
+          custom_fields: [
+            { display_name: "User ID", variable_name: "user_id", value: currentUser.uid },
+            { display_name: "Purchase Type", variable_name: "type", value: "continue" }
+          ]
+        },
+        callback: function (response) {
+          statusEl.textContent = "Verifying payment...";
+          fetch("/api/verify-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reference: response.reference,
+              userId: currentUser.uid,
+              balls: CONTINUE_BALLS,
+              amountGhc: CONTINUE_COST_GHC,
+              type: "continue"
+            })
+          })
+            .then(res => res.json())
+            .then(async (data) => {
+              if (data.success) {
+                statusEl.style.color = "#86efac";
+                statusEl.textContent = "Payment confirmed! Continuing match...";
+                SFX.purchase();
+                await loadUser();
+                setTimeout(() => {
+                  document.getElementById("drawModal").classList.add("hidden");
+                  // Resume the SAME match with another full half — score/position unchanged
+                  currentHalf++; // extra period, just for the half-label display
+                  matchClockSeconds = HALF_SECONDS;
+                  awaitingDrawDecision = false;
+                  gameOver = false;
+                  updateClockDisplay();
+                  document.getElementById("halfLabel").textContent = "Extra Time";
+                  setStatus("Extra time! Drag bottom half to move your rods");
+                  yesBtn.disabled = false;
+                }, 1200);
+              } else {
+                statusEl.style.color = "#f87171";
+                statusEl.textContent = "Payment could not be verified. Reference: " + response.reference;
+                yesBtn.disabled = false;
+              }
+            })
+            .catch(() => {
+              statusEl.style.color = "#f87171";
+              statusEl.textContent = "Verification failed. Reference: " + response.reference;
+              yesBtn.disabled = false;
+            });
+        },
+        onClose: function () {
+          statusEl.textContent = "Payment window closed.";
+          yesBtn.disabled = false;
+        }
+      });
+      handler.openIframe();
+    };
+
+    // Input
+    function getRel(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: (cx-rect.left)/rect.width, y: (cy-rect.top)/rect.height };
+    }
+    function canControl(y) {
+      // After flip, both players drag on the visual bottom half of the screen
+      return y > 0.48;
+    }
+    function applyInput(pos) {
+      if (gameMode === "multi" && !isHost) {
+        // Guest controls world top rods (0,1,2) — appears as bottom after flip
+        for (let i = 0; i < 3; i++) {
+          if (rods[i]) rods[i].targetX = Math.max(0.18, Math.min(0.82, pos.x));
+        }
+      } else {
+        // Host or AI mode: control bottom rods (isPlayer = 3,4,5)
+        rods.forEach(r => {
+          if (r.isPlayer) r.targetX = Math.max(0.18, Math.min(0.82, pos.x));
+        });
+      }
+    }
+    canvas.addEventListener("mousedown", e => { if (canControl(getRel(e).y)) isDragging = true; });
+    canvas.addEventListener("mousemove", e => {
+      if (!isDragging) return;
+      applyInput(getRel(e));
+    });
+    canvas.addEventListener("mouseup", () => isDragging = false);
+    canvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      if (canControl(getRel(e).y)) isDragging = true;
+    }, {passive:false});
+    canvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      if (!isDragging) return;
+      applyInput(getRel(e));
+    }, {passive:false});
+    canvas.addEventListener("touchend", () => isDragging = false);
+
+    window.addEventListener("resize", resize);
+
+    // Boot
+    (async () => {
+      try {
+        await ensureAuth();
+        await loadSettings();
+        await loadBanners();
+        await loadMusicOptions();
+        await loadLeaderboard();
+
+        // If arriving from a shared challenge link (chat "Join Challenge" button),
+        // open the Challenge modal with the code pre-filled.
+        const sharedCode = new URLSearchParams(window.location.search).get("joinCode");
+        if (sharedCode) {
+          document.getElementById("challengeModal").classList.remove("hidden");
+          document.getElementById("joinCode").value = sharedCode.toUpperCase();
+          window.history.replaceState({}, "", "foosball.html");
+        }
+
+        // Arriving from the Kaisa page's "Buy Balls" button
+        if (new URLSearchParams(window.location.search).get("buy")) {
+          document.getElementById("buyModal").classList.remove("hidden");
+          window.history.replaceState({}, "", "foosball.html");
+        }
+      } catch (err) {
+        console.error(err);
+        const msg = (err && err.message) ? err.message : "Unknown error";
+        document.getElementById("bannersList").innerHTML = `<p style="color:#f87171;">Couldn't load challenges: ${msg}</p>`;
+        document.getElementById("leaderboardList").innerHTML = `<p style="color:#f87171;">Couldn't load leaderboard: ${msg}</p>`;
+      }
+    })();
+  </script>
+</body>
+</html>
