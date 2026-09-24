@@ -1,0 +1,206 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Shared by both the store rules and the game rules below — a UID only
+    // counts as an admin if it has a matching doc in /admins. This is the
+    // ONLY thing that grants admin.html access; being signed in is not
+    // enough on its own (referrers are real signed-in accounts too now).
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ===== STORE RULES (existing) =====
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /categories/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /referrers/{uid} {
+      // Doc ID is the referrer's own Firebase Auth UID (real login now,
+      // not just a name+phone record) — so ownership is just "is this you".
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if isAdmin() ||
+        (request.auth != null && request.auth.uid == uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) &&
+         request.resource.data.balance < resource.data.balance &&
+         request.resource.data.balance >= 0);
+      allow delete: if isAdmin();
+    }
+    match /referralSales/{docId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
+    }
+    match /withdrawalRequests/{docId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
+    }
+    match /coupons/{code} {
+      allow read: if true;
+      allow write: if request.auth != null;
+      // Lets checkout (no admin login) bump usedCount by exactly 1 when a
+      // coupon is actually redeemed on an order — nothing else about the
+      // coupon (discount value, active flag, expiry...) can change this way.
+      allow update: if request.auth == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedCount'])
+        && request.resource.data.usedCount == resource.data.usedCount + 1;
+    }
+    match /music/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /shorts/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /orders/{orderId} {
+      allow read: if request.auth != null;
+      allow create: if true;
+      allow update: if request.auth != null;
+    }
+    match /wallets/{phone} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /spinWinners/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /spinReferrals/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /coinPurchases/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /reviews/{id} {
+      allow read: if resource.data.approved == true || request.auth != null;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // ===== GAME RULES (new) =====
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['balls']) ||
+          (request.resource.data.balls is number && resource.data.balls is number
+            && request.resource.data.balls < resource.data.balls)
+        );
+
+      // Each user's own friends list — only they can read/write it
+      match /friends/{friendId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    match /transactions/{txId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Prize winners — users can create their own record when they win
+    // (used to collect phone numbers for prize fulfillment). Only admins
+    // can read the full list, update, or delete.
+    match /winners/{winnerId} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /gameSettings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gameMusic/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /banners/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /leaderboard/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+    }
+
+    // Kaisa Challenge (pool game) leaderboard — same rules as the foosball one,
+    // kept in its own collection so the two games' champions don't mix.
+    match /kaisaLeaderboard/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+    }
+
+    // Damii (Ghanaian draughts) leaderboard — same rules again
+    match /damiiLeaderboard/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+    }
+
+    // Ludo leaderboard — same rules again
+    match /ludoLeaderboard/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+    }
+
+    // Site announcements (text/image/voice) shown at the top of every page —
+    // everyone can read; only admins can post, edit or delete them.
+    match /announcements/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Group chat — any signed-in player (including anonymous accounts) can read/post
+    match /groupChat/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Direct messages — dmId is formed as "uid1_uid2" (sorted), so only the
+    // two participants can access their own conversation.
+    function isDmParticipant(dmId) {
+      return request.auth != null &&
+        (dmId.split('_')[0] == request.auth.uid || dmId.split('_')[1] == request.auth.uid);
+    }
+    match /dms/{dmId} {
+      allow read, write: if isDmParticipant(dmId);
+      match /messages/{msgId} {
+        allow read, write: if isDmParticipant(dmId);
+      }
+    }
+
+    // Challenge Friend rooms (Foosball, Kaisa, Damii and Ludo — Kaisa/Damii/Ludo rooms carry
+    // a game field) — any signed-in player can create/read/join. WebRTC signaling lives in
+    // the signal subcollection; the relay subcollection carries game messages when a
+    // direct connection isn't possible.
+    match /matches/{matchId} {
+      allow read, write: if request.auth != null;
+      match /signal/{sigId} {
+        allow read, write: if request.auth != null;
+      }
+      match /relay/{relayId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+}
