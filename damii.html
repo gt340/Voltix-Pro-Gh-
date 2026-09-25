@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Voltix Pro GH – DAMII</title>
+  <style>
+    :root {
+      --bg: #0c1a0f;
+      --panel: #132217;
+      --gold: #d4a017;
+      --gold2: #f0c040;
+      --red: #c41e3a;
+      --blue: #1e6bc4;
+      --light: #e8d9a8;
+      --dark: #5c3d1e;
+      --text: #f5f0e0;
+      --muted: #8a9a80;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: radial-gradient(ellipse at top, #1a2e1f 0%, #0c1a0f 70%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px;
+      overflow-x: hidden;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: var(--gold);
+      letter-spacing: 3px;
+      margin-bottom: 2px;
+    }
+    .tagline { color: var(--muted); font-size: 0.8rem; margin-bottom: 12px; }
+    .screen { width: 100%; max-width: 520px; }
+    .hidden { display: none !important; }
+    .card {
+      background: var(--panel);
+      border: 1px solid #2a3f2e;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+    button, .btn {
+      display: block;
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 6px 0;
+      transition: 0.15s;
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: #1a1000;
+    }
+    .btn-gold:hover { filter: brightness(1.1); }
+    .btn-dark {
+      background: #1e2e22;
+      color: var(--text);
+      border: 1px solid #2a3f2e;
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #a11, #c41e3a);
+      color: white;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #2a3f2e;
+      background: #0f1a12;
+      color: var(--text);
+      font-size: 1rem;
+      margin: 6px 0;
+    }
+    #status { font-size: 0.8rem; color: var(--muted); text-align: center; min-height: 18px; margin-top: 6px; }
+
+    /* Board */
+    #board-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 460px;
+      margin: 0 auto;
+      aspect-ratio: 1;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      width: 100%;
+      height: 100%;
+      border: 4px solid #3d2a12;
+      border-radius: 6px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+      background: var(--dark);
+    }
+    .sq {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+    }
+    .sq.light { background: var(--light); }
+    .sq.dark { background: var(--dark); }
+    .sq.highlight { box-shadow: inset 0 0 0 3px #4ade80; }
+    .sq.selected { box-shadow: inset 0 0 0 3px var(--gold); }
+    .sq.possible { box-shadow: inset 0 0 0 3px #60a5fa; }
+    .sq.capture { box-shadow: inset 0 0 0 3px #f87171; }
+
+    .piece {
+      width: 78%;
+      height: 78%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 700;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.45);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.12s;
+    }
+    .piece:hover { transform: scale(1.08); }
+    .piece.red {
+      background: radial-gradient(circle at 35% 30%, #ff6b6b, #c41e3a 60%, #8b0000);
+      color: #fff;
+      border: 2px solid #5c0000;
+    }
+    .piece.blue {
+      background: radial-gradient(circle at 35% 30%, #6bb3ff, #1e6bc4 60%, #0a3d7a);
+      color: #fff;
+      border: 2px solid #0a2a55;
+    }
+    .piece.king::after {
+      content: "♛";
+      font-size: 0.95em;
+    }
+
+    .info-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0;
+      font-size: 0.9rem;
+    }
+    .player-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #1a2a1e;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+    .player-box .dot {
+      width: 14px; height: 14px; border-radius: 50%;
+    }
+    .dot.red { background: var(--red); }
+    .dot.blue { background: var(--blue); }
+    .turn-banner {
+      text-align: center;
+      padding: 8px;
+      border-radius: 8px;
+      background: #1e3a24;
+      color: #4ade80;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .code-box {
+      font-family: monospace;
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      text-align: center;
+      background: #0f1a12;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px dashed var(--gold);
+      margin: 10px 0;
+      user-select: all;
+    }
+    .hint { font-size: 0.75rem; color: var(--muted); text-align: center; }
+
+    /* ---------- Voltix integration ---------- */
+    body { padding-bottom: 40px; }
+    .vbar {
+      width: 100%; max-width: 520px; display: flex; justify-content: space-between; align-items: center;
+      gap: 8px; background: #132217; border: 1px solid #2a3f2e; border-radius: 12px;
+      padding: 8px 12px; margin-bottom: 10px; font-size: 0.85rem;
+    }
+    .vbar .balance { color: var(--gold2); font-weight: 700; }
+    .vlinks { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .vlink {
+      background: #1e2e22; color: var(--text); border: 1px solid #2a3f2e; border-radius: 8px;
+      padding: 6px 10px; text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    }
+    .vlink.gold { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #1a1000; border: none; }
+    .brand-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid var(--gold); margin-bottom: 4px; }
+    .lb-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e2e22; font-size: 0.9rem; }
+    .lb-item .rank { color: var(--gold2); font-weight: 700; display: inline-block; width: 28px; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 100;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-content {
+      background: var(--panel); border: 1px solid #2a3f2e; border-radius: 14px;
+      padding: 20px; max-width: 360px; width: 100%; text-align: center;
+    }
+    .modal-content h3 { color: var(--gold); margin-bottom: 8px; }
+    #netStatus { text-align: center; font-size: 0.72rem; font-weight: 700; margin-bottom: 6px; color: var(--muted); }
+    #netStatus.direct { color: #4ade80; }
+    #netStatus.relay { color: #fdba74; }
+    .msg-line { font-size: 0.8rem; min-height: 18px; text-align: center; margin-top: 6px; }
+    .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .row-btns button { flex: 1; min-width: 130px; }
+  
+    /* ---------- Site-wide announcements banner ---------- */
+    #anncBar { position: relative; z-index: 80; }
+    .annc-card {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-left: 4px solid #fbbf24;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      position: relative;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .annc-card img { max-width: 64px; max-height: 64px; border-radius: 6px; flex-shrink: 0; object-fit: cover; }
+    .annc-card .annc-body { flex: 1; min-width: 0; line-height: 1.35; word-break: break-word; }
+    .annc-card audio { width: 100%; max-width: 260px; margin-top: 6px; height: 32px; display: block; }
+    .annc-card .annc-close {
+      background: none; border: none; color: #94a3b8; font-size: 1.15rem; cursor: pointer;
+      line-height: 1; padding: 2px 4px; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="anncBar"></div>
+  <img src="logo.png" alt="Voltix Pro" class="brand-logo" onerror="this.style.display='none'" />
+  <h1>DAMII</h1>
+  <p class="tagline">Ghanaian Draughts • 20 vs 20 • Hard AI • Online</p>
+
+  <!-- BALANCE + NAV -->
+  <div class="vbar">
+    <div>Balls: <span class="balance" id="ballBalance">0</span></div>
+    <div class="vlinks">
+      <a class="vlink" href="foosball.html" title="Foosball">⚽</a>
+      <a class="vlink" href="kaisa.html" title="Kaisa">🎱</a>
+      <a class="vlink" href="ludo.html" title="Ludo">🎲</a>
+      <a class="vlink" href="chat.html" title="Chat">💬</a>
+      <a class="vlink" href="home.html" title="Store">🛍️</a>
+      <a class="vlink gold" href="foosball.html?buy=1">Buy Balls</a>
+    </div>
+  </div>
+
+  <!-- MENU -->
+  <div id="menu" class="screen">
+    <div class="card">
+      <button class="btn-gold" id="btnVsAI">Play vs Hard AI (free)</button>
+      <button class="btn-dark" id="btnLocal">Local 2 Player</button>
+      <button class="btn-dark" id="btnOnline">Challenge Friend (Online)</button>
+      <button class="btn-dark" id="btnRules">Rules</button>
+    </div>
+    <p class="hint" id="prizeHint">Win vs the Hard AI 3 times in a row (Level 1 → 2 → 3) to claim the prize • Friend joins for 1 ball, host plays free</p>
+    <div class="card" style="margin-top:12px;">
+      <h3 style="color:var(--gold); margin-bottom:8px; font-size:0.95rem; text-transform:uppercase; letter-spacing:0.5px;">Damii Champions</h3>
+      <div id="leaderboardList">Loading…</div>
+    </div>
+    <p class="hint">Authentic Ghanaian Damii rules • Flying kings • Free choice of captures</p>
+  </div>
+
+  <!-- ONLINE LOBBY -->
+  <div id="lobby" class="screen hidden">
+    <div class="card">
+      <h3 style="color:var(--gold); margin-bottom:6px;">Challenge a Friend</h3>
+      <p class="hint" style="margin-bottom:8px;">Play live on separate phones. Hosting is free — a friend joining pays 1 ball.</p>
+      <button class="btn-gold" id="btnCreate">Create Room (Host, free)</button>
+      <div style="text-align:center;color:var(--muted);margin:8px 0;">— or —</div>
+      <input id="joinCode" placeholder="Enter room code" maxlength="6" style="text-transform:uppercase;" />
+      <button class="btn-dark" id="btnJoin">Join Room (1 ball)</button>
+      <div class="msg-line" id="lobbyMsg" style="color:#f87171;"></div>
+    </div>
+    <button class="btn-dark" id="btnBackLobby">← Back</button>
+  </div>
+
+  <!-- ROOM (host waiting) -->
+  <div id="room" class="screen hidden">
+    <div class="card">
+      <div style="text-align:center;">Room Code</div>
+      <div class="code-box" id="roomCode">------</div>
+      <p class="hint">Waiting for your friend to join…</p>
+      <div class="row-btns" style="margin-top:10px;">
+        <button class="btn-gold" id="btnShareLink">🔗 Share Invite Link</button>
+        <button class="btn-gold" id="btnShareGroup">💬 Post to Group Chat</button>
+      </div>
+      <div class="msg-line" id="roomMsg"></div>
+      <button class="btn-danger" id="btnLeave" style="margin-top:10px;">Cancel Room</button>
+    </div>
+  </div>
+
+  <!-- RULES -->
+  <div id="rules" class="screen hidden">
+    <div class="card" style="font-size:0.9rem;line-height:1.5;">
+      <h3 style="color:var(--gold);margin-bottom:8px;">Ghanaian Damii Rules</h3>
+      <p>• 10×10 board, only dark squares used</p>
+      <p>• 20 pieces each side</p>
+      <p>• Men move diagonally forward 1 square</p>
+      <p>• Men can capture forward <b>and</b> backward</p>
+      <p>• Capture is compulsory</p>
+      <p>• When multiple captures exist, you choose freely (not forced to take longest)</p>
+      <p>• Reach opposite side → becomes Flying King (any distance)</p>
+      <p>• Win by capturing all or blocking opponent</p>
+      <p style="margin-top:8px;color:var(--muted);">Prizes and leaderboard credit for beating the AI only count if you didn't use Undo.</p>
+      <button class="btn-dark" id="btnBackRules" style="margin-top:12px;">← Back</button>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div id="game" class="screen hidden">
+    <div id="netStatus"></div>
+    <div class="info-bar">
+      <div class="player-box">
+        <div class="dot red"></div>
+        <div>
+          <div id="redName">Red</div>
+          <div style="font-size:0.75rem;color:var(--muted);"><span id="redCount">20</span> pieces</div>
+        </div>
+      </div>
+      <div class="player-box">
+        <div class="dot blue"></div>
+        <div>
+          <div id="blueName">Blue</div>
+          <div style="font-size:0.75rem;color:var(--muted);"><span id="blueCount">20</span> pieces</div>
+        </div>
+      </div>
+    </div>
+    <div class="turn-banner" id="turnBanner">Your turn</div>
+    <div id="board-wrap">
+      <div id="board"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn-dark" id="btnUndo" style="flex:1;">Undo</button>
+      <button class="btn-danger" id="btnResign" style="flex:1;">Resign</button>
+    </div>
+  </div>
+
+  <!-- END -->
+  <div id="end" class="screen hidden">
+    <div class="card" style="text-align:center;">
+      <h2 id="endTitle" style="color:var(--gold);margin-bottom:10px;">Game Over</h2>
+      <p id="endMsg" style="white-space:pre-line;"></p>
+      <button class="btn-gold hidden" id="btnClaim" style="margin-top:16px;">🎁 Claim Prize</button>
+      <button class="btn-gold hidden" id="btnContinueLevel" style="margin-top:12px;">▶️ Continue to Level 2</button>
+      <button class="btn-dark hidden" id="btnQuitCampaign" style="margin-top:10px;">Quit (no prize yet)</button>
+      <button class="btn-dark" id="btnAgain" style="margin-top:10px;">Back to Menu</button>
+    </div>
+  </div>
+
+  <!-- WINNER PHONE CAPTURE MODAL -->
+  <div class="modal hidden" id="winnerModal">
+    <div class="modal-content">
+      <h3>🎉 You Won!</h3>
+      <p style="font-size:0.85rem; color:var(--muted);" id="winnerPrizeText">Prize: —</p>
+      <p style="font-size:0.8rem; color:var(--muted); margin:8px 0;">Enter your phone number so we can send your prize.</p>
+      <input type="tel" id="winnerPhone" placeholder="e.g. 024xxxxxxx" />
+      <button class="btn-gold" id="submitWinnerBtn">Submit</button>
+      <button class="btn-dark" id="closeWinnerBtn">Close</button>
+      <div class="msg-line" id="winnerStatus"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    // =====================================================
+    //  Same Firebase project as Foosball / Kaisa / the store
+    // =====================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+      authDomain: "voltix-pro-dc363.firebaseapp.com",
+      projectId: "voltix-pro-dc363",
+      storageBucket: "voltix-pro-dc363.firebasestorage.app",
+      messagingSenderId: "778425016855",
+      appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252",
+      measurementId: "G-5BQWW8P46P"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ---------- Site-wide announcements banner (posted from Admin) ----------
+    (function loadAnnouncementBanner() {
+      const bar = document.getElementById("anncBar");
+      if (!bar) return;
+      function escAnnc(s) {
+        return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+      db.collection("announcements").where("active", "==", true).limit(20).get()
+        .then(snap => {
+          if (snap.empty) return;
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0))
+            .slice(0, 5);
+          docs.forEach(a => {
+            const card = document.createElement("div");
+            card.className = "annc-card";
+            let html = "";
+            if (a.imageUrl) html += `<img src="${escAnnc(a.imageUrl)}" alt="" />`;
+            html += `<div class="annc-body">`;
+            if (a.text) html += `<div>${escAnnc(a.text)}</div>`;
+            if (a.audioUrl) html += `<audio controls src="${escAnnc(a.audioUrl)}"></audio>`;
+            html += `</div><button type="button" class="annc-close" aria-label="Dismiss">✕</button>`;
+            card.innerHTML = html;
+            card.querySelector(".annc-close").onclick = () => card.remove();
+            bar.appendChild(card);
+          });
+        })
+        .catch(() => {});
+    })();
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- Accounts (same anonymous-auth + users/{uid} setup as the other games) ----------
+    let currentUser = null;
+    let userData = { balls: 0, wins: 0, name: 'Player' };
+    let settings = { damiiAiPrize: 'Free earpods discount' };
+
+    let authReadyPromise = null;
+    function ensureAuth() {
+      if (authReadyPromise) return authReadyPromise;
+      authReadyPromise = new Promise((resolve, reject) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          try {
+            if (user) {
+              currentUser = user;
+              await loadUser();
+            } else {
+              const cred = await auth.signInAnonymously();
+              currentUser = cred.user;
+              await createUserDoc();
+            }
+            unsubscribe();
+            resolve(currentUser);
+          } catch (err) {
+            unsubscribe();
+            authReadyPromise = null;
+            reject(err);
+          }
+        }, (err) => { authReadyPromise = null; reject(err); });
+      });
+      return authReadyPromise;
+    }
+    async function waitForAuth() {
+      try { await ensureAuth(); return true; }
+      catch (err) {
+        console.error('Auth failed:', err);
+        alert('Sign-in failed: ' + (err.message || 'unknown error') + '\nCheck your internet connection and reload the page.');
+        return false;
+      }
+    }
+    async function createUserDoc() {
+      const ref = db.collection('users').doc(currentUser.uid);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        await ref.set({
+          balls: 0, wins: 0,
+          name: 'Player' + Math.floor(Math.random() * 9000 + 1000),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      await loadUser();
+    }
+    async function loadUser() {
+      const snap = await db.collection('users').doc(currentUser.uid).get();
+      if (snap.exists) {
+        userData = snap.data();
+        $('ballBalance').textContent = userData.balls || 0;
+      }
+    }
+    async function loadSettings() {
+      try {
+        const snap = await db.collection('gameSettings').doc('main').get();
+        if (snap.exists) settings = { ...settings, ...snap.data() };
+      } catch (e) { console.warn('settings', e); }
+      $('prizeHint').textContent = 'Win vs the Hard AI 3 times in a row to claim: ' + (settings.damiiAiPrize || 'a prize') +
+        '. Lose and 2 balls are deducted — winning costs nothing. Friend joins for 1 ball, host plays free.';
+    }
+    async function loadLeaderboard() {
+      const list = $('leaderboardList');
+      try {
+        const snap = await db.collection('damiiLeaderboard').orderBy('wins', 'desc').limit(10).get();
+        list.textContent = '';
+        if (snap.empty) {
+          const p = document.createElement('p');
+          p.style.color = 'var(--muted)';
+          p.textContent = 'No players yet. Be the first!';
+          list.appendChild(p);
+          return;
+        }
+        let rank = 1;
+        snap.forEach(doc => {
+          const d = doc.data();
+          const row = document.createElement('div');
+          row.className = 'lb-item';
+          const left = document.createElement('span');
+          const r = document.createElement('span');
+          r.className = 'rank'; r.textContent = '#' + rank;
+          left.append(r, ' ' + (d.name || 'Player'));
+          const right = document.createElement('span');
+          right.textContent = (d.wins || 0) + ' wins';
+          row.append(left, right);
+          list.appendChild(row);
+          rank++;
+        });
+      } catch (err) {
+        list.textContent = "Couldn't load leaderboard: " + err.message;
+        list.style.color = '#f87171';
+      }
+    }
+    async function recordWin() {
+      if (!currentUser) return;
+      try {
+        await db.collection('users').doc(currentUser.uid).update({
+          damiiWins: firebase.firestore.FieldValue.increment(1)
+        });
+        const lbRef = db.collection('damiiLeaderboard').doc(currentUser.uid);
+        const lbSnap = await lbRef.get();
+        if (lbSnap.exists) {
+          await lbRef.update({ wins: firebase.firestore.FieldValue.increment(1), name: userData.name });
+        } else {
+          await lbRef.set({ name: userData.name, wins: 1, uid: currentUser.uid });
+        }
+      } catch (err) { console.warn('recordWin failed', err); }
+    }
+
+    // ===================== DAMII ENGINE =====================
+    const SIZE = 10;
+    // Board is 0..99, only dark squares playable. We use row-major.
+    // Dark squares: (r+c) % 2 === 1  (mirrored style so bottom-right is dark for blue)
+
+    let board = [];          // null | {color:'r'|'b', king:bool}
+    let turn = 'b';           // blue starts (or configurable)
+    let selected = null;     // index
+    let possibleMoves = [];  // [{to, captures: [indices]}]
+    let mode = 'ai';          // 'ai' | 'local' | 'online'
+    let history = [];
+    let gameOver = false;
+    let aiThinking = false;
+
+    // Online (Firestore rooms + WebRTC — see the ONLINE section below)
+    let isHost = false, myColor = 'b';
+
+    function idx(r, c) { return r * SIZE + c; }
+    function rc(i) { return [Math.floor(i / SIZE), i % SIZE]; }
+    function isDark(i) {
+      const [r, c] = rc(i);
+      return (r + c) % 2 === 1;
+    }
+    function onBoard(r, c) { return r >= 0 && r < SIZE && c >= 0 && c < SIZE; }
+
+    function initBoard() {
+      board = Array(SIZE * SIZE).fill(null);
+      // Red on top (rows 0-3), Blue on bottom (rows 6-9)
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if ((r + c) % 2 === 1) board[idx(r, c)] = { color: 'r', king: false };
+        }
+      }
+      for (let r = 6; r < 10; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if ((r + c) % 2 === 1) board[idx(r, c)] = { color: 'b', king: false };
+        }
+      }
+      turn = 'b';
+      selected = null;
+      possibleMoves = [];
+      history = [];
+      gameOver = false;
+      aiThinking = false;
+    }
+
+    function countPieces(color) {
+      return board.filter(p => p && p.color === color).length;
+    }
+
+    // Directions: diagonal
+    const DIRS = [[-1,-1],[-1,1],[1,-1],[1,1]];
+
+    function getSimpleMoves(from) {
+      const p = board[from];
+      if (!p) return [];
+      const [r, c] = rc(from);
+      const moves = [];
+      const dirs = p.king ? DIRS : (p.color === 'b' ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]]); // blue moves up (decreasing row)
+
+      if (p.king) {
+        for (const [dr, dc] of DIRS) {
+          let nr = r + dr, nc = c + dc;
+          while (onBoard(nr, nc) && isDark(idx(nr, nc))) {
+            const i = idx(nr, nc);
+            if (board[i]) break;
+            moves.push({ to: i, captures: [] });
+            nr += dr; nc += dc;
+          }
+        }
+      } else {
+        for (const [dr, dc] of dirs) {
+          const nr = r + dr, nc = c + dc;
+          if (onBoard(nr, nc) && isDark(idx(nr, nc))) {
+            const i = idx(nr, nc);
+            if (!board[i]) moves.push({ to: i, captures: [] });
+          }
+        }
+      }
+      return moves;
+    }
+
+    function getCapturesFrom(from) {
+      const p = board[from];
+      if (!p) return [];
+      board[from] = null;                       // the piece has left its square while it jumps
+      const res = searchCaptures(from, [], p);
+      board[from] = p;
+      return res;
+    }
+
+    function searchCaptures(from, capturedSoFar = [], startPiece = null) {
+      const p = startPiece || board[from];
+      if (!p) return [];
+      const [r, c] = rc(from);
+      const results = [];
+      const dirs = DIRS; // men can capture in all 4 directions
+
+      if (p.king) {
+        for (const [dr, dc] of dirs) {
+          let nr = r + dr, nc = c + dc;
+          let enemy = null;
+          while (onBoard(nr, nc) && isDark(idx(nr, nc))) {
+            const i = idx(nr, nc);
+            if (board[i]) {
+              if (board[i].color === p.color || capturedSoFar.includes(i)) break;
+              if (enemy) break; // already found one
+              enemy = i;
+            } else if (enemy) {
+              // can land here
+              const newCaptured = [...capturedSoFar, enemy];
+              // continue multi-jump from here
+              // temporarily remove captured
+              const saved = board[enemy];
+              board[enemy] = null;
+              const further = searchCaptures(i, newCaptured, p);
+              board[enemy] = saved;
+              if (further.length === 0) {
+                results.push({ to: i, captures: newCaptured });
+              } else {
+                results.push(...further);
+              }
+              // also allow landing further if empty continues? for flying we already loop
+            }
+            if (enemy && board[i] && board[i].color !== p.color) {
+              // after enemy we continue looking for landings
+            }
+            nr += dr; nc += dc;
+            if (enemy && !board[idx(nr - dr, nc - dc)] === false) { /* continue */ }
+            // simplified: after finding enemy, only empty squares beyond
+            if (enemy && board[i] && i !== enemy) break;
+          }
+        }
+      } else {
+        // man capture: jump adjacent
+        for (const [dr, dc] of dirs) {
+          const er = r + dr, ec = c + dc;
+          const lr = r + 2*dr, lc = c + 2*dc;
+          if (!onBoard(er, ec) || !onBoard(lr, lc)) continue;
+          if (!isDark(idx(er, ec)) || !isDark(idx(lr, lc))) continue;
+          const ei = idx(er, ec), li = idx(lr, lc);
+          if (board[ei] && board[ei].color !== p.color && !board[li] && !capturedSoFar.includes(ei)) {
+            const newCaptured = [...capturedSoFar, ei];
+            const saved = board[ei];
+            board[ei] = null;
+            const further = searchCaptures(li, newCaptured, p);
+            board[ei] = saved;
+            if (further.length === 0) {
+              results.push({ to: li, captures: newCaptured });
+            } else {
+              results.push(...further);
+            }
+          }
+        }
+      }
+      return results;
+    }
+
+    function getAllMoves(color) {
+      const captures = [];
+      const simple = [];
+      for (let i = 0; i < board.length; i++) {
+        if (!board[i] || board[i].color !== color) continue;
+        const caps = getCapturesFrom(i);
+        if (caps.length) {
+          caps.forEach(m => captures.push({ from: i, ...m }));
+        } else {
+          getSimpleMoves(i).forEach(m => simple.push({ from: i, ...m }));
+        }
+      }
+      // Compulsory capture
+      return captures.length ? captures : simple;
+    }
+
+    function applyMove(move) {
+      const piece = board[move.from];
+      board[move.from] = null;
+      // remove captures
+      (move.captures || []).forEach(ci => board[ci] = null);
+      board[move.to] = piece;
+      // promote
+      const [tr] = rc(move.to);
+      if (!piece.king) {
+        if (piece.color === 'b' && tr === 0) piece.king = true;
+        if (piece.color === 'r' && tr === 9) piece.king = true;
+      }
+    }
+
+    function undoMove(snapshot) {
+      board = snapshot.board.map(p => p ? {...p} : null);
+      turn = snapshot.turn;
+    }
+
+    function snapshot() {
+      return {
+        board: board.map(p => p ? {...p} : null),
+        turn
+      };
+    }
+
+    function checkWinner() {
+      const red = countPieces('r');
+      const blue = countPieces('b');
+      if (red === 0) return 'b';
+      if (blue === 0) return 'r';
+      const moves = getAllMoves(turn);
+      if (moves.length === 0) return turn === 'b' ? 'r' : 'b';
+      return null;
+    }
+
+    // ===================== AI (Hard) =====================
+    function evaluate() {
+      let score = 0;
+      for (let i = 0; i < board.length; i++) {
+        const p = board[i];
+        if (!p) continue;
+        const val = p.king ? 5 : 1;
+        // position bonus
+        const [r] = rc(i);
+        let pos = 0;
+        if (p.color === 'r') pos = r * 0.1;
+        else pos = (9 - r) * 0.1;
+        if (p.color === 'r') score += val + pos;
+        else score -= val + pos;
+      }
+      // mobility
+      score += getAllMoves('r').length * 0.15;
+      score -= getAllMoves('b').length * 0.15;
+      return score;
+    }
+
+    function minimax(depth, alpha, beta, maximizing) {
+      const winner = checkWinner();
+      if (winner === 'r') return 1000 + depth;
+      if (winner === 'b') return -1000 - depth;
+      if (depth === 0) return evaluate();
+
+      const color = maximizing ? 'r' : 'b';
+      const moves = getAllMoves(color);
+      if (moves.length === 0) return maximizing ? -900 : 900;
+
+      if (maximizing) {
+        let maxEval = -Infinity;
+        for (const m of moves) {
+          const snap = snapshot();
+          applyMove(m);
+          turn = 'b';
+          const ev = minimax(depth - 1, alpha, beta, false);
+          undoMove(snap);
+          maxEval = Math.max(maxEval, ev);
+          alpha = Math.max(alpha, ev);
+          if (beta <= alpha) break;
+        }
+        return maxEval;
+      } else {
+        let minEval = Infinity;
+        for (const m of moves) {
+          const snap = snapshot();
+          applyMove(m);
+          turn = 'r';
+          const ev = minimax(depth - 1, alpha, beta, true);
+          undoMove(snap);
+          minEval = Math.min(minEval, ev);
+          beta = Math.min(beta, ev);
+          if (beta <= alpha) break;
+        }
+        return minEval;
+      }
+    }
+
+    function aiMove() {
+      if (gameOver || turn !== 'r') return;
+      aiThinking = true;
+      updateUI();
+      setTimeout(() => {
+        const moves = getAllMoves('r');
+        if (!moves.length) {
+          endGame('b', 'Red has no moves. Blue wins!');
+          return;
+        }
+        let best = moves[0], bestScore = -Infinity;
+        const depth = moves.length > 12 ? 2 : 3; // adaptive depth for strength vs speed
+        for (const m of moves) {
+          const snap = snapshot();
+          applyMove(m);
+          turn = 'b';
+          const score = minimax(depth, -Infinity, Infinity, false);
+          undoMove(snap);
+          if (score > bestScore) {
+            bestScore = score;
+            best = m;
+          }
+        }
+        history.push(snapshot());
+        applyMove(best);
+        turn = 'b';
+        aiThinking = false;
+        afterMove();
+      }, 120);
+    }
+
+
+    // ===================== UI =====================
+    let flip = false;          // the guest sees the board turned round so their pieces are at the bottom
+    let undoUsed = false;      // using Undo in the CURRENT game — shown in the turn banner
+    let undoUsedCampaign = false; // using Undo in ANY leg of the current campaign disqualifies the whole run
+    let damiiLevel = 1;        // vs-AI campaign: win 3 in a row (Level 1 -> 2 -> 3) for the prize
+    let roomInfo = { hostName: 'Host', guestName: 'Guest' };
+
+    async function deductBalls(n) {
+      if (!currentUser) return;
+      const next = Math.max(0, (userData.balls || 0) - n);
+      try {
+        await db.collection('users').doc(currentUser.uid).update({ balls: next });
+        userData.balls = next;
+        $('ballBalance').textContent = next;
+      } catch (err) { console.warn('deductBalls failed', err); }
+    }
+
+    function renderBoard() {
+      const el = $('board');
+      el.innerHTML = '';
+      for (let d = 0; d < SIZE * SIZE; d++) {
+        const [r, c] = rc(d);
+        const i = flip ? SIZE * SIZE - 1 - d : d;   // board index shown in this screen cell
+        const sq = document.createElement('div');
+        sq.className = 'sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        sq.dataset.idx = i;
+
+        if (selected === i) sq.classList.add('selected');
+        const pm = possibleMoves.find(m => m.to === i);
+        if (pm) sq.classList.add(pm.captures.length ? 'capture' : 'possible');
+
+        if (board[i]) {
+          const p = document.createElement('div');
+          p.className = 'piece ' + (board[i].color === 'r' ? 'red' : 'blue') + (board[i].king ? ' king' : '');
+          sq.appendChild(p);
+        }
+        sq.onclick = () => onSquareClick(i);
+        el.appendChild(sq);
+      }
+      $('redCount').textContent = countPieces('r');
+      $('blueCount').textContent = countPieces('b');
+    }
+
+    function updateUI() {
+      renderBoard();
+      const banner = $('turnBanner');
+      if (gameOver) { banner.textContent = 'Game Over'; return; }
+      if (aiThinking) { banner.textContent = 'AI is thinking…'; return; }
+      if (mode === 'ai') {
+        banner.textContent = (turn === 'b' ? 'Your turn (Blue)' : 'AI turn (Red)') + (undoUsed ? ' • Undo used – no prize' : '');
+      } else if (mode === 'local') {
+        banner.textContent = turn === 'b' ? "Blue's turn" : "Red's turn";
+      } else if (!gotState && !isHost) {
+        banner.textContent = 'Connecting to host…';
+      } else {
+        banner.textContent = (turn === myColor) ? 'Your turn' : "Opponent's turn";
+      }
+    }
+
+    function onSquareClick(i) {
+      if (gameOver || aiThinking) return;
+      if (mode === 'ai' && turn !== 'b') return;
+      if (mode === 'online' && (turn !== myColor || (!isHost && !gotState))) return;
+
+      const moves = getAllMoves(turn);
+      if (selected === null) {
+        if (board[i] && board[i].color === turn) {
+          selected = i;
+          possibleMoves = moves.filter(m => m.from === i);
+          updateUI();
+        }
+      } else {
+        const move = possibleMoves.find(m => m.to === i);
+        if (move) {
+          doMove({ from: selected, ...move });
+        } else if (board[i] && board[i].color === turn) {
+          selected = i;
+          possibleMoves = moves.filter(m => m.from === i);
+          updateUI();
+        } else {
+          selected = null;
+          possibleMoves = [];
+          updateUI();
+        }
+      }
+    }
+
+    function doMove(move) {
+      history.push(snapshot());
+      applyMove(move);
+      selected = null;
+      possibleMoves = [];
+      turn = turn === 'b' ? 'r' : 'b';
+      if (mode === 'online') {
+        if (isHost) sendState();
+        else Net.send({ t: 'mv', move: { from: move.from, to: move.to, captures: move.captures || [] } }, true);
+      }
+      afterMove();
+    }
+
+    function afterMove() {
+      const w = checkWinner();
+      if (w) {
+        endGame(w, w === 'b' ? 'Blue wins!' : 'Red wins!');
+        return;
+      }
+      updateUI();
+      if (mode === 'ai' && turn === 'r' && !gameOver) aiMove();
+    }
+
+    function endGame(winner, msg) {
+      if (gameOver) return;
+      gameOver = true;
+      updateUI();
+      const iWon = mode === 'ai' ? winner === 'b' : mode === 'online' ? winner === myColor : false;
+      let title, levelUp = false, prizeEligible = false;
+      let text = msg;
+      if (mode === 'ai') {
+        if (iWon && damiiLevel < 3) {
+          levelUp = true;
+          title = `🎉 Congratulations! Level ${damiiLevel} Complete`;
+          text = `You beat the Hard AI (win ${damiiLevel} of 3 in a row).\nKeep playing to win the prize?`;
+        } else if (iWon) {
+          title = '🎉 You beat all 3 levels!';
+          prizeEligible = !undoUsedCampaign;
+          if (undoUsedCampaign) text += '\nUndo was used somewhere in this run, so it has no prize or leaderboard credit.';
+        } else {
+          title = 'AI wins';
+          text += '\n-2 balls. Try again from Level 1!';
+          deductBalls(2);
+          damiiLevel = 1;
+          undoUsedCampaign = false;
+        }
+      } else if (mode === 'online') {
+        title = iWon ? 'You win!' : 'Opponent wins';
+        if (!iWon) { text += '\n-2 balls.'; deductBalls(2); }
+      } else {
+        title = winner === 'b' ? 'Blue Wins!' : 'Red Wins!';
+      }
+      show('end');
+      $('endTitle').textContent = title;
+      $('endMsg').textContent = text;
+      $('btnClaim').classList.toggle('hidden', !prizeEligible);
+      $('btnContinueLevel').classList.toggle('hidden', !levelUp);
+      $('btnQuitCampaign').classList.toggle('hidden', !levelUp);
+      $('btnAgain').classList.toggle('hidden', levelUp);
+      if (levelUp) $('btnContinueLevel').textContent = `▶️ Continue to Level ${damiiLevel + 1}`;
+      else if (mode === 'ai' && !prizeEligible) { damiiLevel = 1; undoUsedCampaign = false; }
+
+      if (mode === 'online' && isHost) finalizeMatchDoc(winner);
+      if (iWon && (mode === 'online' || prizeEligible)) recordWin();
+    }
+
+    // ---------- Prize claim (vs AI) ----------
+    $('btnClaim').onclick = () => {
+      $('winnerPrizeText').textContent = 'Prize: ' + (settings.damiiAiPrize || '—');
+      $('winnerPhone').value = userData.phone || '';
+      $('winnerStatus').textContent = '';
+      $('winnerModal').classList.remove('hidden');
+    };
+    $('closeWinnerBtn').onclick = () => $('winnerModal').classList.add('hidden');
+    $('submitWinnerBtn').onclick = async () => {
+      const phone = $('winnerPhone').value.trim();
+      const st = $('winnerStatus');
+      if (!phone) { st.textContent = 'Please enter a phone number.'; st.style.color = '#f87171'; return; }
+      $('submitWinnerBtn').disabled = true;
+      try {
+        await db.collection('winners').add({
+          uid: currentUser.uid,
+          name: userData.name || 'Player',
+          phone,
+          prize: settings.damiiAiPrize || '',
+          mode: 'ai',
+          game: 'damii',
+          finalScore: { you: countPieces('b'), opponent: countPieces('r') },
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await db.collection('users').doc(currentUser.uid).update({ phone });
+        userData.phone = phone;
+        $('btnClaim').classList.add('hidden');
+        st.style.color = '#86efac';
+        st.textContent = "Submitted! We'll contact you about your prize.";
+        setTimeout(() => $('winnerModal').classList.add('hidden'), 1800);
+      } catch (err) {
+        st.style.color = '#f87171';
+        st.textContent = "Couldn't submit: " + err.message;
+      }
+      $('submitWinnerBtn').disabled = false;
+    };
+
+    // ===================== MODES =====================
+    function setNames() {
+      if (mode === 'ai') {
+        $('redName').textContent = 'Hard AI'; $('blueName').textContent = 'You';
+      } else if (mode === 'local') {
+        $('redName').textContent = 'Red'; $('blueName').textContent = 'Blue';
+      } else {
+        // online: host = Blue, guest = Red
+        $('blueName').textContent = isHost ? 'You' : roomInfo.hostName;
+        $('redName').textContent = isHost ? roomInfo.guestName : 'You';
+      }
+    }
+
+    function startGame(m, keepLevel) {
+      mode = m;
+      initBoard();
+      undoUsed = false;
+      if (!keepLevel) { damiiLevel = 1; undoUsedCampaign = false; }
+      flip = false;
+      myColor = 'b';
+      setNames();
+      $('btnUndo').style.display = '';
+      $('netStatus').textContent = '';
+      show('game');
+      updateUI();
+    }
+
+    function show(id) {
+      ['menu', 'lobby', 'room', 'rules', 'game', 'end'].forEach(s => {
+        $(s).classList.toggle('hidden', s !== id);
+      });
+    }
+
+    $('btnVsAI').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      startGame('ai');
+    };
+    $('btnContinueLevel').onclick = () => {
+      damiiLevel = Math.min(3, damiiLevel + 1);
+      startGame('ai', true);
+    };
+    $('btnQuitCampaign').onclick = () => {
+      damiiLevel = 1; undoUsedCampaign = false;
+      mode = null;
+      show('menu');
+      if (currentUser) loadUser();
+      loadLeaderboard();
+    };
+    $('btnLocal').onclick = () => startGame('local');
+    $('btnOnline').onclick = () => { $('lobbyMsg').textContent = ''; show('lobby'); };
+    $('btnRules').onclick = () => show('rules');
+    $('btnBackRules').onclick = () => show('menu');
+    $('btnBackLobby').onclick = () => show('menu');
+    $('btnAgain').onclick = () => {
+      if (mode === 'online') leaveOnline();
+      damiiLevel = 1; undoUsedCampaign = false;
+      mode = null; // back on the menu
+      show('menu');
+      if (currentUser) loadUser();
+      loadLeaderboard();
+    };
+    $('btnResign').onclick = () => {
+      if (!confirm('Resign?')) return;
+      if (mode === 'online') {
+        Net.send({ t: 'resign' }, true);
+        endGame(myColor === 'b' ? 'r' : 'b', 'You resigned.');
+        return;
+      }
+      const loser = mode === 'ai' ? 'b' : turn;
+      endGame(loser === 'b' ? 'r' : 'b', 'Resigned.');
+    };
+    $('btnUndo').onclick = () => {
+      if (history.length < 1 || mode === 'online') return;
+      if (mode === 'ai') { undoUsed = true; undoUsedCampaign = true; }
+      const snap = history.pop();
+      if (mode === 'ai' && history.length) {
+        const snap2 = history.pop();   // undo AI + player
+        undoMove(snap2);
+      } else {
+        undoMove(snap);
+      }
+      selected = null;
+      possibleMoves = [];
+      gameOver = false;
+      updateUI();
+    };
+
+    // ===================== ONLINE (Firestore rooms + WebRTC, with automatic relay) =====================
+    let matchCode = null, unsubMatch = null;
+    let stateSeq = 0, lastQ = 0, gotState = false, helloTimer = null;
+
+    // ---------- Network layer: WebRTC (direct / TURN) + automatic Firestore relay ----------
+    // Every message is sent over the direct WebRTC channel when it is open. When it is not
+    // (blocked NAT, strict carrier, still connecting) the very same message goes through a
+    // Firestore "relay" instead, so a match can ALWAYS connect and play, on any network.
+    const STUN_SERVERS = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+    function iceConfig() {
+      let extra = [];
+      try {
+        const j = JSON.parse(settings.iceServersJson || '[]');
+        if (Array.isArray(j)) extra = j.filter(s => s && s.urls);
+      } catch (e) { console.warn('Bad iceServersJson in settings', e); }
+      return { iceServers: STUN_SERVERS.concat(extra), iceCandidatePoolSize: 2 };
+    }
+
+    const Net = (() => {
+      let pc = null, dc = null, unsubSignal = null, unsubRelay = null;
+      let code = null, role = null, relayTs = 0, lastStateRelay = 0;
+      const api = {
+        onMessage: () => {},
+        onStatus: () => {},
+        get active() { return !!code; },
+        get direct() { return !!dc && dc.readyState === 'open'; }
+      };
+      const signalCol = () => db.collection('matches').doc(code).collection('signal');
+      const relayCol = () => db.collection('matches').doc(code).collection('relay');
+
+      function startRelay() {
+        const me = role;
+        unsubRelay = relayCol().orderBy('ts').onSnapshot((snap) => {
+          snap.docChanges().forEach((ch) => {
+            if (ch.type !== 'added') return;
+            const d = ch.doc.data();
+            if (!d || d.from === me) return;
+            try { api.onMessage(JSON.parse(d.d)); } catch (e) {}
+          });
+        }, (err) => console.warn('relay listen error', err));
+      }
+
+      function relaySend(obj, important) {
+        if (!code) return;
+        const now = Date.now();
+        // State snapshots are streamed often; over the relay keep only ~5 per second (turn-end ones always go)
+        if (obj.t === 's' && !important) {
+          if (now - lastStateRelay < 220) return;
+          lastStateRelay = now;
+        }
+        relayTs = Math.max(now, relayTs + 1); // strictly increasing per sender => ordered delivery
+        relayCol().add({ from: role, ts: relayTs, d: JSON.stringify(obj) }).catch(() => {});
+      }
+
+      function wireChannel(ch) {
+        dc = ch;
+        ch.onopen = () => api.onStatus('direct');
+        ch.onclose = () => api.onStatus('relay');
+        ch.onerror = () => api.onStatus('relay');
+        ch.onmessage = (e) => { try { api.onMessage(JSON.parse(e.data)); } catch (err) {} };
+      }
+
+      async function startRtc() {
+        if (typeof RTCPeerConnection === 'undefined') return;
+        pc = new RTCPeerConnection(iceConfig());
+        const me = role, other = role === 'host' ? 'guest' : 'host';
+        pc.onicecandidate = (e) => {
+          if (e.candidate && code) signalCol().add({ type: 'ice', from: me, candidate: e.candidate.toJSON() }).catch(() => {});
+        };
+        pc.onconnectionstatechange = () => {
+          if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) api.onStatus('relay');
+        };
+        let chain = Promise.resolve();
+        const pendingIce = [];
+        const flushIce = async () => {
+          while (pendingIce.length) { try { await pc.addIceCandidate(pendingIce.shift()); } catch (e) {} }
+        };
+        const handle = async (msg) => {
+          if (!pc) return;
+          try {
+            if (msg.type === 'offer' && me === 'guest') {
+              await pc.setRemoteDescription(msg.sdp);
+              await flushIce();
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await signalCol().add({ type: 'answer', from: 'guest', sdp: { type: answer.type, sdp: answer.sdp } });
+            } else if (msg.type === 'answer' && me === 'host') {
+              await pc.setRemoteDescription(msg.sdp);
+              await flushIce();
+            } else if (msg.type === 'ice' && msg.candidate) {
+              if (pc.remoteDescription) await pc.addIceCandidate(msg.candidate);
+              else pendingIce.push(msg.candidate); // ICE can arrive before the offer/answer — hold it
+            }
+          } catch (e) { /* late/duplicate candidates are harmless */ }
+        };
+        unsubSignal = signalCol().onSnapshot((snap) => {
+          snap.docChanges().forEach((change) => {
+            if (change.type !== 'added') return;
+            const msg = change.doc.data();
+            if (msg.from !== other) return;
+            chain = chain.then(() => handle(msg));   // process strictly one at a time
+          });
+        });
+        if (me === 'host') {
+          wireChannel(pc.createDataChannel('game', { ordered: true }));
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await signalCol().add({ type: 'offer', from: 'host', sdp: { type: offer.type, sdp: offer.sdp } });
+        } else {
+          pc.ondatachannel = (e) => wireChannel(e.channel);
+        }
+      }
+
+      api.open = async (c, r) => {
+        api.close();
+        code = c; role = r;
+        startRelay();                       // relay is live immediately
+        try { await startRtc(); }           // …while the direct channel negotiates in the background
+        catch (e) { console.warn('WebRTC unavailable — using relay only', e); }
+        api.onStatus(api.direct ? 'direct' : 'relay');
+      };
+      api.send = (obj, important) => {
+        if (!code) return;
+        if (api.direct) { try { dc.send(JSON.stringify(obj)); return; } catch (e) {} }
+        relaySend(obj, important);
+      };
+      api.close = () => {
+        if (unsubSignal) { unsubSignal(); unsubSignal = null; }
+        if (unsubRelay) { unsubRelay(); unsubRelay = null; }
+        if (dc) { try { dc.close(); } catch (e) {} dc = null; }
+        if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+        code = null; role = null;
+      };
+      return api;
+    })();
+
+
+    Net.onStatus = (k) => {
+      const el = $('netStatus');
+      if (mode !== 'online') { el.textContent = ''; return; }
+      el.textContent = k === 'direct' ? '● Live • direct' : '● Live • relay';
+      el.className = k === 'direct' ? 'direct' : 'relay';
+    };
+
+    function sameSet(a, b) {
+      if (a.length !== b.length) return false;
+      const s = new Set(a);
+      return b.every(x => s.has(x));
+    }
+
+    Net.onMessage = (msg) => {
+      if (!msg || mode !== 'online') return;
+      if (msg.t === 'st' && !isHost) {
+        if (msg.q && msg.q <= lastQ) return;         // stale snapshot that arrived late over the other path
+        if (msg.q) lastQ = msg.q;
+        if (!Array.isArray(msg.board) || msg.board.length !== SIZE * SIZE) return;
+        gotState = true;
+        clearInterval(helloTimer);
+        board = msg.board.map(p => p ? { ...p } : null);
+        turn = msg.turn;
+        selected = null; possibleMoves = [];
+        if (!gameOver) {
+          const w = checkWinner();
+          if (w) endGame(w, w === 'b' ? 'Blue wins!' : 'Red wins!');
+          else updateUI();
+        }
+      } else if (msg.t === 'mv' && isHost) {
+        hostHandleMove(msg.move);
+      } else if (msg.t === 'hi' && isHost) {
+        sendState();
+      } else if (msg.t === 'resign' && !gameOver) {
+        endGame(myColor, 'Your opponent resigned.');
+      } else if (msg.t === 'bye' && !gameOver) {
+        $('turnBanner').textContent = 'Opponent left — you can Resign to exit, or wait';
+      }
+    };
+
+    function sendState() {
+      if (mode !== 'online' || !isHost || !Net.active) return;
+      Net.send({ t: 'st', q: ++stateSeq, board: board.map(p => p ? { ...p } : null), turn }, true);
+    }
+
+    // Host validates the guest's move against the rules before accepting it
+    function hostHandleMove(m) {
+      if (!m || gameOver || turn !== 'r') { sendState(); return; }
+      const caps = Array.isArray(m.captures) ? m.captures : [];
+      const legal = getAllMoves('r').find(x => x.from === m.from && x.to === m.to && sameSet(x.captures, caps));
+      if (!legal) { sendState(); return; }   // reject — guest snaps back to the true position
+      history.push(snapshot());
+      applyMove(legal);
+      selected = null; possibleMoves = [];
+      turn = 'b';
+      sendState();
+      afterMove();
+    }
+
+    function finalizeMatchDoc(winner) {
+      if (!matchCode) return;
+      db.collection('matches').doc(matchCode).update({
+        status: 'finished',
+        winner: winner === 'b' ? 'host' : 'guest',
+        finishedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+    }
+
+    function leaveOnline() {
+      Net.send({ t: 'bye' }, true);
+      if (isHost && matchCode && !gameOver) {
+        db.collection('matches').doc(matchCode).update({ status: 'cancelled' }).catch(() => {});
+      }
+      setTimeout(() => Net.close(), 400);   // let the goodbye go out first
+      clearInterval(helloTimer);
+      if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+      matchCode = null;
+    }
+
+    function makeCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let s = '';
+      for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+      return s;
+    }
+
+    function beginOnlineGame() {
+      mode = 'online';
+      initBoard();
+      undoUsed = false;
+      flip = !isHost;
+      myColor = isHost ? 'b' : 'r';
+      setNames();
+      $('btnUndo').style.display = 'none';
+      show('game');
+      updateUI();
+      if (isHost) sendState();
+    }
+
+    $('btnCreate').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      $('lobbyMsg').textContent = '';
+      const code = makeCode();
+      matchCode = code;
+      isHost = true;
+      $('btnCreate').disabled = true;
+      try {
+        await db.collection('matches').doc(code).set({
+          game: 'damii',
+          hostId: currentUser.uid,
+          hostName: userData.name,
+          guestId: null,
+          status: 'waiting',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (err) {
+        $('btnCreate').disabled = false;
+        matchCode = null;
+        $('lobbyMsg').textContent = "Couldn't create room: " + err.message;
+        return;
+      }
+      $('roomCode').textContent = code;
+      $('roomMsg').textContent = '';
+      show('room');
+      let started = false;
+      unsubMatch = db.collection('matches').doc(code).onSnapshot(async (snap) => {
+        const d = snap.data();
+        if (!d || started || d.status !== 'playing' || !d.guestId) return;
+        started = true;
+        roomInfo = { hostName: userData.name || 'Host', guestName: d.guestName || 'Friend' };
+        stateSeq = 0; lastQ = 0; gotState = true;
+        await Net.open(code, 'host');
+        $('btnCreate').disabled = false;
+        beginOnlineGame();
+        Net.onStatus(Net.direct ? 'direct' : 'relay');
+      });
+    };
+
+    $('btnLeave').onclick = () => {
+      if (matchCode && isHost) db.collection('matches').doc(matchCode).update({ status: 'cancelled' }).catch(() => {});
+      if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+      matchCode = null;
+      $('btnCreate').disabled = false;
+      show('lobby');
+    };
+
+    $('btnShareLink').onclick = async () => {
+      if (!matchCode) return;
+      const url = new URL('damii.html?joinCode=' + matchCode, location.href).href;
+      const text = 'Join my Damii game on Voltix Pro! Room code: ' + matchCode + '\n' + url;
+      if (navigator.share) {
+        try { await navigator.share({ text }); return; } catch (e) { /* cancelled */ }
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        $('roomMsg').style.color = '#86efac';
+        $('roomMsg').textContent = 'Link copied — paste it to your friend.';
+      } catch (e) {
+        window.prompt('Copy this and send it to your friend:', text);
+      }
+    };
+    $('btnShareGroup').onclick = async () => {
+      if (!matchCode || !currentUser) return;
+      try {
+        await db.collection('groupChat').add({
+          uid: currentUser.uid, name: userData.name || 'Player',
+          text: '', type: 'challenge', game: 'damii', code: matchCode, url: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        $('roomMsg').style.color = '#86efac';
+        $('roomMsg').textContent = 'Posted to the group chat ✓';
+      } catch (err) {
+        $('roomMsg').style.color = '#f87171';
+        $('roomMsg').textContent = "Couldn't post: " + err.message;
+      }
+    };
+
+    $('btnJoin').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      const msgEl = $('lobbyMsg');
+      msgEl.textContent = '';
+      const code = $('joinCode').value.trim().toUpperCase();
+      if (!code) return;
+      if ((userData.balls || 0) < 1) { msgEl.textContent = 'You need 1 ball to join a challenge.'; return; }
+      const ref = db.collection('matches').doc(code);
+      $('btnJoin').disabled = true;
+      try {
+        const snap = await ref.get();
+        if (!snap.exists) { msgEl.textContent = 'Room not found.'; return; }
+        const d = snap.data();
+        if (d.game !== 'damii') {
+          const dest = d.game === 'kaisa' ? 'kaisa.html' : d.game === 'ludo' ? 'ludo.html' : 'foosball.html';
+          window.location.href = dest + '?joinCode=' + encodeURIComponent(code);
+          return;
+        }
+        if (d.hostId === currentUser.uid) { msgEl.textContent = "That's your own room."; return; }
+        // Claim the seat atomically so two friends can't both join
+        await db.runTransaction(async (tx) => {
+          const cur = await tx.get(ref);
+          if (!cur.exists || cur.data().status !== 'waiting') throw new Error('Room already started or finished.');
+          tx.update(ref, { guestId: currentUser.uid, guestName: userData.name, status: 'playing' });
+        });
+        // Only the guest pays 1 ball
+        await db.collection('users').doc(currentUser.uid).update({
+          balls: firebase.firestore.FieldValue.increment(-1)
+        });
+        userData.balls = (userData.balls || 1) - 1;
+        $('ballBalance').textContent = userData.balls;
+
+        matchCode = code;
+        isHost = false;
+        roomInfo = { hostName: d.hostName || 'Host', guestName: userData.name || 'Guest' };
+        lastQ = 0; gotState = false;
+        await Net.open(code, 'guest');
+        beginOnlineGame();
+        Net.onStatus(Net.direct ? 'direct' : 'relay');
+        // keep asking until the host's first board arrives
+        clearInterval(helloTimer);
+        helloTimer = setInterval(() => {
+          if (gotState || mode !== 'online') { clearInterval(helloTimer); return; }
+          Net.send({ t: 'hi' }, true);
+        }, 1500);
+        Net.send({ t: 'hi' }, true);
+      } catch (err) {
+        msgEl.textContent = err.message || 'Could not join.';
+      } finally {
+        $('btnJoin').disabled = false;
+      }
+    };
+
+    // ===================== BOOT =====================
+    initBoard();
+    (async () => {
+      const okAuth = await waitForAuth();
+      await loadSettings();
+      loadLeaderboard();
+      if (okAuth) {
+        const shared = new URLSearchParams(window.location.search).get('joinCode');
+        if (shared) {
+          show('lobby');
+          $('joinCode').value = shared.toUpperCase();
+          window.history.replaceState({}, '', 'damii.html');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
