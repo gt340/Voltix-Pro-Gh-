@@ -1,0 +1,2330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Voltix Pro GH – Ludo</title>
+<style>
+  :root {
+    --red: #e74c3c;
+    --green: #27ae60;
+    --yellow: #f1c40f;
+    --blue: #3498db;
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --text: #eaeaea;
+    --safe: #f39c12;
+    --track: #2c3e50;
+    --center: #0f3460;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+  }
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+    text-shadow: 0 0 12px rgba(255,255,255,0.3);
+  }
+  .setup, .game-ui { width: 100%; max-width: 920px; }
+  .setup {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .setup h2 { margin-bottom: 16px; }
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+  }
+  .player-row label { min-width: 70px; font-weight: 600; }
+  select, button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  select { background: #0f3460; color: white; }
+  .btn-primary {
+    background: linear-gradient(135deg, #e94560, #c23a51);
+    color: white;
+    font-weight: 700;
+    margin-top: 16px;
+    padding: 12px 28px;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-secondary {
+    background: #0f3460;
+    color: white;
+    margin: 4px;
+  }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .hidden { display: none !important; }
+
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    width: 100%;
+  }
+  .status {
+    background: var(--panel);
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    min-width: 220px;
+  }
+  .dice-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .dice {
+    width: 64px;
+    height: 64px;
+    background: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #222;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s;
+  }
+  .dice:hover:not(.disabled) { transform: scale(1.05); }
+  .dice.disabled { opacity: 0.6; cursor: not-allowed; }
+  .dice.rolling { animation: shake 0.4s ease; }
+  @keyframes shake {
+    0%,100% { transform: rotate(0); }
+    25% { transform: rotate(-12deg) scale(1.1); }
+    75% { transform: rotate(12deg) scale(1.1); }
+  }
+
+  .board-wrap {
+    position: relative;
+    width: min(92vw, 640px);
+    height: min(92vw, 640px);
+    margin: 0 auto;
+  }
+  .board {
+    position: absolute;
+    inset: 0;
+    background: #ecf0f1;
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+
+  /* Grid: 15x15 cells */
+  .cell {
+    position: absolute;
+    width: calc(100% / 15);
+    height: calc(100% / 15);
+    border: 1px solid rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cell.safe::after {
+    content: '★';
+    position: absolute;
+    font-size: 0.7em;
+    color: var(--safe);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .cell.home-path-red { background: #ffcccc; }
+  .cell.home-path-green { background: #c8f7c5; }
+  .cell.home-path-yellow { background: #fff3b0; }
+  .cell.home-path-blue { background: #cce5ff; }
+  .cell.center {
+    background: var(--center);
+    border: none;
+  }
+  .cell.yard-red { background: #ffcccc; }
+  .cell.yard-green { background: #c8f7c5; }
+  .cell.yard-yellow { background: #fff3b0; }
+  .cell.yard-blue { background: #cce5ff; }
+  .cell.track { background: #fff; }
+  .cell.start-red { background: var(--red); }
+  .cell.start-green { background: var(--green); }
+  .cell.start-yellow { background: var(--yellow); }
+  .cell.start-blue { background: var(--blue); }
+
+  .token {
+    width: 58%;
+    height: 58%;
+    border-radius: 50%;
+    border: 2px solid rgba(0,0,0,0.35);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35);
+    cursor: pointer;
+    z-index: 10;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .token:hover { transform: scale(1.15); }
+  .token.selectable {
+    box-shadow: 0 0 0 3px #fff, 0 0 12px 4px #f1c40f;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+  .token.red { background: radial-gradient(circle at 30% 30%, #ff7b6b, var(--red)); }
+  .token.green { background: radial-gradient(circle at 30% 30%, #5ddea0, var(--green)); }
+  .token.yellow { background: radial-gradient(circle at 30% 30%, #ffe066, var(--yellow)); }
+  .token.blue { background: radial-gradient(circle at 30% 30%, #7ec8ff, var(--blue)); }
+  .token.finished { opacity: 0.35; pointer-events: none; }
+
+  .yard-tokens {
+    position: absolute;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8%;
+    width: 70%;
+    height: 70%;
+    top: 15%;
+    left: 15%;
+  }
+  .yard-tokens .token { width: 90%; height: 90%; }
+
+  .center-home {
+    position: absolute;
+    width: calc(100% / 15 * 3);
+    height: calc(100% / 15 * 3);
+    left: calc(100% / 15 * 6);
+    top: calc(100% / 15 * 6);
+    background: conic-gradient(
+      from 45deg,
+      var(--red) 0deg 90deg,
+      var(--blue) 90deg 180deg,
+      var(--yellow) 180deg 270deg,
+      var(--green) 270deg 360deg
+    );
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.7rem;
+    color: white;
+    text-shadow: 0 1px 2px black;
+  }
+
+  .info-panel {
+    margin-top: 12px;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 640px;
+  }
+  .player-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+  }
+  .player-info.active {
+    outline: 2px solid #f1c40f;
+    background: rgba(241,196,15,0.15);
+  }
+  .swatch {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  .swatch.red { background: var(--red); }
+  .swatch.green { background: var(--green); }
+  .swatch.yellow { background: var(--yellow); }
+  .swatch.blue { background: var(--blue); }
+
+  .log {
+    margin-top: 10px;
+    max-height: 110px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.25);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    width: 100%;
+    max-width: 640px;
+  }
+  .log div { margin: 2px 0; opacity: 0.9; }
+
+  .win-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .win-box {
+    background: var(--panel);
+    padding: 32px 48px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 0 40px rgba(241,196,15,0.4);
+  }
+  .win-box h2 { font-size: 2rem; margin-bottom: 12px; color: #f1c40f; }
+
+  /* ---------- Voltix integration ---------- */
+  body { padding-bottom: 40px; }
+  .brand-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid #f1c40f; margin-bottom: 4px; }
+  .vbar {
+    width: 100%; max-width: 920px; display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; background: var(--panel); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+    padding: 8px 12px; margin-bottom: 10px; font-size: 0.9rem;
+  }
+  .vbar .balance { color: #f1c40f; font-weight: 700; }
+  .vlinks { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .vlink {
+    background: #0f3460; color: var(--text); border-radius: 8px; padding: 6px 10px;
+    text-decoration: none; font-size: 0.9rem; font-weight: 600;
+  }
+  .vlink.gold { background: linear-gradient(135deg, #b45309, #f1c40f); color: #1a1000; }
+  .menu-card {
+    background: var(--panel); border-radius: 16px; padding: 20px; width: 100%; max-width: 920px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); margin-bottom: 12px;
+  }
+  .menu-card h2 { margin-bottom: 10px; font-size: 1.05rem; }
+  .menu-card button.wide { width: 100%; margin-top: 10px; padding: 14px; font-weight: 700; }
+  .btn-gold { background: linear-gradient(135deg, #b45309, #f1c40f); color: #1a1000; font-weight: 700; }
+  .btn-dark { background: #0f3460; color: #fff; }
+  .btn-danger { background: #7f1d1d; color: #fff; }
+  .seg { display: flex; gap: 8px; margin: 8px 0; }
+  .seg button { flex: 1; background: #0f3460; color: #cbd5e1; padding: 10px 6px; font-size: 0.9rem; }
+  .seg button.active { background: #27ae60; color: #052e16; font-weight: 700; }
+  .hint { font-size: 0.8rem; opacity: 0.75; text-align: center; margin-top: 8px; line-height: 1.4; }
+  .lb-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.9rem; }
+  .lb-item .rank { color: #f1c40f; font-weight: 700; display: inline-block; width: 28px; }
+  .modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-content {
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+    padding: 20px; max-width: 360px; width: 100%; text-align: center;
+  }
+  .modal-content h3 { color: #f1c40f; margin-bottom: 8px; }
+  .modal-content button { width: 100%; margin-top: 8px; padding: 12px; }
+  input[type=text], input[type=tel] {
+    width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #334155;
+    background: #0f3460; color: #fff; font-size: 1rem;
+  }
+  .code-box { font-size: 2.4rem; font-weight: 800; letter-spacing: 8px; text-align: center; color: #f1c40f; margin: 10px 0; }
+  .msg-line { font-size: 0.85rem; min-height: 18px; text-align: center; margin-top: 8px; }
+  .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row-btns button { flex: 1; min-width: 130px; }
+  #netStatus { font-size: 0.75rem; font-weight: 700; opacity: 0.9; margin-bottom: 6px; text-align: center; width: 100%; }
+  #netStatus.direct { color: #4ade80; }
+  #netStatus.relay { color: #fdba74; }
+  .win-box p { white-space: pre-line; }
+  .win-box button { display: block; width: 100%; }
+
+    /* ---------- Site-wide announcements banner ---------- */
+    #anncBar { position: relative; z-index: 80; }
+    .annc-card {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-left: 4px solid #fbbf24;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      position: relative;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .annc-card img { max-width: 64px; max-height: 64px; border-radius: 6px; flex-shrink: 0; object-fit: cover; }
+    .annc-card .annc-body { flex: 1; min-width: 0; line-height: 1.35; word-break: break-word; }
+    .annc-card audio { width: 100%; max-width: 260px; margin-top: 6px; height: 32px; display: block; }
+    .annc-card .annc-close {
+      background: none; border: none; color: #94a3b8; font-size: 1.15rem; cursor: pointer;
+      line-height: 1; padding: 2px 4px; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="anncBar"></div>
+  <img src="logo.png" alt="Voltix Pro" class="brand-logo" onerror="this.style.display='none'" />
+  <h1>🎲 LUDO</h1>
+
+  <!-- BALANCE + NAV -->
+  <div class="vbar">
+    <div>Balls: <span class="balance" id="ballBalance">0</span></div>
+    <div class="vlinks">
+      <a class="vlink" href="foosball.html" title="Foosball">⚽</a>
+      <a class="vlink" href="kaisa.html" title="Kaisa">🎱</a>
+      <a class="vlink" href="damii.html" title="Damii">♟️</a>
+      <a class="vlink" href="chat.html" title="Chat">💬</a>
+      <a class="vlink" href="home.html" title="Store">🛍️</a>
+      <a class="vlink gold" href="foosball.html?buy=1">Buy Balls</a>
+    </div>
+  </div>
+
+  <!-- MENU -->
+  <div id="menu">
+    <div class="menu-card">
+      <h2>⚡ Play vs Hard AI (free)</h2>
+      <p class="hint" id="prizeHint">Level 1: 1 Hard AI → Level 2: 2 Hard AIs → Level 3: 3 Hard AIs. Win Level 3 to claim the prize.</p>
+      <button class="btn-gold wide" id="btnVsAI">Start — Level 1</button>
+    </div>
+
+    <div class="menu-card">
+      <h2>👥 Play a Friend</h2>
+      <button class="btn-dark wide" id="btnOnline" style="margin-top:0;">Challenge Friend (Online)</button>
+      <button class="btn-dark wide" id="btnCustom">Local / Custom Game</button>
+      <p class="hint">Online: host is free, a friend joining pays 1 ball. Local/Custom is free (pass the phone, or mix humans and AIs) — no prize.</p>
+    </div>
+
+    <div class="menu-card">
+      <h2>Ludo Champions</h2>
+      <div id="leaderboardList">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ONLINE LOBBY -->
+  <div id="lobby" class="menu-card hidden">
+    <h2>Challenge a Friend</h2>
+    <p class="hint" style="margin-bottom:8px;">Two players on separate phones — you are Red, your friend is Yellow. Hosting is free, joining costs 1 ball.</p>
+    <button class="btn-gold wide" id="btnCreate" style="margin-top:0;">Create Room (Host, free)</button>
+    <div style="text-align:center;opacity:0.6;margin:10px 0;">— or —</div>
+    <input type="text" id="joinCode" placeholder="Enter room code" maxlength="6" style="text-transform:uppercase;" />
+    <button class="btn-dark wide" id="btnJoin" style="margin-top:0;">Join Room (1 ball)</button>
+    <div class="msg-line" id="lobbyMsg" style="color:#f87171;"></div>
+    <button class="btn-dark wide" id="btnBackLobby">← Back</button>
+  </div>
+
+  <!-- ROOM (host waiting) -->
+  <div id="room" class="menu-card hidden">
+    <div style="text-align:center;">Room Code</div>
+    <div class="code-box" id="roomCode">-----</div>
+    <p class="hint">Waiting for your friend to join…</p>
+    <div class="row-btns" style="margin-top:10px;">
+      <button class="btn-gold" id="btnShareLink">🔗 Share Invite Link</button>
+      <button class="btn-gold" id="btnShareGroup">💬 Post to Group Chat</button>
+    </div>
+    <div class="msg-line" id="roomMsg"></div>
+    <button class="btn-danger wide" id="btnLeave">Cancel Room</button>
+  </div>
+
+  <!-- CUSTOM SETUP (the original setup screen) -->
+  <div class="setup hidden" id="setup">
+    <h2>Local / Custom Game</h2>
+    <p style="margin-bottom:12px;opacity:0.85">
+      Choose players (Human / Hard AI / Easy AI). Free to play — no prize or leaderboard credit.<br>
+      <strong>Rules:</strong> Kick a single token by landing on it (normal capture).
+      <strong>House rule:</strong> You can also <em>front-kick</em> a single opponent sitting immediately in front of you (even if the dice is not 1).
+      2+ same-color tokens form a <em>pile</em> — no one else can land on or jump over it.
+    </p>
+    <div class="player-row">
+      <label style="color:var(--red)">Red</label>
+      <select id="p0"><option value="human" selected>Human</option><option value="ai-hard">Hard AI</option><option value="ai-easy">Easy AI</option><option value="off">Off</option></select>
+    </div>
+    <div class="player-row">
+      <label style="color:var(--green)">Green</label>
+      <select id="p1"><option value="human">Human</option><option value="ai-hard" selected>Hard AI</option><option value="ai-easy">Easy AI</option><option value="off">Off</option></select>
+    </div>
+    <div class="player-row">
+      <label style="color:var(--yellow)">Yellow</label>
+      <select id="p2"><option value="human">Human</option><option value="ai-hard">Hard AI</option><option value="ai-easy">Easy AI</option><option value="off" selected>Off</option></select>
+    </div>
+    <div class="player-row">
+      <label style="color:var(--blue)">Blue</label>
+      <select id="p3"><option value="human">Human</option><option value="ai-hard">Hard AI</option><option value="ai-easy">Easy AI</option><option value="off" selected>Off</option></select>
+    </div>
+    <button class="btn-primary" id="startBtn">Start Game</button>
+    <button class="btn-dark" id="btnBackSetup" style="margin-top:16px;margin-left:8px;padding:12px 20px;">← Back</button>
+  </div>
+
+  <!-- GAME -->
+  <div class="game-ui hidden" id="gameUI">
+    <div id="netStatus"></div>
+    <div class="top-bar">
+      <div class="status" id="status">Roll the dice</div>
+      <div class="dice-area">
+        <div class="dice" id="dice" title="Click to roll">?</div>
+        <button class="btn-secondary" id="rollBtn">Roll Dice</button>
+        <button class="btn-secondary" id="muteBtn" title="Toggle sound">🔊 Sound</button>
+        <button class="btn-secondary" id="newGameBtn">Quit to Menu</button>
+      </div>
+    </div>
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+      <div class="center-home">HOME</div>
+    </div>
+    <div class="info-panel" id="infoPanel"></div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- WIN -->
+  <div class="win-overlay hidden" id="winOverlay">
+    <div class="win-box">
+      <h2 id="winTitle">Winner!</h2>
+      <p id="winMsg"></p>
+      <button class="btn-gold hidden" id="btnClaim" style="margin-top:12px;">🎁 Claim Prize</button>
+      <button class="btn-gold hidden" id="btnContinueLevel" style="margin-top:12px;">▶️ Continue to Level 2</button>
+      <button class="btn-dark hidden" id="btnQuitCampaign" style="margin-top:10px;">Quit (no prize yet)</button>
+      <button class="btn-primary" id="playAgainBtn" style="margin-top:12px;">Back to Menu</button>
+    </div>
+  </div>
+
+  <!-- FRONT-KICK CHOICE -->
+  <div class="modal hidden" id="moveChoice">
+    <div class="modal-content">
+      <h3>Choose your move</h3>
+      <div id="moveChoiceBtns"></div>
+      <button class="btn-dark" id="moveChoiceCancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- WINNER PHONE CAPTURE MODAL -->
+  <div class="modal hidden" id="winnerModal">
+    <div class="modal-content">
+      <h3>🎉 You Won!</h3>
+      <p style="font-size:0.85rem; opacity:0.8;" id="winnerPrizeText">Prize: —</p>
+      <p style="font-size:0.8rem; opacity:0.8; margin:8px 0;">Enter your phone number so we can send your prize.</p>
+      <input type="tel" id="winnerPhone" placeholder="e.g. 024xxxxxxx" />
+      <button class="btn-gold" id="submitWinnerBtn">Submit</button>
+      <button class="btn-dark" id="closeWinnerBtn">Close</button>
+      <div class="msg-line" id="winnerStatus"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    // =====================================================
+    //  Same Firebase project as Foosball / Kaisa / the store
+    // =====================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+      authDomain: "voltix-pro-dc363.firebaseapp.com",
+      projectId: "voltix-pro-dc363",
+      storageBucket: "voltix-pro-dc363.firebasestorage.app",
+      messagingSenderId: "778425016855",
+      appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252",
+      measurementId: "G-5BQWW8P46P"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ---------- Site-wide announcements banner (posted from Admin) ----------
+    (function loadAnnouncementBanner() {
+      const bar = document.getElementById("anncBar");
+      if (!bar) return;
+      function escAnnc(s) {
+        return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+      db.collection("announcements").where("active", "==", true).limit(20).get()
+        .then(snap => {
+          if (snap.empty) return;
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0))
+            .slice(0, 5);
+          docs.forEach(a => {
+            const card = document.createElement("div");
+            card.className = "annc-card";
+            let html = "";
+            if (a.imageUrl) html += `<img src="${escAnnc(a.imageUrl)}" alt="" />`;
+            html += `<div class="annc-body">`;
+            if (a.text) html += `<div>${escAnnc(a.text)}</div>`;
+            if (a.audioUrl) html += `<audio controls src="${escAnnc(a.audioUrl)}"></audio>`;
+            html += `</div><button type="button" class="annc-close" aria-label="Dismiss">✕</button>`;
+            card.innerHTML = html;
+            card.querySelector(".annc-close").onclick = () => card.remove();
+            bar.appendChild(card);
+          });
+        })
+        .catch(() => {});
+    })();
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- Accounts (same anonymous-auth + users/{uid} setup as the other games) ----------
+    let currentUser = null;
+    let userData = { balls: 0, wins: 0, name: 'Player' };
+    let settings = { ludoAiPrize: 'Free earpods discount' };
+
+    let authReadyPromise = null;
+    function ensureAuth() {
+      if (authReadyPromise) return authReadyPromise;
+      authReadyPromise = new Promise((resolve, reject) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          try {
+            if (user) {
+              currentUser = user;
+              await loadUser();
+            } else {
+              const cred = await auth.signInAnonymously();
+              currentUser = cred.user;
+              await createUserDoc();
+            }
+            unsubscribe();
+            resolve(currentUser);
+          } catch (err) {
+            unsubscribe();
+            authReadyPromise = null;
+            reject(err);
+          }
+        }, (err) => { authReadyPromise = null; reject(err); });
+      });
+      return authReadyPromise;
+    }
+    async function waitForAuth() {
+      try { await ensureAuth(); return true; }
+      catch (err) {
+        console.error('Auth failed:', err);
+        alert('Sign-in failed: ' + (err.message || 'unknown error') + '\nCheck your internet connection and reload the page.');
+        return false;
+      }
+    }
+    async function createUserDoc() {
+      const ref = db.collection('users').doc(currentUser.uid);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        await ref.set({
+          balls: 0, wins: 0,
+          name: 'Player' + Math.floor(Math.random() * 9000 + 1000),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      await loadUser();
+    }
+    async function loadUser() {
+      const snap = await db.collection('users').doc(currentUser.uid).get();
+      if (snap.exists) {
+        userData = snap.data();
+        $('ballBalance').textContent = userData.balls || 0;
+      }
+    }
+    async function loadSettings() {
+      try {
+        const snap = await db.collection('gameSettings').doc('main').get();
+        if (snap.exists) settings = { ...settings, ...snap.data() };
+      } catch (e) { console.warn('settings', e); }
+      updatePrizeHint();
+    }
+    async function loadLeaderboard() {
+      const list = $('leaderboardList');
+      try {
+        const snap = await db.collection('ludoLeaderboard').orderBy('wins', 'desc').limit(10).get();
+        list.textContent = '';
+        if (snap.empty) {
+          const p = document.createElement('p');
+          p.style.color = 'rgba(255,255,255,0.6)';
+          p.textContent = 'No players yet. Be the first!';
+          list.appendChild(p);
+          return;
+        }
+        let rank = 1;
+        snap.forEach(doc => {
+          const d = doc.data();
+          const row = document.createElement('div');
+          row.className = 'lb-item';
+          const left = document.createElement('span');
+          const r = document.createElement('span');
+          r.className = 'rank'; r.textContent = '#' + rank;
+          left.append(r, ' ' + (d.name || 'Player'));
+          const right = document.createElement('span');
+          right.textContent = (d.wins || 0) + ' wins';
+          row.append(left, right);
+          list.appendChild(row);
+          rank++;
+        });
+      } catch (err) {
+        list.textContent = "Couldn't load leaderboard: " + err.message;
+        list.style.color = '#f87171';
+      }
+    }
+    async function recordWin() {
+      if (!currentUser) return;
+      try {
+        await db.collection('users').doc(currentUser.uid).update({
+          ludoWins: firebase.firestore.FieldValue.increment(1)
+        });
+        const lbRef = db.collection('ludoLeaderboard').doc(currentUser.uid);
+        const lbSnap = await lbRef.get();
+        if (lbSnap.exists) {
+          await lbRef.update({ wins: firebase.firestore.FieldValue.increment(1), name: userData.name });
+        } else {
+          await lbRef.set({ name: userData.name, wins: 1, uid: currentUser.uid });
+        }
+      } catch (err) { console.warn('recordWin failed', err); }
+    }
+
+/* ========== LUDO ENGINE ========== */
+const COLORS = ['red', 'green', 'yellow', 'blue'];
+const COLOR_HEX = { red: '#e74c3c', green: '#27ae60', yellow: '#f1c40f', blue: '#3498db' };
+
+// Main track: 52 positions (0-51). Relative start offsets.
+// Red starts at 0, Green at 13, Yellow at 26, Blue at 39.
+const START_OFFSET = { red: 0, green: 13, yellow: 26, blue: 39 };
+// Home entry: just before their start (relative)
+const HOME_ENTRY = { red: 50, green: 11, yellow: 24, blue: 37 }; // absolute track index before home
+
+// Safe squares on main track (absolute indices)
+const SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]); // starts + stars
+
+// Yard positions (grid row,col for token slots)
+const YARD_SLOTS = {
+  red:    [[1,1],[1,2],[2,1],[2,2]],
+  green:  [[1,12],[1,13],[2,12],[2,13]],
+  yellow: [[12,12],[12,13],[13,12],[13,13]],
+  blue:   [[12,1],[12,2],[13,1],[13,2]]
+};
+
+// Home path grid positions (5 steps into center). Order from entry to home.
+const HOME_PATH = {
+  red:    [[7,1],[7,2],[7,3],[7,4],[7,5]],      // left arm toward center
+  green:  [[1,7],[2,7],[3,7],[4,7],[5,7]],      // top arm
+  yellow: [[7,13],[7,12],[7,11],[7,10],[7,9]],  // right arm
+  blue:   [[13,7],[12,7],[11,7],[10,7],[9,7]]   // bottom arm
+};
+
+// Main track grid coordinates (row, col) for absolute positions 0..51
+// Red path starts at (6,1) going right then around clockwise.
+function buildTrackCoords() {
+  const coords = new Array(52);
+  // Bottom of red home path start area → right along bottom of top arm? Standard mapping:
+  // Common 15x15 mapping:
+  // Track runs clockwise starting from red start (just outside red yard, bottom of left arm).
+  let i = 0;
+  // Red start: row 6, col 1  → move right to col 5
+  for (let c = 1; c <= 5; c++) coords[i++] = [6, c];
+  // Up the left side of green arm: row 5..1, col 6
+  for (let r = 5; r >= 1; r--) coords[i++] = [r, 6];
+  // Across top of green: row 0, col 6..8
+  for (let c = 6; c <= 8; c++) coords[i++] = [0, c];
+  // Down right of green: row 1..5, col 8
+  for (let r = 1; r <= 5; r++) coords[i++] = [r, 8];
+  // Right along top of yellow: row 6, col 9..13
+  for (let c = 9; c <= 13; c++) coords[i++] = [6, c];
+  // Down right side of yellow: row 6..8, col 14
+  for (let r = 6; r <= 8; r++) coords[i++] = [r, 14];
+  // Left along bottom of yellow: row 8, col 13..9
+  for (let c = 13; c >= 9; c--) coords[i++] = [8, c];
+  // Down left of blue arm: row 9..13, col 8
+  for (let r = 9; r <= 13; r++) coords[i++] = [r, 8];
+  // Across bottom of blue: row 14, col 8..6
+  for (let c = 8; c >= 6; c--) coords[i++] = [14, c];
+  // Up right of blue: row 13..9, col 6
+  for (let r = 13; r >= 9; r--) coords[i++] = [r, 6];
+  // Left along bottom of red: row 8, col 5..1
+  for (let c = 5; c >= 1; c--) coords[i++] = [8, c];
+  // Up left of red: row 8..6, col 0
+  for (let r = 8; r >= 6; r--) coords[i++] = [r, 0];
+  return coords;
+}
+const TRACK = buildTrackCoords();
+
+// Convert relative position of a color to absolute track index
+function relToAbs(color, rel) {
+  return (START_OFFSET[color] + rel) % 52;
+}
+
+class Token {
+  constructor(color, id) {
+    this.color = color;
+    this.id = id;
+    this.state = 'yard'; // yard | track | home | finished
+    this.pos = -1;    // relative track 0..50, or home step 0..4, or -1
+  }
+  reset() {
+    this.state = 'yard';
+    this.pos = -1;
+  }
+}
+
+class Player {
+  constructor(color, type) {
+    this.color = color;
+    this.type = type; // human | ai-hard | ai-easy
+    this.tokens = [0,1,2,3].map(i => new Token(color, i));
+    this.finished = 0;
+  }
+}
+
+class Game {
+  constructor(types) {
+    this.players = [];
+    this.active = [];
+    COLORS.forEach((c, i) => {
+      if (types[i] !== 'off') {
+        const p = new Player(c, types[i]);
+        this.players.push(p);
+        this.active.push(p);
+      }
+    });
+    this.currentIdx = 0;
+    this.dice = 0;
+    this.extraTurns = 0;
+    this.sixCount = 0;
+    this.waitingForMove = false;
+    this.legalMoves = [];
+    this.gameOver = false;
+    this.winner = null;
+    this.log = [];
+  }
+
+  current() { return this.active[this.currentIdx]; }
+
+  nextPlayer() {
+    this.currentIdx = (this.currentIdx + 1) % this.active.length;
+    this.sixCount = 0;
+    this.extraTurns = 0;
+    this.dice = 0;
+    this.waitingForMove = false;
+    this.legalMoves = [];
+  }
+
+  roll() {
+    if (this.gameOver || this.waitingForMove) return null;
+    this.dice = 1 + Math.floor(Math.random() * 6);
+    if (this.dice === 6) {
+      this.sixCount++;
+      if (this.sixCount >= 3) {
+        this.addLog(`${this.current().color} rolled three 6s — turn ends`);
+        this.sixCount = 0;
+        this.nextPlayer();
+        return this.dice;
+      }
+      this.extraTurns++;
+    }
+    this.legalMoves = this.getLegalMoves(this.current(), this.dice);
+    if (this.legalMoves.length === 0) {
+      this.addLog(`${this.current().color} rolled ${this.dice} — no moves`);
+      if (this.dice === 6 && this.sixCount < 3) {
+        // keep turn for another roll
+      } else {
+        this.nextPlayer();
+      }
+      return this.dice;
+    }
+    this.waitingForMove = true;
+    return this.dice;
+  }
+
+  getLegalMoves(player, dice) {
+    const moves = [];
+    for (const t of player.tokens) {
+      if (t.state === 'finished') continue;
+
+      // Leave yard only on 6
+      if (t.state === 'yard') {
+        if (dice === 6) {
+          const abs = START_OFFSET[player.color];
+          // Entering start: can capture a single opponent sitting on start
+          if (this.canEnterOrLand(player.color, abs, true)) {
+            moves.push({ token: t, toState: 'track', toPos: 0, frontKick: false });
+          }
+        }
+        continue;
+      }
+
+      // Moving on main track
+      if (t.state === 'track') {
+        const newRel = t.pos + dice;
+
+        // Still on main track (relative 0..50)
+        if (newRel <= 50) {
+          if (this.pathIsClear(player.color, t.pos, newRel)) {
+            const abs = relToAbs(player.color, newRel);
+            if (this.canEnterOrLand(player.color, abs, false)) {
+              moves.push({ token: t, toState: 'track', toPos: newRel, frontKick: false });
+            }
+          }
+        } else {
+          // Enter or finish home path — path to home entry must be clear
+          const stepsToHomeEntry = 51 - t.pos;
+          if (dice >= stepsToHomeEntry) {
+            if (this.pathIsClear(player.color, t.pos, 50) || t.pos === 50) {
+              const homeStep = newRel - 51;
+              if (homeStep <= 4) {
+                moves.push({ token: t, toState: 'home', toPos: homeStep, frontKick: false });
+              } else if (homeStep === 5) {
+                moves.push({ token: t, toState: 'finished', toPos: 5, frontKick: false });
+              }
+            }
+          }
+        }
+
+        // ===== HOUSE RULE: Special Front Kick =====
+        // If a single opponent sits immediately in front (+1 square),
+        // you may kick it by moving onto its square even when dice ≠ 1.
+        const frontRel = t.pos + 1;
+        if (frontRel <= 50) {
+          const frontAbs = relToAbs(player.color, frontRel);
+          if (this.canEnterOrLand(player.color, frontAbs, false)) {
+            const occ = this.tokensAtAbs(frontAbs);
+            // Only when there is exactly one opponent (not a pile, not empty, not own)
+            if (occ.length === 1 && occ[0].color !== player.color) {
+              const already = moves.some(m =>
+                m.token === t && m.toState === 'track' && m.toPos === frontRel
+              );
+              if (!already) {
+                moves.push({ token: t, toState: 'track', toPos: frontRel, frontKick: true });
+              }
+            }
+          }
+        }
+        continue;
+      }
+
+      // Already on home path (safe, no captures)
+      if (t.state === 'home') {
+        const newH = t.pos + dice;
+        if (newH === 5) {
+          moves.push({ token: t, toState: 'finished', toPos: 5, frontKick: false });
+        } else if (newH < 5) {
+          moves.push({ token: t, toState: 'home', toPos: newH, frontKick: false });
+        }
+      }
+    }
+    return moves;
+  }
+
+  /* ---------- Blockade & capture helpers ---------- */
+
+  // Tokens currently sitting on an absolute track square
+  tokensAtAbs(abs) {
+    const list = [];
+    for (const p of this.active) {
+      for (const t of p.tokens) {
+        if (t.state === 'track' && relToAbs(t.color, t.pos) === abs) list.push(t);
+      }
+    }
+    return list;
+  }
+
+  // True if square has 2+ tokens of the SAME color (a pile / blockade)
+  isBlockade(abs) {
+    const occ = this.tokensAtAbs(abs);
+    if (occ.length < 2) return false;
+    const color = occ[0].color;
+    return occ.every(o => o.color === color);
+  }
+
+  // Can this color land on (or enter) the absolute square?
+  // enteringStart = true when bringing a token out of yard onto its start square
+  canEnterOrLand(myColor, abs, enteringStart) {
+    const occ = this.tokensAtAbs(abs);
+    if (occ.length === 0) return true;
+
+    // Own tokens → always allowed (stack / pile)
+    if (occ.every(o => o.color === myColor)) return true;
+
+    // Opponent blockade (2+ same color) → never landable
+    if (this.isBlockade(abs)) return false;
+
+    // Single opponent
+    if (occ.length === 1) {
+      // Safe squares protect a single token, EXCEPT when you are entering your own start
+      // (classic rule: you may kick someone sitting on your start by rolling a 6)
+      if (SAFE.has(abs) && !enteringStart) return false;
+      return true; // capture allowed
+    }
+
+    // Mixed colors or other edge cases → block
+    return false;
+  }
+
+  // Check every intermediate square (not destination) for an opposing blockade.
+  // You may not jump over a pile of 2+ opponent tokens.
+  pathIsClear(myColor, fromRel, toRel) {
+    if (toRel <= fromRel) return true;
+    for (let rel = fromRel + 1; rel < toRel; rel++) {
+      const abs = relToAbs(myColor, rel);
+      if (this.isBlockade(abs)) {
+        const occ = this.tokensAtAbs(abs);
+        // Only block if the pile belongs to an opponent
+        if (occ.length && occ[0].color !== myColor) return false;
+      }
+    }
+    return true;
+  }
+
+  applyMove(move) {
+    const player = this.current();
+    const t = move.token;
+    let captured = null;
+
+    if (move.toState === 'track') {
+      const abs = relToAbs(player.color, move.toPos);
+      const occ = this.tokensAtAbs(abs);
+      // Capture only a single opponent token.
+      // Safe squares normally protect, but entering your own start (pos 0) can kick.
+      const isEnteringStart = (move.toPos === 0 && t.state === 'yard');
+      if (occ.length === 1 && occ[0].color !== player.color) {
+        if (!SAFE.has(abs) || isEnteringStart) {
+          const victim = occ[0];
+          victim.state = 'yard';
+          victim.pos = -1;
+          captured = victim;
+          this.extraTurns++;
+          if (move.frontKick) {
+            this.addLog(`${player.color} FRONT-KICKED ${victim.color}'s token back to yard!`);
+          } else {
+            this.addLog(`${player.color} kicked ${victim.color}'s token back to yard!`);
+          }
+        }
+      }
+    }
+
+    t.state = move.toState;
+    t.pos = move.toPos;
+    if (move.toState === 'finished') {
+      player.finished++;
+      this.addLog(`${player.color} finished a token! (${player.finished}/4)`);
+      this.extraTurns++;
+      if (player.finished === 4) {
+        this.gameOver = true;
+        this.winner = player;
+        this.addLog(`🏆 ${player.color.toUpperCase()} WINS!`);
+      }
+    }
+
+    this.waitingForMove = false;
+    this.legalMoves = [];
+
+    // After move, if extra turns or 6, stay; else next
+    if (!this.gameOver) {
+      if (this.dice === 6 || captured || (move.toState === 'finished')) {
+        // keep turn (but if three 6s already handled)
+        if (this.dice !== 6) this.sixCount = 0;
+      } else {
+        this.nextPlayer();
+      }
+    }
+    return captured;
+  }
+
+  addLog(msg) {
+    this.log.unshift(msg);
+    if (this.log.length > 40) this.log.pop();
+  }
+
+  // ========== AI ==========
+  chooseMove(player, moves, hard = true) {
+    if (!moves.length) return null;
+    if (!hard) {
+      // Easy: random, slight preference for capture/finish
+      const scored = moves.map(m => ({ m, s: this.scoreMove(player, m, false) + Math.random() * 20 }));
+      scored.sort((a,b) => b.s - a.s);
+      return scored[0].m;
+    }
+    // Hard AI: full heuristic
+    const scored = moves.map(m => ({ m, s: this.scoreMove(player, m, true) }));
+    scored.sort((a,b) => b.s - a.s);
+    return scored[0].m;
+  }
+
+  scoreMove(player, move, hard) {
+    let score = 0;
+    const t = move.token;
+
+    // 1. Finish token — highest priority
+    if (move.toState === 'finished') score += 1000;
+
+    // 2. Capture / kick (single opponent) — including special front kick
+    if (move.toState === 'track') {
+      const abs = relToAbs(player.color, move.toPos);
+      const occ = this.tokensAtAbs(abs);
+      const isEnteringStart = (move.toPos === 0 && t.state === 'yard');
+      if (occ.length === 1 && occ[0].color !== player.color) {
+        if (!SAFE.has(abs) || isEnteringStart) {
+          score += move.frontKick ? 480 : 420; // front kick is slightly preferred
+          const victimP = this.active.find(p => p.color === occ[0].color);
+          if (victimP) score += victimP.finished * 35 + this.progressOf(occ[0]) * 2.5;
+        }
+      }
+    }
+
+    // 3. Enter board
+    if (t.state === 'yard' && move.toState === 'track') {
+      score += 130;
+    }
+
+    // 4. Enter / advance home
+    if (move.toState === 'home') {
+      score += 220 + move.toPos * 45;
+    }
+    if (t.state === 'home' && move.toState === 'home') {
+      score += 90 + move.toPos * 35;
+    }
+
+    // 5. Reach safe square
+    if (move.toState === 'track') {
+      const abs = relToAbs(player.color, move.toPos);
+      if (SAFE.has(abs)) score += hard ? 65 : 95;
+    }
+
+    // 6. Progress
+    if (move.toState === 'track') {
+      score += move.toPos * (hard ? 2.4 : 1.6);
+    }
+
+    // 7. Form a blockade (pile of 2+) — very strong defensive/offensive tool
+    if (hard && move.toState === 'track') {
+      const abs = relToAbs(player.color, move.toPos);
+      const occ = this.tokensAtAbs(abs);
+      const ownAlready = occ.filter(o => o.color === player.color).length;
+      if (ownAlready >= 1) {
+        // Moving onto own token → create or strengthen pile
+        score += 110 + ownAlready * 40;
+      }
+    }
+
+    // 8. Safety of destination (threat assessment)
+    if (hard && move.toState === 'track') {
+      const abs = relToAbs(player.color, move.toPos);
+      // A new blockade is almost immune
+      const occ = this.tokensAtAbs(abs);
+      const willBeBlock = occ.filter(o => o.color === player.color).length >= 1;
+      if (!willBeBlock) {
+        const threat = this.threatLevel(player.color, abs);
+        score -= threat * 65;
+      }
+      // Leaving a safe square for an unsafe one is itself a risk worth weighing
+      const curAbs = t.state === 'track' ? relToAbs(player.color, t.pos) : null;
+      if (curAbs !== null && SAFE.has(curAbs) && !SAFE.has(abs) && !willBeBlock) {
+        score -= 25;
+      }
+    }
+
+    // 9. Prefer moving the furthest-behind token
+    if (hard && t.state === 'track') {
+      const progresses = player.tokens.filter(x => x.state === 'track').map(x => x.pos);
+      if (progresses.length) {
+        const minP = Math.min(...progresses);
+        if (t.pos === minP) score += 28;
+      }
+    }
+
+    // 10. Escape a threatened token
+    if (hard && t.state === 'track') {
+      const curAbs = relToAbs(player.color, t.pos);
+      const curThreat = this.threatLevel(player.color, curAbs);
+      if (curThreat > 0.35) score += 45;
+    }
+
+    // 11. Deploy when few tokens are out
+    const activeCount = player.tokens.filter(x => x.state !== 'yard' && x.state !== 'finished').length;
+    if (t.state === 'yard' && activeCount < 2) score += 45;
+
+    return score;
+  }
+
+  progressOf(token) {
+    if (token.state === 'yard') return 0;
+    if (token.state === 'finished') return 60;
+    if (token.state === 'home') return 52 + token.pos;
+    return token.pos;
+  }
+
+  // Approximate probability an opponent can land on this square next turn
+  threatLevel(myColor, abs) {
+    let threat = 0;
+    for (const p of this.active) {
+      if (p.color === myColor) continue;
+      for (const t of p.tokens) {
+        if (t.state !== 'track') continue;
+        const tAbs = relToAbs(t.color, t.pos);
+        // distance forward on track
+        let dist = (abs - tAbs + 52) % 52;
+        if (dist >= 1 && dist <= 6) {
+          threat += 1 / 6;
+          // higher if closer to home (more valuable target) — already in capture score
+        }
+      }
+    }
+    return Math.min(threat, 1.5);
+  }
+}
+
+
+/* ========== SOUND ENGINE (Web Audio API) ========== */
+const Sound = (() => {
+  let ctx = null;
+  let master = null;
+  let bgGain = null;
+  let sfxGain = null;
+  let muted = false;
+  let bgPlaying = false;
+  let bgNodes = [];
+
+  function ensure() {
+    if (ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0.7;
+    master.connect(ctx.destination);
+
+    bgGain = ctx.createGain();
+    bgGain.gain.value = 0.18;
+    bgGain.connect(master);
+
+    sfxGain = ctx.createGain();
+    sfxGain.gain.value = 0.55;
+    sfxGain.connect(master);
+  }
+
+  function resume() {
+    ensure();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+  }
+
+  // Soft pleasant background loop (warm pad + gentle arpeggio)
+  function startBG() {
+    ensure();
+    if (!ctx || bgPlaying || muted) return;
+    resume();
+    bgPlaying = true;
+    bgNodes = [];
+
+    const now = ctx.currentTime;
+
+    // Warm pad (two detuned oscillators)
+    const padNotes = [130.81, 164.81, 196.00, 246.94]; // C3 E3 G3 B3
+    padNotes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.value = 0.07;
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      bgNodes.push(osc, g);
+    });
+
+    // Gentle arpeggio loop
+    const arp = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C E G C' G E
+    let step = 0;
+    function scheduleArp() {
+      if (!bgPlaying || muted || !ctx) return;
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = arp[step % arp.length];
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.09, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(t);
+      osc.stop(t + 0.6);
+      step++;
+      setTimeout(scheduleArp, 700);
+    }
+    scheduleArp();
+  }
+
+  function stopBG() {
+    bgPlaying = false;
+    bgNodes.forEach(n => {
+      try { n.stop?.(); } catch (_) {}
+      try { n.disconnect?.(); } catch (_) {}
+    });
+    bgNodes = [];
+  }
+
+  // Dice roll: rattling noise + final solid click
+  function diceRoll() {
+    if (muted) return;
+    ensure();
+    resume();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+
+    // Rattle (filtered noise bursts)
+    for (let i = 0; i < 5; i++) {
+      const bufferSize = ctx.sampleRate * 0.06;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let j = 0; j < bufferSize; j++) data[j] = (Math.random() * 2 - 1) * 0.5;
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 800 + Math.random() * 1200;
+      filter.Q.value = 2;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.25, t + i * 0.05);
+      g.gain.exponentialRampToValueAtTime(0.01, t + i * 0.05 + 0.08);
+      src.connect(filter);
+      filter.connect(g);
+      g.connect(sfxGain);
+      src.start(t + i * 0.05);
+      src.stop(t + i * 0.05 + 0.1);
+    }
+
+    // Final solid "clack"
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(180, t + 0.28);
+    osc.frequency.exponentialRampToValueAtTime(80, t + 0.38);
+    g.gain.setValueAtTime(0.3, t + 0.28);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+    osc.connect(g);
+    g.connect(sfxGain);
+    osc.start(t + 0.28);
+    osc.stop(t + 0.45);
+  }
+
+  // Soft move / token hop
+  function move() {
+    if (muted) return;
+    ensure();
+    resume();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(420, t);
+    osc.frequency.exponentialRampToValueAtTime(280, t + 0.12);
+    g.gain.setValueAtTime(0.15, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    osc.connect(g);
+    g.connect(sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.16);
+  }
+
+  // Capture / kick – satisfying "whoosh + hit"
+  function capture() {
+    if (muted) return;
+    ensure();
+    resume();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+
+    // Whoosh noise
+    const bufferSize = ctx.sampleRate * 0.15;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2000, t);
+    filter.frequency.exponentialRampToValueAtTime(400, t + 0.15);
+    const g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0.3, t);
+    g1.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+    src.connect(filter);
+    filter.connect(g1);
+    g1.connect(sfxGain);
+    src.start(t);
+    src.stop(t + 0.2);
+
+    // Hit tone
+    const osc = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(220, t + 0.05);
+    osc.frequency.exponentialRampToValueAtTime(90, t + 0.25);
+    g2.gain.setValueAtTime(0.28, t + 0.05);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    osc.connect(g2);
+    g2.connect(sfxGain);
+    osc.start(t + 0.05);
+    osc.stop(t + 0.32);
+  }
+
+  // Token finished / home
+  function finish() {
+    if (muted) return;
+    ensure();
+    resume();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, t + i * 0.1);
+      g.gain.linearRampToValueAtTime(0.18, t + i * 0.1 + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.35);
+      osc.connect(g);
+      g.connect(sfxGain);
+      osc.start(t + i * 0.1);
+      osc.stop(t + i * 0.1 + 0.4);
+    });
+  }
+
+  // Victory fanfare
+  function win() {
+    if (muted) return;
+    ensure();
+    resume();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, t + i * 0.12);
+      g.gain.linearRampToValueAtTime(0.22, t + i * 0.12 + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.12 + 0.5);
+      osc.connect(g);
+      g.connect(sfxGain);
+      osc.start(t + i * 0.12);
+      osc.stop(t + i * 0.12 + 0.55);
+    });
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    if (muted) {
+      stopBG();
+      if (master) master.gain.value = 0;
+    } else {
+      if (master) master.gain.value = 0.7;
+      if (game) startBG();
+    }
+    return muted;
+  }
+
+  function isMuted() { return muted; }
+
+  return { resume, startBG, stopBG, diceRoll, move, capture, finish, win, toggleMute, isMuted };
+})();
+
+
+    /* ========== UI ========== */
+    let game = null;
+    let animating = false;
+    let mode = null;                 // 'ai' | 'local' | 'online'
+    let isHost = true;
+    let myColor = 'red';             // online: host = red, guest = yellow
+    let ludoLevel = 1;         // vs-AI campaign: 1 -> 2 -> 3 Hard AIs, must clear in order for the prize
+    let roomInfo = { hostName: 'Host', guestName: 'Guest' };
+    let awaiting = false;            // guest has sent a request and is waiting for the host's answer
+    let rollRequested = false;
+    let sessionToken = 0;            // invalidates timers left over from a finished/quit game
+    let recorded = false, winShown = false;
+    let matchCode = null, unsubMatch = null;
+    let stateSeq = 0, lastQ = 0, gotState = false, helloTimer = null;
+    const GUEST_COLOR = 'yellow';
+
+    const boardEl = document.getElementById('board');
+    const diceEl = document.getElementById('dice');
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const infoPanel = document.getElementById('infoPanel');
+
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    function oppName() { return isHost ? roomInfo.guestName : roomInfo.hostName; }
+    function gamePage(g) {
+      return g === 'kaisa' ? 'kaisa.html' : g === 'damii' ? 'damii.html' : g === 'ludo' ? 'ludo.html' : 'foosball.html';
+    }
+
+    function humanCanAct() {
+      if (!game || game.gameOver) return false;
+      const p = game.current();
+      if (p.type !== 'human') return false;
+      return mode !== 'online' || p.color === myColor;
+    }
+
+    function cellStyle(r, c) {
+      return `left:${(c/15)*100}%;top:${(r/15)*100}%;`;
+    }
+
+    function buildBoardVisual() {
+      boardEl.innerHTML = '';
+      // Create all 15x15 cells for coloring
+      for (let r = 0; r < 15; r++) {
+        for (let c = 0; c < 15; c++) {
+          const div = document.createElement('div');
+          div.className = 'cell';
+          div.style.cssText = cellStyle(r, c);
+          // Yards
+          if (r <= 5 && c <= 5) div.classList.add('yard-red');
+          else if (r <= 5 && c >= 9) div.classList.add('yard-green');
+          else if (r >= 9 && c >= 9) div.classList.add('yard-yellow');
+          else if (r >= 9 && c <= 5) div.classList.add('yard-blue');
+          // Home paths
+          if (r === 7 && c >= 1 && c <= 5) div.classList.add('home-path-red');
+          if (c === 7 && r >= 1 && r <= 5) div.classList.add('home-path-green');
+          if (r === 7 && c >= 9 && c <= 13) div.classList.add('home-path-yellow');
+          if (c === 7 && r >= 9 && r <= 13) div.classList.add('home-path-blue');
+          // Center
+          if (r >= 6 && r <= 8 && c >= 6 && c <= 8) div.classList.add('center');
+          div.dataset.r = r; div.dataset.c = c;
+          boardEl.appendChild(div);
+        }
+      }
+      // Highlight track + safe + starts
+      TRACK.forEach((coord, idx) => {
+        const [r, c] = coord;
+        const cell = boardEl.children[r * 15 + c];
+        if (cell) {
+          cell.classList.add('track');
+          if (SAFE.has(idx)) cell.classList.add('safe');
+          if (idx === START_OFFSET.red) cell.classList.add('start-red');
+          if (idx === START_OFFSET.green) cell.classList.add('start-green');
+          if (idx === START_OFFSET.yellow) cell.classList.add('start-yellow');
+          if (idx === START_OFFSET.blue) cell.classList.add('start-blue');
+        }
+      });
+    }
+
+    function tokenScreenPos(token) {
+      if (token.state === 'yard') {
+        const slots = YARD_SLOTS[token.color];
+        const [r, c] = slots[token.id];
+        return { r, c };
+      }
+      if (token.state === 'track') {
+        const abs = relToAbs(token.color, token.pos);
+        return { r: TRACK[abs][0], c: TRACK[abs][1] };
+      }
+      if (token.state === 'home') {
+        const path = HOME_PATH[token.color];
+        return { r: path[token.pos][0], c: path[token.pos][1] };
+      }
+      if (token.state === 'finished') {
+        const offsets = { red: [7,6], green: [6,7], yellow: [7,8], blue: [8,7] };
+        return { r: offsets[token.color][0], c: offsets[token.color][1] };
+      }
+      return { r: 7, c: 7 };
+    }
+
+    function renderTokens() {
+      boardEl.querySelectorAll('.token').forEach(el => el.remove());
+      if (!game) return;
+
+      const posMap = new Map();
+      for (const p of game.active) {
+        for (const t of p.tokens) {
+          if (t.state === 'finished') continue;
+          const { r, c } = tokenScreenPos(t);
+          const key = `${r},${c}`;
+          if (!posMap.has(key)) posMap.set(key, []);
+          posMap.get(key).push(t);
+        }
+      }
+      const canPick = game.waitingForMove && humanCanAct() && !awaiting && !animating;
+
+      for (const [key, tokens] of posMap) {
+        const [r, c] = key.split(',').map(Number);
+        tokens.forEach((t, i) => {
+          const el = document.createElement('div');
+          el.className = `token ${t.color}`;
+          el.dataset.color = t.color;
+          el.dataset.id = t.id;
+          const offset = i * 4;
+          el.style.cssText = `
+            position:absolute;
+            left: calc(${(c/15)*100}% + ${offset}px);
+            top: calc(${(r/15)*100}% + ${offset}px);
+            width: calc(100% / 15 * 0.62);
+            height: calc(100% / 15 * 0.62);
+            z-index: ${10 + i};
+          `;
+          if (canPick && game.current().color === t.color) {
+            const isLegal = game.legalMoves.some(m => m.token === t);
+            if (isLegal) {
+              el.classList.add('selectable');
+              el.onclick = () => onTokenClick(t);
+            }
+          }
+          boardEl.appendChild(el);
+        });
+      }
+    }
+
+    function playerLabel(p) {
+      if (mode === 'online') return p.color === myColor ? 'You' : oppName();
+      if (mode === 'ai') return p.type === 'human' ? 'You' : 'Hard AI';
+      return p.type === 'human' ? 'Human' : (p.type === 'ai-hard' ? 'Hard AI' : 'Easy AI');
+    }
+
+    function renderInfo() {
+      if (!game) return;
+      infoPanel.innerHTML = '';
+      game.active.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'player-info' + (p === game.current() ? ' active' : '');
+        const sw = document.createElement('span'); sw.className = 'swatch ' + p.color;
+        const nm = document.createElement('strong'); nm.style.textTransform = 'capitalize'; nm.textContent = p.color;
+        const ty = document.createElement('span'); ty.style.opacity = '0.7'; ty.textContent = playerLabel(p);
+        const fin = document.createElement('span'); fin.textContent = `${p.finished}/4 🏠`;
+        div.append(sw, nm, ty, fin);
+        infoPanel.appendChild(div);
+      });
+    }
+
+    function renderLog() {
+      logEl.textContent = '';
+      if (!game) return;
+      game.log.forEach(m => { const d = document.createElement('div'); d.textContent = m; logEl.appendChild(d); });
+    }
+
+    function updateStatus() {
+      if (!game) return;
+      const p = game.current();
+      if (game.gameOver) {
+        statusEl.textContent = `${game.winner.color.toUpperCase()} wins!`;
+        return;
+      }
+      if (mode === 'online') {
+        if (!gotState && !isHost) { statusEl.textContent = 'Connecting to host…'; return; }
+        if (p.color === myColor) {
+          statusEl.textContent = game.waitingForMove ? `Your turn — choose a token (rolled ${game.dice})` : 'Your turn — roll the dice';
+        } else {
+          statusEl.textContent = `${oppName()}'s turn…`;
+        }
+        return;
+      }
+      const name = cap(p.color);
+      if (game.waitingForMove) statusEl.textContent = `${name}'s turn — choose a token (rolled ${game.dice})`;
+      else statusEl.textContent = `${name}'s turn — roll the dice`;
+    }
+
+    function fullRender() {
+      renderTokens();
+      renderInfo();
+      renderLog();
+      updateStatus();
+      diceEl.textContent = game && game.dice ? game.dice : '?';
+      const canRoll = game && !game.gameOver && !game.waitingForMove && !animating && !awaiting && humanCanAct();
+      diceEl.classList.toggle('disabled', !canRoll);
+      document.getElementById('rollBtn').disabled = !canRoll;
+    }
+
+    /* ---------- choosing a move (the front-kick house rule needs a choice) ---------- */
+    function onTokenClick(token) {
+      if (!game || !game.waitingForMove || animating || awaiting || !humanCanAct()) return;
+      if (token.color !== game.current().color) return;
+      const opts = game.legalMoves.filter(m => m.token === token);
+      if (!opts.length) return;
+      if (opts.length === 1) { commitMove(opts[0]); return; }
+      showMoveChoice(opts);
+    }
+
+    function showMoveChoice(opts) {
+      const box = document.getElementById('moveChoiceBtns');
+      box.textContent = '';
+      opts.slice().sort((a, b) => Number(a.frontKick) - Number(b.frontKick)).forEach(m => {
+        const b = document.createElement('button');
+        b.className = m.frontKick ? 'btn-gold' : 'btn-dark';
+        b.textContent = m.frontKick ? '⚡ Front-kick the token right in front' : `Move ${game.dice} square${game.dice === 1 ? '' : 's'}`;
+        b.onclick = () => { document.getElementById('moveChoice').classList.add('hidden'); commitMove(m); };
+        box.appendChild(b);
+      });
+      document.getElementById('moveChoice').classList.remove('hidden');
+    }
+    document.getElementById('moveChoiceCancel').onclick = () => document.getElementById('moveChoice').classList.add('hidden');
+
+    function commitMove(move) {
+      if (mode === 'online' && !isHost) {
+        awaiting = true;
+        Net.send({ t: 'move', c: move.token.color, id: move.token.id, s: move.toState, p: move.toPos }, true);
+        setTimeout(() => { if (awaiting) { awaiting = false; fullRender(); } }, 5000);
+        fullRender();
+        return;
+      }
+      executeMove(move);
+    }
+
+    function playEv(name) {
+      if (name === 'capture') Sound.capture();
+      else if (name === 'finish') Sound.finish();
+      else if (name === 'move') Sound.move();
+      else if (name === 'win') Sound.win();
+      else if (name === 'roll') { if (!rollRequested) Sound.diceRoll(); rollRequested = false; }
+    }
+
+    function executeMove(move) {
+      const tok = sessionToken;
+      animating = true;
+      const wasFinished = move.toState === 'finished';
+      const captured = game.applyMove(move);
+      const ev = [captured ? 'capture' : (wasFinished ? 'finish' : 'move')];
+      if (game.gameOver) ev.push('win');
+      Sound[ev[0]] && (ev[0] === 'capture' ? Sound.capture() : ev[0] === 'finish' ? Sound.finish() : Sound.move());
+      broadcast(ev);
+      fullRender();
+      setTimeout(() => {
+        if (tok !== sessionToken || !game) return;
+        animating = false;
+        fullRender();
+        if (!game.gameOver) {
+          maybeAITurn();
+        } else {
+          Sound.win();
+          showWin();
+        }
+      }, 350);
+    }
+
+    function doRoll(internal) {
+      if (!game || game.gameOver || game.waitingForMove || animating) return;
+      if (!internal) {
+        if (!humanCanAct() || awaiting) return;
+        if (mode === 'online' && !isHost) {
+          // The host rolls for everyone so nobody can fiddle the dice
+          awaiting = true; rollRequested = true;
+          diceEl.classList.add('rolling');
+          Sound.diceRoll();
+          Net.send({ t: 'roll' }, true);
+          setTimeout(() => diceEl.classList.remove('rolling'), 400);
+          setTimeout(() => { if (awaiting) { awaiting = false; rollRequested = false; fullRender(); } }, 5000);
+          fullRender();
+          return;
+        }
+      }
+      const tok = sessionToken;
+      animating = true;
+      diceEl.classList.add('rolling');
+      Sound.diceRoll();
+      setTimeout(() => {
+        if (tok !== sessionToken || !game) return;
+        const val = game.roll();
+        diceEl.classList.remove('rolling');
+        diceEl.textContent = val || '?';
+        broadcast(['roll']);
+        fullRender();
+        animating = false;
+        if (game.waitingForMove) {
+          if (game.current().type !== 'human') {
+            setTimeout(() => { if (tok === sessionToken) aiPlay(); }, 450);
+          }
+        } else {
+          setTimeout(() => { if (tok === sessionToken) maybeAITurn(); }, 300);
+        }
+      }, 400);
+    }
+
+    function aiPlay() {
+      if (!game || !game.waitingForMove || game.gameOver) return;
+      const p = game.current();
+      if (p.type === 'human') return;
+      const hard = p.type === 'ai-hard';
+      const move = game.chooseMove(p, game.legalMoves, hard);
+      if (move) executeMove(move);
+      else {
+        game.waitingForMove = false;
+        game.nextPlayer();
+        fullRender();
+        maybeAITurn();
+      }
+    }
+
+    function maybeAITurn() {
+      if (!game || game.gameOver || animating) return;
+      const p = game.current();
+      const tok = sessionToken;
+      if (p.type === 'human') {
+        fullRender();
+        return;
+      }
+      setTimeout(() => {
+        if (tok !== sessionToken || !game || game.current() !== p || game.waitingForMove) return;
+        doRoll(true);
+      }, 600);
+    }
+
+    /* ---------- Results, prize, leaderboard ---------- */
+    async function deductBalls(n) {
+      if (!currentUser) return;
+      const next = Math.max(0, (userData.balls || 0) - n);
+      try {
+        await db.collection('users').doc(currentUser.uid).update({ balls: next });
+        userData.balls = next;
+        $('ballBalance').textContent = next;
+      } catch (err) { console.warn('deductBalls failed', err); }
+    }
+
+    function showWin() {
+      if (winShown) return;
+      winShown = true;
+      const w = game.winner;
+      let title, msg = 'All four tokens reached home.';
+      let iWon = false, prize = false, levelUp = false;
+      if (mode === 'ai') {
+        iWon = w.type === 'human';
+        if (iWon && ludoLevel < 3) {
+          levelUp = true;
+          title = `🎉 Congratulations! Level ${ludoLevel} Complete`;
+          msg = `You beat ${ludoLevel} Hard AI${ludoLevel === 1 ? '' : 's'}.\nKeep playing to win the prize?`;
+        } else if (iWon) {
+          title = '🎉 You beat all 3 levels!';
+          prize = true;
+        } else {
+          title = `${cap(w.color)} (Hard AI) wins`;
+          msg += '\n-2 balls. Try again from Level 1!';
+          deductBalls(2);
+          ludoLevel = 1;
+        }
+      } else if (mode === 'online') {
+        iWon = w.color === myColor;
+        title = iWon ? '🎉 You win!' : `${oppName()} wins`;
+        if (!iWon) { msg += '\n-2 balls.'; deductBalls(2); }
+      } else {
+        title = `${cap(w.color)} Wins!`;
+      }
+      document.getElementById('winOverlay').classList.remove('hidden');
+      document.getElementById('winTitle').textContent = title;
+      document.getElementById('winMsg').textContent = msg;
+      document.getElementById('btnClaim').classList.toggle('hidden', !prize);
+      document.getElementById('btnContinueLevel').classList.toggle('hidden', !levelUp);
+      document.getElementById('btnQuitCampaign').classList.toggle('hidden', !levelUp);
+      document.getElementById('playAgainBtn').classList.toggle('hidden', levelUp);
+      if (levelUp) document.getElementById('btnContinueLevel').textContent = `▶️ Continue to Level ${ludoLevel + 1}`;
+      else if (mode === 'ai' && !prize) ludoLevel = 1;   // loss: campaign restarts next time
+
+      if (mode === 'online' && isHost) finalizeMatchDoc(w.color);
+      if (iWon && (mode === 'online' || prize) && !recorded) {
+        recorded = true;
+        recordWin();
+      }
+    }
+
+    $('btnClaim').onclick = () => {
+      $('winnerPrizeText').textContent = 'Prize: ' + (settings.ludoAiPrize || '—');
+      $('winnerPhone').value = userData.phone || '';
+      $('winnerStatus').textContent = '';
+      $('winnerModal').classList.remove('hidden');
+    };
+    $('closeWinnerBtn').onclick = () => $('winnerModal').classList.add('hidden');
+    $('submitWinnerBtn').onclick = async () => {
+      const phone = $('winnerPhone').value.trim();
+      const st = $('winnerStatus');
+      if (!phone) { st.textContent = 'Please enter a phone number.'; st.style.color = '#f87171'; return; }
+      $('submitWinnerBtn').disabled = true;
+      try {
+        const others = game ? game.players.filter(p => p.type !== 'human').map(p => p.finished) : [0];
+        await db.collection('winners').add({
+          uid: currentUser.uid,
+          name: userData.name || 'Player',
+          phone,
+          prize: settings.ludoAiPrize || '',
+          mode: 'ai',
+          game: 'ludo',
+          difficulty: '3 Hard AIs (full campaign)',
+          finalScore: { you: 4, opponent: Math.max(0, ...others) },
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await db.collection('users').doc(currentUser.uid).update({ phone });
+        userData.phone = phone;
+        $('btnClaim').classList.add('hidden');
+        st.style.color = '#86efac';
+        st.textContent = "Submitted! We'll contact you about your prize.";
+        setTimeout(() => $('winnerModal').classList.add('hidden'), 1800);
+      } catch (err) {
+        st.style.color = '#f87171';
+        st.textContent = "Couldn't submit: " + err.message;
+      }
+      $('submitWinnerBtn').disabled = false;
+    };
+
+    function finalizeMatchDoc(winnerColor) {
+      if (!matchCode) return;
+      db.collection('matches').doc(matchCode).update({
+        status: 'finished',
+        winner: winnerColor === 'red' ? 'host' : 'guest',
+        finishedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+    }
+
+    /* ---------- Screens and starting a game ---------- */
+    function show(id) {
+      ['menu', 'lobby', 'room', 'setup', 'gameUI'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+    }
+
+    function updatePrizeHint() {
+      const prize = settings.ludoAiPrize || 'a prize';
+      $('prizeHint').textContent = `🎁 Clear Level 1 → 2 → 3 (1, then 2, then 3 Hard AIs) in one run to win: ${prize}. Lose a level and 2 balls are deducted — winning costs nothing.`;
+    }
+
+    function beginGame(types, m) {
+      sessionToken++;
+      mode = m;
+      animating = false; awaiting = false; rollRequested = false;
+      recorded = false; winShown = false;
+      game = new Game(types);
+      show('gameUI');
+      $('winOverlay').classList.add('hidden');
+      $('moveChoice').classList.add('hidden');
+      $('netStatus').textContent = '';
+      buildBoardVisual();
+      fullRender();
+      game.addLog('Game started. Good luck!');
+      fullRender();
+      Sound.resume();
+      Sound.startBG();
+      if (m !== 'online') maybeAITurn();
+    }
+
+    function backToMenu() {
+      if (mode === 'online') leaveOnline();
+      ludoLevel = 1;   // abandoning the run (or already finished it) — start over next time
+      sessionToken++;
+      Sound.stopBG();
+      game = null; mode = null; animating = false;
+      $('winOverlay').classList.add('hidden');
+      $('moveChoice').classList.add('hidden');
+      show('menu');
+      if (currentUser) loadUser();
+      loadLeaderboard();
+    }
+
+    const AI_SEATS = {
+      1: ['human', 'off', 'ai-hard', 'off'],
+      2: ['human', 'ai-hard', 'ai-hard', 'off'],
+      3: ['human', 'ai-hard', 'ai-hard', 'ai-hard']
+    };
+    $('btnVsAI').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      ludoLevel = 1;
+      beginGame(AI_SEATS[ludoLevel], 'ai');
+    };
+    $('btnContinueLevel').onclick = () => {
+      ludoLevel = Math.min(3, ludoLevel + 1);
+      beginGame(AI_SEATS[ludoLevel], 'ai');
+    };
+    $('btnQuitCampaign').onclick = () => backToMenu();
+    $('btnCustom').onclick = () => show('setup');
+    $('btnBackSetup').onclick = () => show('menu');
+    $('startBtn').onclick = () => {
+      const types = [0, 1, 2, 3].map(i => document.getElementById('p' + i).value);
+      if (types.every(t => t === 'off')) { alert('Select at least one player'); return; }
+      beginGame(types, 'local');
+    };
+    $('btnOnline').onclick = () => { $('lobbyMsg').textContent = ''; show('lobby'); };
+    $('btnBackLobby').onclick = () => show('menu');
+
+    document.getElementById('rollBtn').onclick = () => doRoll(false);
+    diceEl.onclick = () => doRoll(false);
+    document.getElementById('muteBtn').onclick = () => {
+      const muted = Sound.toggleMute();
+      document.getElementById('muteBtn').textContent = muted ? '🔇 Muted' : '🔊 Sound';
+    };
+    document.getElementById('newGameBtn').onclick = () => {
+      if (game && !game.gameOver && !confirm('Quit this game?')) return;
+      backToMenu();
+    };
+    document.getElementById('playAgainBtn').onclick = backToMenu;
+
+    /* ===================== ONLINE (Firestore rooms + WebRTC, with automatic relay) ===================== */
+    // ---------- Network layer: WebRTC (direct / TURN) + automatic Firestore relay ----------
+    // Every message is sent over the direct WebRTC channel when it is open. When it is not
+    // (blocked NAT, strict carrier, still connecting) the very same message goes through a
+    // Firestore "relay" instead, so a match can ALWAYS connect and play, on any network.
+    const STUN_SERVERS = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+    function iceConfig() {
+      let extra = [];
+      try {
+        const j = JSON.parse(settings.iceServersJson || '[]');
+        if (Array.isArray(j)) extra = j.filter(s => s && s.urls);
+      } catch (e) { console.warn('Bad iceServersJson in settings', e); }
+      return { iceServers: STUN_SERVERS.concat(extra), iceCandidatePoolSize: 2 };
+    }
+
+    const Net = (() => {
+      let pc = null, dc = null, unsubSignal = null, unsubRelay = null;
+      let code = null, role = null, relayTs = 0, lastStateRelay = 0;
+      const api = {
+        onMessage: () => {},
+        onStatus: () => {},
+        get active() { return !!code; },
+        get direct() { return !!dc && dc.readyState === 'open'; }
+      };
+      const signalCol = () => db.collection('matches').doc(code).collection('signal');
+      const relayCol = () => db.collection('matches').doc(code).collection('relay');
+
+      function startRelay() {
+        const me = role;
+        unsubRelay = relayCol().orderBy('ts').onSnapshot((snap) => {
+          snap.docChanges().forEach((ch) => {
+            if (ch.type !== 'added') return;
+            const d = ch.doc.data();
+            if (!d || d.from === me) return;
+            try { api.onMessage(JSON.parse(d.d)); } catch (e) {}
+          });
+        }, (err) => console.warn('relay listen error', err));
+      }
+
+      function relaySend(obj, important) {
+        if (!code) return;
+        const now = Date.now();
+        // State snapshots are streamed often; over the relay keep only ~5 per second (turn-end ones always go)
+        if (obj.t === 's' && !important) {
+          if (now - lastStateRelay < 220) return;
+          lastStateRelay = now;
+        }
+        relayTs = Math.max(now, relayTs + 1); // strictly increasing per sender => ordered delivery
+        relayCol().add({ from: role, ts: relayTs, d: JSON.stringify(obj) }).catch(() => {});
+      }
+
+      function wireChannel(ch) {
+        dc = ch;
+        ch.onopen = () => api.onStatus('direct');
+        ch.onclose = () => api.onStatus('relay');
+        ch.onerror = () => api.onStatus('relay');
+        ch.onmessage = (e) => { try { api.onMessage(JSON.parse(e.data)); } catch (err) {} };
+      }
+
+      async function startRtc() {
+        if (typeof RTCPeerConnection === 'undefined') return;
+        pc = new RTCPeerConnection(iceConfig());
+        const me = role, other = role === 'host' ? 'guest' : 'host';
+        pc.onicecandidate = (e) => {
+          if (e.candidate && code) signalCol().add({ type: 'ice', from: me, candidate: e.candidate.toJSON() }).catch(() => {});
+        };
+        pc.onconnectionstatechange = () => {
+          if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) api.onStatus('relay');
+        };
+        let chain = Promise.resolve();
+        const pendingIce = [];
+        const flushIce = async () => {
+          while (pendingIce.length) { try { await pc.addIceCandidate(pendingIce.shift()); } catch (e) {} }
+        };
+        const handle = async (msg) => {
+          if (!pc) return;
+          try {
+            if (msg.type === 'offer' && me === 'guest') {
+              await pc.setRemoteDescription(msg.sdp);
+              await flushIce();
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await signalCol().add({ type: 'answer', from: 'guest', sdp: { type: answer.type, sdp: answer.sdp } });
+            } else if (msg.type === 'answer' && me === 'host') {
+              await pc.setRemoteDescription(msg.sdp);
+              await flushIce();
+            } else if (msg.type === 'ice' && msg.candidate) {
+              if (pc.remoteDescription) await pc.addIceCandidate(msg.candidate);
+              else pendingIce.push(msg.candidate); // ICE can arrive before the offer/answer — hold it
+            }
+          } catch (e) { /* late/duplicate candidates are harmless */ }
+        };
+        unsubSignal = signalCol().onSnapshot((snap) => {
+          snap.docChanges().forEach((change) => {
+            if (change.type !== 'added') return;
+            const msg = change.doc.data();
+            if (msg.from !== other) return;
+            chain = chain.then(() => handle(msg));   // process strictly one at a time
+          });
+        });
+        if (me === 'host') {
+          wireChannel(pc.createDataChannel('game', { ordered: true }));
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await signalCol().add({ type: 'offer', from: 'host', sdp: { type: offer.type, sdp: offer.sdp } });
+        } else {
+          pc.ondatachannel = (e) => wireChannel(e.channel);
+        }
+      }
+
+      api.open = async (c, r) => {
+        api.close();
+        code = c; role = r;
+        startRelay();                       // relay is live immediately
+        try { await startRtc(); }           // …while the direct channel negotiates in the background
+        catch (e) { console.warn('WebRTC unavailable — using relay only', e); }
+        api.onStatus(api.direct ? 'direct' : 'relay');
+      };
+      api.send = (obj, important) => {
+        if (!code) return;
+        if (api.direct) { try { dc.send(JSON.stringify(obj)); return; } catch (e) {} }
+        relaySend(obj, important);
+      };
+      api.close = () => {
+        if (unsubSignal) { unsubSignal(); unsubSignal = null; }
+        if (unsubRelay) { unsubRelay(); unsubRelay = null; }
+        if (dc) { try { dc.close(); } catch (e) {} dc = null; }
+        if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+        code = null; role = null;
+      };
+      return api;
+    })();
+
+
+    Net.onStatus = (k) => {
+      const el = $('netStatus');
+      if (mode !== 'online') { el.textContent = ''; return; }
+      el.textContent = k === 'direct' ? '● Live • direct' : '● Live • relay';
+      el.className = k === 'direct' ? 'direct' : 'relay';
+    };
+
+    // Host → guest: the whole game position, after every roll and every move
+    function broadcast(events) {
+      if (mode !== 'online' || !isHost || !Net.active || !game) return;
+      Net.send({
+        t: 'st', q: ++stateSeq,
+        tk: game.players.map(p => p.tokens.map(t => [t.state, t.pos])),
+        fin: game.players.map(p => p.finished),
+        ci: game.currentIdx, d: game.dice, sc: game.sixCount,
+        w: game.waitingForMove ? 1 : 0,
+        lm: game.legalMoves.map(m => [m.token.color, m.token.id, m.toState, m.toPos, m.frontKick ? 1 : 0]),
+        lg: game.log.slice(0, 12),
+        go: game.gameOver ? 1 : 0, win: game.winner ? game.winner.color : null,
+        ev: events || []
+      }, true);
+    }
+
+    function applySnapshot(s) {
+      if (!game || !Array.isArray(s.tk)) return;
+      if (s.q && s.q <= lastQ) return;            // stale snapshot that arrived late over the other path
+      if (s.q) lastQ = s.q;
+      gotState = true;
+      clearInterval(helloTimer);
+      game.players.forEach((p, i) => {
+        p.tokens.forEach((t, j) => { t.state = s.tk[i][j][0]; t.pos = s.tk[i][j][1]; });
+        p.finished = s.fin[i];
+      });
+      game.currentIdx = s.ci; game.dice = s.d; game.sixCount = s.sc;
+      game.waitingForMove = !!s.w;
+      game.legalMoves = (s.lm || []).map(([c, id, st, pos, fk]) => {
+        const pl = game.players.find(p => p.color === c);
+        return { token: pl.tokens[id], toState: st, toPos: pos, frontKick: !!fk };
+      });
+      game.log = s.lg || [];
+      game.gameOver = !!s.go;
+      game.winner = s.win ? game.players.find(p => p.color === s.win) : null;
+      awaiting = false; animating = false;
+      diceEl.classList.remove('rolling');
+      (s.ev || []).forEach(playEv);
+      fullRender();
+      if (game.gameOver) showWin();
+    }
+
+    function hostRoll() {
+      if (!game || game.gameOver || game.waitingForMove || animating || game.current().color !== GUEST_COLOR) { broadcast([]); return; }
+      doRoll(true);
+    }
+    function hostMove(m) {
+      if (!game || game.gameOver || !game.waitingForMove || animating || game.current().color !== GUEST_COLOR) { broadcast([]); return; }
+      const legal = game.legalMoves.find(x => x.token.color === m.c && x.token.id === m.id && x.toState === m.s && x.toPos === m.p);
+      if (!legal) { broadcast([]); return; }      // not a legal move — send the true position back
+      executeMove(legal);
+    }
+
+    Net.onMessage = (msg) => {
+      if (!msg || mode !== 'online' || !game) return;
+      if (msg.t === 'st' && !isHost) applySnapshot(msg);
+      else if (msg.t === 'roll' && isHost) hostRoll();
+      else if (msg.t === 'move' && isHost) hostMove(msg);
+      else if (msg.t === 'hi' && isHost) broadcast([]);
+      else if (msg.t === 'bye' && !game.gameOver) statusEl.textContent = 'Opponent left the match';
+    };
+
+    function leaveOnline() {
+      Net.send({ t: 'bye' }, true);
+      if (isHost && matchCode && game && !game.gameOver) {
+        db.collection('matches').doc(matchCode).update({ status: 'cancelled' }).catch(() => {});
+      }
+      setTimeout(() => Net.close(), 400);     // let the goodbye go out first
+      clearInterval(helloTimer);
+      if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+      matchCode = null;
+    }
+
+    function makeCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let s = '';
+      for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+      return s;
+    }
+
+    function beginOnlineGame() {
+      myColor = isHost ? 'red' : GUEST_COLOR;
+      beginGame(['human', 'off', 'human', 'off'], 'online');
+      if (isHost) { broadcast([]); }
+      Net.onStatus(Net.direct ? 'direct' : 'relay');
+    }
+
+    $('btnCreate').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      $('lobbyMsg').textContent = '';
+      const code = makeCode();
+      matchCode = code;
+      isHost = true;
+      $('btnCreate').disabled = true;
+      try {
+        await db.collection('matches').doc(code).set({
+          game: 'ludo',
+          hostId: currentUser.uid,
+          hostName: userData.name,
+          guestId: null,
+          status: 'waiting',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (err) {
+        $('btnCreate').disabled = false;
+        matchCode = null;
+        $('lobbyMsg').textContent = "Couldn't create room: " + err.message;
+        return;
+      }
+      $('roomCode').textContent = code;
+      $('roomMsg').textContent = '';
+      show('room');
+      let started = false;
+      unsubMatch = db.collection('matches').doc(code).onSnapshot(async (snap) => {
+        const d = snap.data();
+        if (!d || started || d.status !== 'playing' || !d.guestId) return;
+        started = true;
+        roomInfo = { hostName: userData.name || 'Host', guestName: d.guestName || 'Friend' };
+        stateSeq = 0; lastQ = 0; gotState = true;
+        await Net.open(code, 'host');
+        $('btnCreate').disabled = false;
+        beginOnlineGame();
+      });
+    };
+
+    $('btnLeave').onclick = () => {
+      if (matchCode && isHost) db.collection('matches').doc(matchCode).update({ status: 'cancelled' }).catch(() => {});
+      if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+      matchCode = null;
+      $('btnCreate').disabled = false;
+      show('lobby');
+    };
+
+    $('btnShareLink').onclick = async () => {
+      if (!matchCode) return;
+      const url = new URL('ludo.html?joinCode=' + matchCode, location.href).href;
+      const text = 'Join my Ludo game on Voltix Pro! Room code: ' + matchCode + '\n' + url;
+      if (navigator.share) {
+        try { await navigator.share({ text }); return; } catch (e) { /* cancelled */ }
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        $('roomMsg').style.color = '#86efac';
+        $('roomMsg').textContent = 'Link copied — paste it to your friend.';
+      } catch (e) {
+        window.prompt('Copy this and send it to your friend:', text);
+      }
+    };
+    $('btnShareGroup').onclick = async () => {
+      if (!matchCode || !currentUser) return;
+      try {
+        await db.collection('groupChat').add({
+          uid: currentUser.uid, name: userData.name || 'Player',
+          text: '', type: 'challenge', game: 'ludo', code: matchCode, url: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        $('roomMsg').style.color = '#86efac';
+        $('roomMsg').textContent = 'Posted to the group chat ✓';
+      } catch (err) {
+        $('roomMsg').style.color = '#f87171';
+        $('roomMsg').textContent = "Couldn't post: " + err.message;
+      }
+    };
+
+    $('btnJoin').onclick = async () => {
+      if (!currentUser && !(await waitForAuth())) return;
+      const msgEl = $('lobbyMsg');
+      msgEl.textContent = '';
+      const code = $('joinCode').value.trim().toUpperCase();
+      if (!code) return;
+      if ((userData.balls || 0) < 1) { msgEl.textContent = 'You need 1 ball to join a challenge.'; return; }
+      const ref = db.collection('matches').doc(code);
+      $('btnJoin').disabled = true;
+      try {
+        const snap = await ref.get();
+        if (!snap.exists) { msgEl.textContent = 'Room not found.'; return; }
+        const d = snap.data();
+        if (d.game !== 'ludo') {
+          window.location.href = gamePage(d.game) + '?joinCode=' + encodeURIComponent(code);
+          return;
+        }
+        if (d.hostId === currentUser.uid) { msgEl.textContent = "That's your own room."; return; }
+        // Claim the seat atomically so two friends can't both join
+        await db.runTransaction(async (tx) => {
+          const cur = await tx.get(ref);
+          if (!cur.exists || cur.data().status !== 'waiting') throw new Error('Room already started or finished.');
+          tx.update(ref, { guestId: currentUser.uid, guestName: userData.name, status: 'playing' });
+        });
+        // Only the guest pays 1 ball
+        await db.collection('users').doc(currentUser.uid).update({
+          balls: firebase.firestore.FieldValue.increment(-1)
+        });
+        userData.balls = (userData.balls || 1) - 1;
+        $('ballBalance').textContent = userData.balls;
+
+        matchCode = code;
+        isHost = false;
+        roomInfo = { hostName: d.hostName || 'Host', guestName: userData.name || 'Guest' };
+        lastQ = 0; gotState = false;
+        await Net.open(code, 'guest');
+        beginOnlineGame();
+        // keep asking until the host's first position arrives
+        clearInterval(helloTimer);
+        helloTimer = setInterval(() => {
+          if (gotState || mode !== 'online') { clearInterval(helloTimer); return; }
+          Net.send({ t: 'hi' }, true);
+        }, 1500);
+        Net.send({ t: 'hi' }, true);
+      } catch (err) {
+        msgEl.textContent = err.message || 'Could not join.';
+      } finally {
+        $('btnJoin').disabled = false;
+      }
+    };
+
+    /* ===================== BOOT ===================== */
+    buildBoardVisual();
+    (async () => {
+      const okAuth = await waitForAuth();
+      await loadSettings();
+      loadLeaderboard();
+      if (okAuth) {
+        const shared = new URLSearchParams(window.location.search).get('joinCode');
+        if (shared) {
+          show('lobby');
+          $('joinCode').value = shared.toUpperCase();
+          window.history.replaceState({}, '', 'ludo.html');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
