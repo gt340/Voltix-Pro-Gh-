@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voltix Pro – Admin Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #020617;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    h1 { color: #60a5fa; margin-bottom: 4px; }
+    .sub { color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; }
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      color: #fbbf24;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 6px;
+    }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-top: 8px; }
+    input, textarea, select {
+      width: 100%;
+      padding: 9px 12px;
+      margin-top: 4px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    .btn {
+      background: #1e293b;
+      color: #f1f5f9;
+      border: 1px solid #334155;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      margin-right: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      border: none;
+      color: white;
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #b45309, #fbbf24);
+      border: none;
+      color: #0f172a;
+    }
+    .btn-danger { background: #7f1d1d; border-color: #991b1b; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid #1e293b; }
+    th { color: #94a3b8; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 140px; }
+    .status { font-size: 0.8rem; color: #22c55e; margin-top: 8px; }
+    .error { color: #f87171; }
+    .hidden { display: none; }
+    .login-wrap {
+      max-width: 360px;
+      margin: 80px auto;
+      text-align: center;
+    }
+    .login-wrap h1 { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap" id="loginScreen">
+    <h1>Voltix Pro — Games Admin</h1>
+    <p class="sub">Sign in to access the games control panel</p>
+    <div class="card" style="text-align:left;">
+      <label>Email</label>
+      <input type="email" id="adminEmail" placeholder="admin@voltixpro.com" />
+      <label>Password</label>
+      <input type="password" id="adminPassword" placeholder="••••••••" />
+      <button class="btn btn-primary" id="loginBtn" style="width:100%; margin-top:12px;">Sign In</button>
+      <div class="status error" id="loginError"></div>
+    </div>
+  </div>
+
+  <div id="dashboard" class="hidden">
+  <a href="admin.html" style="display:inline-block; margin-bottom:10px; color:#60a5fa; text-decoration:none; font-size:0.85rem;">← Store Admin Dashboard</a>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <h1>Voltix Pro — Games Admin</h1>
+      <p class="sub">Games control panel (Foosball, Kaisa, Damii, Ludo) • Ghana Number One</p>
+    </div>
+    <button class="btn" id="logoutBtn">Sign Out</button>
+  </div>
+
+  <div class="card">
+    <h2>Game Settings</h2>
+    <div class="row">
+      <div>
+        <label>Balls per package</label>
+        <input type="number" id="ballPackage" value="10" min="1" />
+      </div>
+      <div>
+        <label>Price (GHc)</label>
+        <input type="number" id="ballPrice" value="10" min="1" />
+      </div>
+    </div>
+    <label>Prize for beating AI</label>
+    <input type="text" id="aiPrize" value="Free earpods discount / special offer" />
+    <div class="row">
+      <div>
+        <label>1st Place Prize</label>
+        <input type="text" id="prize1" value="GHc 50" />
+      </div>
+      <div>
+        <label>2nd Place Prize</label>
+        <input type="text" id="prize2" value="GHc 30" />
+      </div>
+      <div>
+        <label>3rd Place Prize</label>
+        <input type="text" id="prize3" value="GHc 20" />
+      </div>
+    </div>
+    <h3 style="margin-top:16px; color:#94a3b8; font-size:0.9rem;">Social / Community Links</h3>
+    <label>WhatsApp Group Link</label>
+    <input type="url" id="socialWhatsapp" placeholder="https://chat.whatsapp.com/..." />
+    <label>Telegram Link</label>
+    <input type="url" id="socialTelegram" placeholder="https://t.me/..." />
+    <label>Facebook Link</label>
+    <input type="url" id="socialFacebook" placeholder="https://facebook.com/..." />
+    <label>Instagram Link</label>
+    <input type="url" id="socialInstagram" placeholder="https://instagram.com/..." />
+    <label>TikTok Link</label>
+    <input type="url" id="socialTiktok" placeholder="https://tiktok.com/..." />
+    <label>Website / Game Link</label>
+    <input type="url" id="socialWebsite" placeholder="https://your-game-url.com" />
+    <h3 style="margin-top:16px; color:#94a3b8; font-size:0.9rem;">Table Appearance</h3>
+    <p style="font-size:0.78rem; color:#64748b; margin-bottom:6px;">
+      Upload a plain pitch texture (no player figures, just the felt/table look) to
+      replace the default green background behind the game. Leave empty to use the default.
+    </p>
+    <input type="file" id="tableBgFile" accept="image/*" />
+    <button class="btn" id="uploadTableBgBtn" style="margin-top:6px;">Upload Table Background</button>
+    <div class="status" id="tableBgStatus"></div>
+    <div id="tableBgPreview" style="margin-top:8px;"></div>
+
+    <h3 style="margin-top:16px; color:#94a3b8; font-size:0.9rem;">Rod & Player Sprites</h3>
+    <p style="font-size:0.78rem; color:#64748b; margin-bottom:6px;">
+      Upload transparent PNGs showing the players already grouped on a rod (1, 2, or 3 players
+      per image, evenly spaced, no rod bar needed in the image itself — the game draws that
+      part). Leave any empty to keep the default look for that rod.
+    </p>
+    <label style="font-size:0.8rem;">Blue team — 1 player (goalkeeper)</label>
+    <input type="file" id="rodBlue1File" accept="image/png" />
+    <button class="btn" id="uploadRodBlue1Btn" style="margin-top:4px;">Upload</button>
+    <div id="rodBlue1Preview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Blue team — 2 players (defense)</label>
+    <input type="file" id="rodBlue2File" accept="image/png" />
+    <button class="btn" id="uploadRodBlue2Btn" style="margin-top:4px;">Upload</button>
+    <div id="rodBlue2Preview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Blue team — 3 players (midfield/attack)</label>
+    <input type="file" id="rodBlue3File" accept="image/png" />
+    <button class="btn" id="uploadRodBlue3Btn" style="margin-top:4px;">Upload</button>
+    <div id="rodBlue3Preview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:14px; display:block;">Red team — 1 player (goalkeeper)</label>
+    <input type="file" id="rodRed1File" accept="image/png" />
+    <button class="btn" id="uploadRodRed1Btn" style="margin-top:4px;">Upload</button>
+    <div id="rodRed1Preview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Red team — 2 players (defense)</label>
+    <input type="file" id="rodRed2File" accept="image/png" />
+    <button class="btn" id="uploadRodRed2Btn" style="margin-top:4px;">Upload</button>
+    <div id="rodRed2Preview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Red team — 3 players (midfield/attack)</label>
+    <input type="file" id="rodRed3File" accept="image/png" />
+    <button class="btn" id="uploadRodRed3Btn" style="margin-top:4px;">Upload</button>
+    <div id="rodRed3Preview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:14px; display:block;">Ball (optional)</label>
+    <input type="file" id="ballSpriteFile" accept="image/png" />
+    <button class="btn" id="uploadBallSpriteBtn" style="margin-top:4px;">Upload</button>
+    <div id="ballSpritePreview" style="margin-top:6px;"></div>
+    <div class="status" id="spriteStatus"></div>
+
+    <button class="btn btn-primary" id="saveSettingsBtn" style="margin-top:14px;">Save Settings</button>
+    <div class="status" id="settingsStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎱 Kaisa Challenge</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Settings for the Kaisa pool game (kaisa.html). Balls, prices and social links above are shared with Foosball.
+      Beating the AI on Easy is practice only — the prize and leaderboard credit apply to Normal and Hard.
+    </p>
+    <label>Prize for beating the AI (Normal / Hard)</label>
+    <input type="text" id="kaisaAiPrize" value="Free earpods discount / special offer" />
+    <label>Points to win a match</label>
+    <input type="number" id="kaisaWinScore" value="60" min="10" max="500" />
+    <button class="btn btn-primary" id="saveKaisaBtn" style="margin-top:14px;">Save Kaisa Settings</button>
+    <div class="status" id="kaisaSettingsStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>♟️ Damii (Ghanaian Draughts)</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Settings for damii.html. Playing vs AI is a 3-level campaign: beat the Hard AI, choose to
+      continue, beat it again, continue again, then beat it a third time in a row (without
+      using Undo in any of the three) to earn the prize and a leaderboard win. Losing at any
+      level deducts 2 balls from the player and ends the run; winning costs nothing.
+    </p>
+    <label>Prize for beating the Hard AI</label>
+    <input type="text" id="damiiAiPrize" value="Free earpods discount / special offer" />
+    <button class="btn btn-primary" id="saveDamiiBtn" style="margin-top:14px;">Save Damii Settings</button>
+    <div class="status" id="damiiSettingsStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎲 Ludo</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Settings for ludo.html. Playing vs AI is a 3-level campaign: Level 1 is 1 Hard AI, Level 2
+      is 2 Hard AIs, Level 3 is 3 Hard AIs — beat a level, choose to continue, and only completing
+      Level 3 earns the prize and a leaderboard win. Losing at any level deducts 2 balls from the
+      player and ends the run; winning costs nothing.
+    </p>
+    <label>Prize for completing all 3 levels</label>
+    <input type="text" id="ludoAiPrize" value="Free earpods discount / special offer" />
+    <button class="btn btn-primary" id="saveLudoBtn" style="margin-top:14px;">Save Ludo Settings</button>
+    <div class="status" id="ludoSettingsStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>🌐 Connection (TURN relay)</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Kaisa and Damii already fall back to a built-in relay automatically, so online matches always work.
+      To also make the <b>fast direct link</b> work on strict mobile networks (and to help Foosball, which has no built-in relay),
+      add a TURN server: create a free account at metered.ca → your app → copy the ICE servers JSON and paste it here.
+      Leave empty to use STUN only.
+    </p>
+    <textarea id="iceServersJson" rows="6" placeholder='[{"urls":"turn:standard.relay.metered.ca:80","username":"...","credential":"..."}]' style="width:100%; padding:10px; border-radius:8px; border:1px solid #334155; background:#1e293b; color:#e2e8f0; font-family:monospace; font-size:0.8rem;"></textarea>
+    <button class="btn btn-primary" id="saveTurnBtn" style="margin-top:10px;">Save Connection Settings</button>
+    <div class="status" id="turnSettingsStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>🔊 Sound Effects</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Upload short audio clips for real match-style sound. Each one is used automatically
+      at the matching moment during play — no manual triggering needed.
+    </p>
+    <label style="font-size:0.8rem;">Kick / Hit sound (plays every time a player touches the ball)</label>
+    <input type="file" id="sfxKickFile" accept="audio/*" />
+    <button class="btn" id="uploadSfxKickBtn" style="margin-top:4px;">Upload</button>
+    <div id="sfxKickPreview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Goal sound (plays the instant a goal is scored)</label>
+    <input type="file" id="sfxGoalFile" accept="audio/*" />
+    <button class="btn" id="uploadSfxGoalBtn" style="margin-top:4px;">Upload</button>
+    <div id="sfxGoalPreview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Crowd ambience (loops quietly through the whole match)</label>
+    <input type="file" id="sfxCrowdFile" accept="audio/*" />
+    <button class="btn" id="uploadSfxCrowdBtn" style="margin-top:4px;">Upload</button>
+    <div id="sfxCrowdPreview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Commentator clip (plays right after a goal, like a real broadcast)</label>
+    <input type="file" id="sfxCommentatorFile" accept="audio/*" />
+    <button class="btn" id="uploadSfxCommentatorBtn" style="margin-top:4px;">Upload</button>
+    <div id="sfxCommentatorPreview" style="margin-top:6px;"></div>
+    <div class="status" id="sfxStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>🧊 3D Player Models (Experimental)</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Only used by the separate <code>index-3d.html</code> test version of the game —
+      your regular live game is unaffected either way. Upload the rigged, animated
+      .glb files exported from Tripo (must include a "kick" animation).
+    </p>
+    <label style="font-size:0.8rem;">Blue player model (.glb)</label>
+    <input type="file" id="model3dBlueFile" accept=".glb" />
+    <button class="btn" id="uploadModel3dBlueBtn" style="margin-top:4px;">Upload</button>
+    <div id="model3dBluePreview" style="margin-top:6px;"></div>
+
+    <label style="font-size:0.8rem; margin-top:10px; display:block;">Red player model (.glb)</label>
+    <input type="file" id="model3dRedFile" accept=".glb" />
+    <button class="btn" id="uploadModel3dRedBtn" style="margin-top:4px;">Upload</button>
+    <div id="model3dRedPreview" style="margin-top:6px;"></div>
+    <div class="status" id="model3dStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>📢 Site Announcements</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Shown at the very top of every page — Foosball, Kaisa, Damii, Ludo and Chat — the next
+      time each player opens it. Add a message, an image from your gallery, a voice recording,
+      or any mix of the three (at least one is required).
+    </p>
+    <label>Message (optional)</label>
+    <textarea id="anncText" placeholder="e.g. New prizes this weekend! Or: server maintenance tonight 10–11pm"></textarea>
+    <label>Image (optional)</label>
+    <input type="file" id="anncImageFile" accept="image/*" />
+    <div id="anncImagePreview" style="margin-top:6px;"></div>
+    <label style="margin-top:10px; display:block;">Voice message (optional)</label>
+    <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+      <button type="button" class="btn" id="anncMicBtn">🎤 Record</button>
+      <span id="anncMicStatus" style="font-size:0.8rem; color:#94a3b8;"></span>
+    </div>
+    <div id="anncAudioPreview" style="margin-top:6px;"></div>
+    <button class="btn btn-gold" id="postAnncBtn" style="margin-top:14px;">📢 Post Announcement</button>
+    <div class="status" id="anncStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Active Announcements</h2>
+    <div id="adminAnnouncements">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>Post Challenge Banner</h2>
+    <label>Title</label>
+    <input type="text" id="bannerTitle" placeholder="Weekend Foosball Challenge" />
+    <label>Description</label>
+    <textarea id="bannerDesc" placeholder="Beat the AI or climb the leaderboard this weekend!"></textarea>
+    <label>Prize text</label>
+    <input type="text" id="bannerPrize" placeholder="Win free Voltix earpods or GHc cash" />
+    <label>Banner image (optional)</label>
+    <input type="file" id="bannerImage" accept="image/*" />
+    <label>
+      <input type="checkbox" id="bannerActive" checked style="width:auto; margin-right:6px;" />
+      Active (show on site)
+    </label>
+    <button class="btn btn-gold" id="postBannerBtn">Post Banner</button>
+    <div class="status" id="bannerStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Active Banners</h2>
+    <div id="adminBanners">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>Game Music</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+      Upload background tracks. Players can pick which one to play while in the app.
+    </p>
+    <label>Track title (optional — used only when uploading a single file; otherwise filenames are used)</label>
+    <input type="text" id="musicTitle" placeholder="Chill Beats" />
+    <label>Audio file(s)</label>
+    <input type="file" id="musicFile" accept="audio/*" multiple />
+    <button class="btn btn-gold" id="uploadMusicBtn">Upload Track(s)</button>
+    <div class="status" id="musicStatus"></div>
+    <div id="musicProgressWrap" style="display:none; margin-top:8px;">
+      <div style="background:#1e293b; border-radius:6px; height:10px; overflow:hidden;">
+        <div id="musicProgressBar" style="background:#f59e0b; height:100%; width:0%; transition:width 0.2s;"></div>
+      </div>
+      <div id="musicProgressLabel" style="font-size:0.75rem; color:#94a3b8; margin-top:4px;"></div>
+    </div>
+    <div id="adminMusicList" style="margin-top:12px;">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>Leaderboard (Top 20)</h2>
+    <div id="adminLeaderboard">Loading…</div>
+    <button class="btn btn-danger" id="resetLbBtn" style="margin-top:12px;">Reset Leaderboard</button>
+  </div>
+
+  <div class="card">
+    <h2>🎱 Kaisa Leaderboard (Top 20)</h2>
+    <div id="adminKaisaLeaderboard">Loading…</div>
+    <button class="btn btn-danger" id="resetKaisaLbBtn" style="margin-top:12px;">Reset Kaisa Leaderboard</button>
+  </div>
+
+  <div class="card">
+    <h2>♟️ Damii Leaderboard (Top 20)</h2>
+    <div id="adminDamiiLeaderboard">Loading…</div>
+    <button class="btn btn-danger" id="resetDamiiLbBtn" style="margin-top:12px;">Reset Damii Leaderboard</button>
+  </div>
+
+  <div class="card">
+    <h2>🎲 Ludo Leaderboard (Top 20)</h2>
+    <div id="adminLudoLeaderboard">Loading…</div>
+    <button class="btn btn-danger" id="resetLudoLbBtn" style="margin-top:12px;">Reset Ludo Leaderboard</button>
+  </div>
+
+  <div class="card">
+    <h2>🎱♟️🎲 Recent Online Matches</h2>
+    <div id="adminKaisaMatches">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>Recent Users / Ball Balances</h2>
+    <div id="adminUsers">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>🏆 Prize Winners</h2>
+    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">Contact these players to send their prize.</p>
+    <div id="adminWinners">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>Recent Transactions</h2>
+    <div id="adminTx">Loading…</div>
+  </div>
+
+  </div> <!-- end #dashboard -->
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    // =====================================================
+    //  PASTE THE SAME FIREBASE CONFIG HERE
+    // =====================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+      authDomain: "voltix-pro-dc363.firebaseapp.com",
+      projectId: "voltix-pro-dc363",
+      storageBucket: "voltix-pro-dc363.firebasestorage.app",
+      messagingSenderId: "778425016855",
+      appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252",
+      measurementId: "G-5BQWW8P46P"
+    };
+    // =====================================================
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Cloudinary config (unsigned upload preset)
+    const CLOUDINARY_CLOUD_NAME = "gi28yswe";
+    const CLOUDINARY_UPLOAD_PRESET = "Voltix Pro GH";
+
+    function cloudinaryOptimize(url, widthPx) {
+      if (!url || !url.includes("/upload/")) return url;
+      return url.replace("/upload/", `/upload/w_${widthPx},q_auto,f_auto/`);
+    }
+
+    async function uploadToCloudinary(file, resourceType = "auto") {
+      const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      const res = await fetch(url, { method: "POST", body: formData });
+      const data = await res.json();
+      if (!data.secure_url) throw new Error(data.error?.message || "Upload failed");
+      return data.secure_url;
+    }
+
+    // XHR version — used where we need live upload progress (fetch can't report it)
+    function uploadToCloudinaryWithProgress(file, resourceType, onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+        xhr.open("POST", url);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && onProgress) {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.secure_url) resolve(data.secure_url);
+            else reject(new Error((data.error && data.error.message) || "Upload failed"));
+          } catch (err) {
+            reject(err);
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.send(formData);
+      });
+    }
+
+    const loginScreen = document.getElementById("loginScreen");
+    const dashboard = document.getElementById("dashboard");
+    const loginError = document.getElementById("loginError");
+
+    document.getElementById("loginBtn").onclick = async () => {
+      loginError.textContent = "";
+      const email = document.getElementById("adminEmail").value.trim();
+      const password = document.getElementById("adminPassword").value;
+      if (!email || !password) {
+        loginError.textContent = "Enter email and password.";
+        return;
+      }
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // onAuthStateChanged below handles the admin check + showing the dashboard
+      } catch (err) {
+        loginError.textContent = "Sign in failed: " + err.message;
+      }
+    };
+
+    document.getElementById("logoutBtn").onclick = () => auth.signOut();
+
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        dashboard.classList.add("hidden");
+        loginScreen.classList.remove("hidden");
+        return;
+      }
+      // Check the admins allow-list. Firestore rules enforce this too,
+      // so this client check is just for showing/hiding the UI cleanly.
+      try {
+        const adminDoc = await db.collection("admins").doc(user.uid).get();
+        if (!adminDoc.exists) {
+          loginError.textContent = "This account is not authorized as an admin.";
+          await auth.signOut();
+          return;
+        }
+      } catch (err) {
+        loginError.textContent = "Could not verify admin access.";
+        await auth.signOut();
+        return;
+      }
+
+      loginScreen.classList.add("hidden");
+      dashboard.classList.remove("hidden");
+      loadSettings();
+      loadBanners();
+      loadAnnouncements();
+      loadMusic();
+      loadLeaderboard();
+      loadKaisaLeaderboard();
+      loadDamiiLeaderboard();
+      loadLudoLeaderboard();
+      loadKaisaMatches();
+      loadUsers();
+      loadWinners();
+      loadTx();
+    });
+
+    let currentTableBgUrl = null;
+    let currentRodBlue1Url = null, currentRodBlue2Url = null, currentRodBlue3Url = null;
+    let currentRodRed1Url = null, currentRodRed2Url = null, currentRodRed3Url = null;
+    let currentBallSpriteUrl = null;
+    let currentSfxKickUrl = null, currentSfxGoalUrl = null, currentSfxCrowdUrl = null, currentSfxCommentatorUrl = null;
+    let currentModel3dBlueUrl = null, currentModel3dRedUrl = null;
+
+    async function loadSettings() {
+      const snap = await db.collection("gameSettings").doc("main").get();
+      if (snap.exists) {
+        const s = snap.data();
+        document.getElementById("ballPackage").value = s.ballPackage || 10;
+        document.getElementById("ballPrice").value = s.ballPriceGhc || 10;
+        document.getElementById("aiPrize").value = s.aiPrize || "";
+        document.getElementById("kaisaAiPrize").value = s.kaisaAiPrize || "Free earpods discount / special offer";
+        document.getElementById("kaisaWinScore").value = s.kaisaWinScore || 60;
+        document.getElementById("damiiAiPrize").value = s.damiiAiPrize || "Free earpods discount / special offer";
+        document.getElementById("ludoAiPrize").value = s.ludoAiPrize || "Free earpods discount / special offer";
+        document.getElementById("iceServersJson").value = s.iceServersJson || "";
+        document.getElementById("prize1").value = (s.prizes && s.prizes[1]) || "GHc 50";
+        document.getElementById("prize2").value = (s.prizes && s.prizes[2]) || "GHc 30";
+        document.getElementById("prize3").value = (s.prizes && s.prizes[3]) || "GHc 20";
+        if (s.social) {
+          document.getElementById("socialWhatsapp").value = s.social.whatsapp || "";
+          document.getElementById("socialTelegram").value = s.social.telegram || "";
+          document.getElementById("socialFacebook").value = s.social.facebook || "";
+          document.getElementById("socialInstagram").value = s.social.instagram || "";
+          document.getElementById("socialTiktok").value = s.social.tiktok || "";
+          document.getElementById("socialWebsite").value = s.social.website || "";
+        }
+        currentTableBgUrl = s.tableBgUrl || null;
+        currentRodBlue1Url = s.rodBlue1Url || null;
+        currentRodBlue2Url = s.rodBlue2Url || null;
+        currentRodBlue3Url = s.rodBlue3Url || null;
+        currentRodRed1Url = s.rodRed1Url || null;
+        currentRodRed2Url = s.rodRed2Url || null;
+        currentRodRed3Url = s.rodRed3Url || null;
+        currentBallSpriteUrl = s.ballSpriteUrl || null;
+        renderTableBgPreview();
+        renderSpritePreview("rodBlue1Preview", currentRodBlue1Url, "rodBlue1");
+        renderSpritePreview("rodBlue2Preview", currentRodBlue2Url, "rodBlue2");
+        renderSpritePreview("rodBlue3Preview", currentRodBlue3Url, "rodBlue3");
+        renderSpritePreview("rodRed1Preview", currentRodRed1Url, "rodRed1");
+        renderSpritePreview("rodRed2Preview", currentRodRed2Url, "rodRed2");
+        renderSpritePreview("rodRed3Preview", currentRodRed3Url, "rodRed3");
+        renderSpritePreview("ballSpritePreview", currentBallSpriteUrl, "ballSprite");
+        currentSfxKickUrl = s.sfxKickUrl || null;
+        currentSfxGoalUrl = s.sfxGoalUrl || null;
+        currentSfxCrowdUrl = s.sfxCrowdUrl || null;
+        currentSfxCommentatorUrl = s.sfxCommentatorUrl || null;
+        renderAudioPreview("sfxKickPreview", currentSfxKickUrl, "sfxKick");
+        renderAudioPreview("sfxGoalPreview", currentSfxGoalUrl, "sfxGoal");
+        renderAudioPreview("sfxCrowdPreview", currentSfxCrowdUrl, "sfxCrowd");
+        renderAudioPreview("sfxCommentatorPreview", currentSfxCommentatorUrl, "sfxCommentator");
+        currentModel3dBlueUrl = s.blue3dModelUrl || null;
+        currentModel3dRedUrl = s.red3dModelUrl || null;
+        renderModel3dPreview("model3dBluePreview", currentModel3dBlueUrl, "model3dBlue");
+        renderModel3dPreview("model3dRedPreview", currentModel3dRedUrl, "model3dRed");
+      }
+    }
+
+    function renderTableBgPreview() {
+      const el = document.getElementById("tableBgPreview");
+      if (!currentTableBgUrl) { el.innerHTML = "<p style='color:#64748b; font-size:0.8rem;'>Using default green background</p>"; return; }
+      el.innerHTML = `
+        <img src="${cloudinaryOptimize(currentTableBgUrl, 300)}" style="max-width:200px; border-radius:6px; display:block; margin-bottom:6px;">
+        <button class="btn" id="removeTableBgBtn" style="padding:4px 10px; font-size:0.78rem;">Remove (use default)</button>`;
+      document.getElementById("removeTableBgBtn").onclick = async () => {
+        currentTableBgUrl = null;
+        await saveSettingField("tableBgUrl", null);
+        renderTableBgPreview();
+      };
+    }
+
+    // Saves one field immediately to Firestore, so a single upload can never
+    // be lost by forgetting to click "Save Settings" afterward.
+    async function saveSettingField(fieldName, value) {
+      await db.collection("gameSettings").doc("main").set({ [fieldName]: value || null }, { merge: true });
+    }
+
+    document.getElementById("uploadTableBgBtn").onclick = async () => {
+      const fileInput = document.getElementById("tableBgFile");
+      const file = fileInput.files[0];
+      const statusEl = document.getElementById("tableBgStatus");
+      if (!file) return alert("Choose an image first");
+      statusEl.textContent = "Uploading...";
+      try {
+        const url = await uploadToCloudinary(file, "image");
+        currentTableBgUrl = url;
+        await saveSettingField("tableBgUrl", url);
+        renderTableBgPreview();
+        statusEl.textContent = "Uploaded and saved ✓";
+        fileInput.value = "";
+      } catch (err) {
+        statusEl.textContent = "Upload failed: " + err.message;
+      }
+      setTimeout(() => statusEl.textContent = "", 4000);
+    };
+
+    // Generic handler for the three small sprite uploads (blue player, red
+    // player, ball) — same pattern as the table background above.
+    const spriteState = {
+      rodBlue1: { get: () => currentRodBlue1Url, set: (v) => currentRodBlue1Url = v },
+      rodBlue2: { get: () => currentRodBlue2Url, set: (v) => currentRodBlue2Url = v },
+      rodBlue3: { get: () => currentRodBlue3Url, set: (v) => currentRodBlue3Url = v },
+      rodRed1: { get: () => currentRodRed1Url, set: (v) => currentRodRed1Url = v },
+      rodRed2: { get: () => currentRodRed2Url, set: (v) => currentRodRed2Url = v },
+      rodRed3: { get: () => currentRodRed3Url, set: (v) => currentRodRed3Url = v },
+      ballSprite: { get: () => currentBallSpriteUrl, set: (v) => currentBallSpriteUrl = v }
+    };
+
+    function renderSpritePreview(previewElId, url, key) {
+      const el = document.getElementById(previewElId);
+      if (!url) { el.innerHTML = "<p style='color:#64748b; font-size:0.75rem;'>Using default</p>"; return; }
+      el.innerHTML = `
+        <img src="${cloudinaryOptimize(url, 100)}" style="width:60px; height:60px; object-fit:contain; background:#0f172a; border-radius:6px; display:block; margin-bottom:4px;">
+        <button class="btn removeSpriteBtn" data-key="${key}" data-preview="${previewElId}" style="padding:3px 8px; font-size:0.72rem;">Remove</button>`;
+      el.querySelector(".removeSpriteBtn").onclick = async () => {
+        spriteState[key].set(null);
+        await saveSettingField(key + "Url", null);
+        renderSpritePreview(previewElId, null, key);
+      };
+    }
+
+    function wireSpriteUpload(btnId, fileId, key, previewElId) {
+      document.getElementById(btnId).onclick = async () => {
+        const fileInput = document.getElementById(fileId);
+        const file = fileInput.files[0];
+        const statusEl = document.getElementById("spriteStatus");
+        if (!file) return alert("Choose a PNG image first");
+        statusEl.textContent = "Uploading...";
+        try {
+          const url = await uploadToCloudinary(file, "image");
+          spriteState[key].set(url);
+          await saveSettingField(key + "Url", url);
+          renderSpritePreview(previewElId, url, key);
+          statusEl.textContent = "Uploaded and saved ✓";
+          fileInput.value = "";
+        } catch (err) {
+          statusEl.textContent = "Upload failed: " + err.message;
+        }
+        setTimeout(() => statusEl.textContent = "", 4000);
+      };
+    }
+    wireSpriteUpload("uploadRodBlue1Btn", "rodBlue1File", "rodBlue1", "rodBlue1Preview");
+    wireSpriteUpload("uploadRodBlue2Btn", "rodBlue2File", "rodBlue2", "rodBlue2Preview");
+    wireSpriteUpload("uploadRodBlue3Btn", "rodBlue3File", "rodBlue3", "rodBlue3Preview");
+    wireSpriteUpload("uploadRodRed1Btn", "rodRed1File", "rodRed1", "rodRed1Preview");
+    wireSpriteUpload("uploadRodRed2Btn", "rodRed2File", "rodRed2", "rodRed2Preview");
+    wireSpriteUpload("uploadRodRed3Btn", "rodRed3File", "rodRed3", "rodRed3Preview");
+    wireSpriteUpload("uploadBallSpriteBtn", "ballSpriteFile", "ballSprite", "ballSpritePreview");
+
+    // ---- Sound effects (same auto-save-on-upload pattern as sprites) ----
+    const sfxState = {
+      sfxKick: { get: () => currentSfxKickUrl, set: (v) => currentSfxKickUrl = v },
+      sfxGoal: { get: () => currentSfxGoalUrl, set: (v) => currentSfxGoalUrl = v },
+      sfxCrowd: { get: () => currentSfxCrowdUrl, set: (v) => currentSfxCrowdUrl = v },
+      sfxCommentator: { get: () => currentSfxCommentatorUrl, set: (v) => currentSfxCommentatorUrl = v }
+    };
+
+    function renderAudioPreview(previewElId, url, key) {
+      const el = document.getElementById(previewElId);
+      if (!url) { el.innerHTML = "<p style='color:#64748b; font-size:0.75rem;'>None set</p>"; return; }
+      el.innerHTML = `
+        <audio controls src="${url}" style="height:28px; max-width:220px; display:block; margin-bottom:4px;"></audio>
+        <button class="btn removeAudioBtn" data-key="${key}" data-preview="${previewElId}" style="padding:3px 8px; font-size:0.72rem;">Remove</button>`;
+      el.querySelector(".removeAudioBtn").onclick = async () => {
+        sfxState[key].set(null);
+        await saveSettingField(key + "Url", null);
+        renderAudioPreview(previewElId, null, key);
+      };
+    }
+
+    function wireAudioUpload(btnId, fileId, key, previewElId) {
+      document.getElementById(btnId).onclick = async () => {
+        const fileInput = document.getElementById(fileId);
+        const file = fileInput.files[0];
+        const statusEl = document.getElementById("sfxStatus");
+        if (!file) return alert("Choose an audio file first");
+        statusEl.textContent = "Uploading...";
+        try {
+          const url = await uploadToCloudinary(file, "video"); // Cloudinary stores audio under "video"
+          sfxState[key].set(url);
+          await saveSettingField(key + "Url", url);
+          renderAudioPreview(previewElId, url, key);
+          statusEl.textContent = "Uploaded and saved ✓";
+          fileInput.value = "";
+        } catch (err) {
+          statusEl.textContent = "Upload failed: " + err.message;
+        }
+        setTimeout(() => statusEl.textContent = "", 4000);
+      };
+    }
+    wireAudioUpload("uploadSfxKickBtn", "sfxKickFile", "sfxKick", "sfxKickPreview");
+    wireAudioUpload("uploadSfxGoalBtn", "sfxGoalFile", "sfxGoal", "sfxGoalPreview");
+    wireAudioUpload("uploadSfxCrowdBtn", "sfxCrowdFile", "sfxCrowd", "sfxCrowdPreview");
+    wireAudioUpload("uploadSfxCommentatorBtn", "sfxCommentatorFile", "sfxCommentator", "sfxCommentatorPreview");
+
+    // ---- 3D player model uploads (.glb, uploaded as Cloudinary "raw" files) ----
+    const model3dState = {
+      model3dBlue: { get: () => currentModel3dBlueUrl, set: (v) => currentModel3dBlueUrl = v },
+      model3dRed: { get: () => currentModel3dRedUrl, set: (v) => currentModel3dRedUrl = v }
+    };
+
+    function renderModel3dPreview(previewElId, url, key) {
+      const el = document.getElementById(previewElId);
+      if (!url) { el.innerHTML = "<p style='color:#64748b; font-size:0.75rem;'>None uploaded</p>"; return; }
+      el.innerHTML = `
+        <p style="font-size:0.72rem; color:#86efac; word-break:break-all;">✓ ${url.split('/').pop()}</p>
+        <button class="btn removeModel3dBtn" data-key="${key}" data-preview="${previewElId}" style="padding:3px 8px; font-size:0.72rem;">Remove</button>`;
+      el.querySelector(".removeModel3dBtn").onclick = async () => {
+        model3dState[key].set(null);
+        const fieldName = key === "model3dBlue" ? "blue3dModelUrl" : "red3dModelUrl";
+        await saveSettingField(fieldName, null);
+        renderModel3dPreview(previewElId, null, key);
+      };
+    }
+
+    function wireModel3dUpload(btnId, fileId, key, previewElId, fieldName) {
+      document.getElementById(btnId).onclick = async () => {
+        const fileInput = document.getElementById(fileId);
+        const file = fileInput.files[0];
+        const statusEl = document.getElementById("model3dStatus");
+        if (!file) return alert("Choose a .glb file first");
+        statusEl.textContent = "Uploading (this may take a moment for a 3D file)...";
+        try {
+          const url = await uploadToCloudinary(file, "raw");
+          model3dState[key].set(url);
+          await saveSettingField(fieldName, url);
+          renderModel3dPreview(previewElId, url, key);
+          statusEl.textContent = "Uploaded and saved ✓";
+          fileInput.value = "";
+        } catch (err) {
+          statusEl.textContent = "Upload failed: " + err.message;
+        }
+        setTimeout(() => statusEl.textContent = "", 4000);
+      };
+    }
+    wireModel3dUpload("uploadModel3dBlueBtn", "model3dBlueFile", "model3dBlue", "model3dBluePreview", "blue3dModelUrl");
+    wireModel3dUpload("uploadModel3dRedBtn", "model3dRedFile", "model3dRed", "model3dRedPreview", "red3dModelUrl");
+
+    document.getElementById("saveSettingsBtn").onclick = async () => {
+      const data = {
+        ballPackage: parseInt(document.getElementById("ballPackage").value) || 10,
+        ballPriceGhc: parseInt(document.getElementById("ballPrice").value) || 10,
+        aiPrize: document.getElementById("aiPrize").value,
+        tableBgUrl: currentTableBgUrl || null,
+        rodBlue1Url: currentRodBlue1Url || null,
+        rodBlue2Url: currentRodBlue2Url || null,
+        rodBlue3Url: currentRodBlue3Url || null,
+        rodRed1Url: currentRodRed1Url || null,
+        rodRed2Url: currentRodRed2Url || null,
+        rodRed3Url: currentRodRed3Url || null,
+        ballSpriteUrl: currentBallSpriteUrl || null,
+        prizes: {
+          1: document.getElementById("prize1").value,
+          2: document.getElementById("prize2").value,
+          3: document.getElementById("prize3").value
+        },
+        social: {
+          whatsapp: document.getElementById("socialWhatsapp").value.trim(),
+          telegram: document.getElementById("socialTelegram").value.trim(),
+          facebook: document.getElementById("socialFacebook").value.trim(),
+          instagram: document.getElementById("socialInstagram").value.trim(),
+          tiktok: document.getElementById("socialTiktok").value.trim(),
+          website: document.getElementById("socialWebsite").value.trim()
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection("gameSettings").doc("main").set(data, { merge: true });
+      document.getElementById("settingsStatus").textContent = "Settings saved ✓";
+      setTimeout(() => document.getElementById("settingsStatus").textContent = "", 2500);
+    };
+
+    // ---------- Site Announcements ----------
+    let anncImageFileSel = null;
+    let anncAudioBlob = null;
+    let anncMediaRecorder = null, anncChunks = [], anncRecording = false;
+
+    document.getElementById("anncImageFile").onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      anncImageFileSel = file;
+      const url = URL.createObjectURL(file);
+      const box = document.getElementById("anncImagePreview");
+      box.innerHTML = "";
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "position:relative; display:inline-block;";
+      const img = document.createElement("img");
+      img.src = url;
+      img.style.cssText = "max-width:160px; max-height:120px; border-radius:8px; display:block;";
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.textContent = "✕";
+      rm.style.cssText = "position:absolute; top:2px; right:2px; background:#7f1d1d; color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer;";
+      rm.onclick = () => {
+        anncImageFileSel = null;
+        document.getElementById("anncImageFile").value = "";
+        box.innerHTML = "";
+      };
+      wrap.append(img, rm);
+      box.appendChild(wrap);
+    };
+
+    document.getElementById("anncMicBtn").onclick = async () => {
+      const btn = document.getElementById("anncMicBtn");
+      const statusEl = document.getElementById("anncMicStatus");
+      if (!anncRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          anncMediaRecorder = new MediaRecorder(stream);
+          anncChunks = [];
+          anncMediaRecorder.ondataavailable = (e) => anncChunks.push(e.data);
+          anncMediaRecorder.onstop = () => {
+            stream.getTracks().forEach(t => t.stop());
+            anncAudioBlob = new Blob(anncChunks, { type: "audio/webm" });
+            const url = URL.createObjectURL(anncAudioBlob);
+            const box = document.getElementById("anncAudioPreview");
+            box.innerHTML = "";
+            const wrap = document.createElement("div");
+            wrap.style.cssText = "display:flex; gap:8px; align-items:center;";
+            const audio = document.createElement("audio");
+            audio.controls = true;
+            audio.src = url;
+            const rm = document.createElement("button");
+            rm.type = "button";
+            rm.className = "btn";
+            rm.textContent = "Remove";
+            rm.style.cssText = "padding:4px 10px;";
+            rm.onclick = () => { anncAudioBlob = null; box.innerHTML = ""; };
+            wrap.append(audio, rm);
+            box.appendChild(wrap);
+          };
+          anncMediaRecorder.start();
+          anncRecording = true;
+          btn.textContent = "⏹ Stop";
+          statusEl.textContent = "Recording…";
+        } catch (err) {
+          alert("Microphone permission needed to record a voice message.");
+        }
+      } else {
+        anncMediaRecorder.stop();
+        anncRecording = false;
+        btn.textContent = "🎤 Record";
+        statusEl.textContent = "";
+      }
+    };
+
+    document.getElementById("postAnncBtn").onclick = async () => {
+      const text = document.getElementById("anncText").value.trim();
+      const statusEl = document.getElementById("anncStatus");
+      if (!text && !anncImageFileSel && !anncAudioBlob) {
+        statusEl.textContent = "Add a message, image, or voice recording first.";
+        return;
+      }
+      const btn = document.getElementById("postAnncBtn");
+      btn.disabled = true;
+      statusEl.textContent = "Posting…";
+      try {
+        let imageUrl = null, audioUrl = null;
+        if (anncImageFileSel) imageUrl = await uploadToCloudinary(anncImageFileSel, "image");
+        if (anncAudioBlob) audioUrl = await uploadToCloudinary(anncAudioBlob, "video"); // Cloudinary stores audio under "video" resource type
+        await db.collection("announcements").add({
+          text: text || "",
+          imageUrl: imageUrl || null,
+          audioUrl: audioUrl || null,
+          active: true,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        statusEl.textContent = "Announcement posted ✓";
+        document.getElementById("anncText").value = "";
+        anncImageFileSel = null;
+        document.getElementById("anncImageFile").value = "";
+        document.getElementById("anncImagePreview").innerHTML = "";
+        anncAudioBlob = null;
+        document.getElementById("anncAudioPreview").innerHTML = "";
+        loadAnnouncements();
+      } catch (err) {
+        statusEl.textContent = "Couldn't post: " + err.message;
+      }
+      btn.disabled = false;
+      setTimeout(() => { statusEl.textContent = ""; }, 3000);
+    };
+
+    async function loadAnnouncements() {
+      const el = document.getElementById("adminAnnouncements");
+      try {
+        const snap = await db.collection("announcements").orderBy("createdAt", "desc").limit(20).get();
+        if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>No announcements yet</p>"; return; }
+        el.innerHTML = "";
+        snap.forEach(doc => {
+          const a = doc.data();
+          const row = document.createElement("div");
+          row.style.cssText = "border-bottom:1px solid #1e293b; padding:10px 0;";
+          let media = "";
+          if (a.imageUrl) media += `<img src="${esc(a.imageUrl)}" style="max-width:120px; max-height:90px; border-radius:6px; display:block; margin:4px 0;" />`;
+          if (a.audioUrl) media += `<audio controls src="${esc(a.audioUrl)}" style="display:block; margin:4px 0; width:240px;"></audio>`;
+          row.innerHTML = `
+            <div>${a.text ? esc(a.text) : "<i style='color:#64748b'>(no text)</i>"} ${a.active ? "" : "<span style='color:#f87171;font-size:0.75rem;'>(inactive)</span>"}</div>
+            ${media}
+            <div style="display:flex; gap:8px; margin-top:6px;">
+              <button class="btn" onclick="toggleAnnc('${doc.id}', ${!a.active})" style="padding:4px 10px; font-size:0.8rem;">${a.active ? "Deactivate" : "Activate"}</button>
+              <button class="btn btn-danger" onclick="deleteAnnc('${doc.id}')" style="padding:4px 10px; font-size:0.8rem;">Delete</button>
+            </div>`;
+          el.appendChild(row);
+        });
+      } catch (err) {
+        el.innerHTML = "<p class='error'>Couldn't load: " + esc(err.message) + "</p>";
+      }
+    }
+
+    window.toggleAnnc = async (id, active) => {
+      await db.collection("announcements").doc(id).update({ active });
+      loadAnnouncements();
+    };
+    window.deleteAnnc = async (id) => {
+      if (!confirm("Delete this announcement?")) return;
+      await db.collection("announcements").doc(id).delete();
+      loadAnnouncements();
+    };
+
+    document.getElementById("postBannerBtn").onclick = async () => {
+      const title = document.getElementById("bannerTitle").value.trim();
+      if (!title) return alert("Title required");
+      const btn = document.getElementById("postBannerBtn");
+      const statusEl = document.getElementById("bannerStatus");
+      const fileInput = document.getElementById("bannerImage");
+      const file = fileInput.files[0];
+
+      btn.disabled = true;
+      let imageUrl = null;
+
+      try {
+        if (file) {
+          statusEl.textContent = "Uploading image...";
+          imageUrl = await uploadToCloudinary(file, "image");
+        }
+
+        await db.collection("banners").add({
+          title,
+          description: document.getElementById("bannerDesc").value,
+          prize: document.getElementById("bannerPrize").value,
+          imageUrl: imageUrl || null,
+          active: document.getElementById("bannerActive").checked,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        statusEl.textContent = "Banner posted ✓";
+        document.getElementById("bannerTitle").value = "";
+        document.getElementById("bannerDesc").value = "";
+        document.getElementById("bannerPrize").value = "";
+        fileInput.value = "";
+        loadBanners();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Failed to post banner: " + err.message;
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => statusEl.textContent = "", 3000);
+      }
+    };
+
+    async function loadBanners() {
+      const snap = await db.collection("banners").orderBy("createdAt", "desc").limit(10).get();
+      const el = document.getElementById("adminBanners");
+      if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>No banners yet</p>"; return; }
+      let html = "<table><tr><th>Image</th><th>Title</th><th>Active</th><th>Prize</th><th></th></tr>";
+      snap.forEach(doc => {
+        const b = doc.data();
+        html += `<tr>
+          <td>${b.imageUrl ? `<img src="${cloudinaryOptimize(b.imageUrl, 100)}" style="width:48px;height:32px;object-fit:cover;border-radius:4px;">` : "-"}</td>
+          <td>${b.title}</td>
+          <td>${b.active ? "Yes" : "No"}</td>
+          <td>${b.prize || "-"}</td>
+          <td><button class="btn" onclick="toggleBanner('${doc.id}', ${!b.active})" style="padding:4px 8px;font-size:0.75rem;">${b.active ? "Disable" : "Enable"}</button></td>
+        </tr>`;
+      });
+      html += "</table>";
+      el.innerHTML = html;
+    }
+    window.toggleBanner = async (id, active) => {
+      await db.collection("banners").doc(id).update({ active });
+      loadBanners();
+    };
+
+    document.getElementById("uploadMusicBtn").onclick = async () => {
+      const titleInput = document.getElementById("musicTitle").value.trim();
+      const fileInput = document.getElementById("musicFile");
+      const files = Array.from(fileInput.files);
+      const statusEl = document.getElementById("musicStatus");
+      const btn = document.getElementById("uploadMusicBtn");
+      const progressWrap = document.getElementById("musicProgressWrap");
+      const progressBar = document.getElementById("musicProgressBar");
+      const progressLabel = document.getElementById("musicProgressLabel");
+
+      if (!files.length) return alert("Choose at least one audio file");
+
+      btn.disabled = true;
+      progressWrap.style.display = "block";
+      let successCount = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const trackTitle = (files.length === 1 && titleInput) ? titleInput : file.name.replace(/\.[^/.]+$/, "");
+        progressBar.style.width = "0%";
+        progressLabel.textContent = `Uploading ${i + 1} of ${files.length}: ${file.name} — 0%`;
+
+        try {
+          const url = await uploadToCloudinaryWithProgress(file, "video", (pct) => {
+            progressBar.style.width = pct + "%";
+            progressLabel.textContent = `Uploading ${i + 1} of ${files.length}: ${file.name} — ${pct}%`;
+          });
+
+          await db.collection("gameMusic").add({
+            title: trackTitle,
+            url,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          successCount++;
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = `Failed on "${file.name}": ${err.message}`;
+        }
+      }
+
+      progressWrap.style.display = "none";
+      statusEl.textContent = `Uploaded ${successCount} of ${files.length} track(s) ✓`;
+      document.getElementById("musicTitle").value = "";
+      fileInput.value = "";
+      loadMusic();
+      btn.disabled = false;
+      setTimeout(() => statusEl.textContent = "", 4000);
+    };
+
+    async function loadMusic() {
+      const snap = await db.collection("gameMusic").orderBy("createdAt", "desc").limit(20).get({ source: "server" });
+      const el = document.getElementById("adminMusicList");
+      if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>No tracks uploaded yet</p>"; return; }
+      let html = "<table><tr><th>Title</th><th>Preview</th><th></th></tr>";
+      snap.forEach(doc => {
+        const m = doc.data();
+        html += `<tr>
+          <td>${m.title}</td>
+          <td><audio controls src="${m.url}" style="height:28px; max-width:140px;"></audio></td>
+          <td><button class="btn" onclick="deleteMusic('${doc.id}')" style="padding:4px 8px;font-size:0.75rem;">Delete</button></td>
+        </tr>`;
+      });
+      html += "</table>";
+      el.innerHTML = html;
+    }
+
+    window.deleteMusic = async (id) => {
+      if (!confirm("Delete this track?")) return;
+      await db.collection("gameMusic").doc(id).delete();
+      loadMusic();
+    };
+
+    async function loadLeaderboard() {
+      const snap = await db.collection("leaderboard").orderBy("wins", "desc").limit(20).get();
+      const el = document.getElementById("adminLeaderboard");
+      if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>Empty</p>"; return; }
+      let html = "<table><tr><th>#</th><th>Name</th><th>Wins</th></tr>";
+      let r = 1;
+      snap.forEach(doc => {
+        const d = doc.data();
+        html += `<tr><td>${r}</td><td>${d.name || "Player"}</td><td>${d.wins || 0}</td></tr>`;
+        r++;
+      });
+      html += "</table>";
+      el.innerHTML = html;
+    }
+
+    document.getElementById("resetLbBtn").onclick = async () => {
+      if (!confirm("Really reset the entire leaderboard?")) return;
+      const snap = await db.collection("leaderboard").get();
+      const batch = db.batch();
+      snap.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      loadLeaderboard();
+      alert("Leaderboard reset");
+    };
+
+    // ---------- Kaisa Challenge ----------
+    function esc(v) {
+      return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    document.getElementById("saveKaisaBtn").onclick = async () => {
+      const statusEl = document.getElementById("kaisaSettingsStatus");
+      const win = parseInt(document.getElementById("kaisaWinScore").value, 10);
+      if (!(win >= 10 && win <= 500)) { statusEl.textContent = "Points to win must be between 10 and 500."; return; }
+      try {
+        await db.collection("gameSettings").doc("main").set({
+          kaisaAiPrize: document.getElementById("kaisaAiPrize").value.trim(),
+          kaisaWinScore: win,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        statusEl.textContent = "Kaisa settings saved ✓";
+      } catch (err) {
+        statusEl.textContent = "Couldn't save: " + err.message;
+      }
+      setTimeout(() => statusEl.textContent = "", 2500);
+    };
+
+    async function loadKaisaLeaderboard() {
+      const el = document.getElementById("adminKaisaLeaderboard");
+      try {
+        const snap = await db.collection("kaisaLeaderboard").orderBy("wins", "desc").limit(20).get();
+        if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>Empty</p>"; return; }
+        let html = "<table><tr><th>#</th><th>Name</th><th>Wins</th></tr>";
+        let r = 1;
+        snap.forEach(doc => {
+          const d = doc.data();
+          html += `<tr><td>${r}</td><td>${esc(d.name || "Player")}</td><td>${d.wins || 0}</td></tr>`;
+          r++;
+        });
+        el.innerHTML = html + "</table>";
+      } catch (err) {
+        el.innerHTML = "<p class='error'>Couldn't load: " + esc(err.message) + "</p>";
+      }
+    }
+
+    document.getElementById("resetKaisaLbBtn").onclick = async () => {
+      if (!confirm("Really reset the entire Kaisa leaderboard?")) return;
+      const snap = await db.collection("kaisaLeaderboard").get();
+      const batch = db.batch();
+      snap.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      loadKaisaLeaderboard();
+      alert("Kaisa leaderboard reset");
+    };
+
+    document.getElementById("saveDamiiBtn").onclick = async () => {
+      const statusEl = document.getElementById("damiiSettingsStatus");
+      try {
+        await db.collection("gameSettings").doc("main").set({
+          damiiAiPrize: document.getElementById("damiiAiPrize").value.trim(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        statusEl.textContent = "Damii settings saved ✓";
+      } catch (err) { statusEl.textContent = "Couldn't save: " + err.message; }
+      setTimeout(() => statusEl.textContent = "", 2500);
+    };
+
+    document.getElementById("saveTurnBtn").onclick = async () => {
+      const statusEl = document.getElementById("turnSettingsStatus");
+      const raw = document.getElementById("iceServersJson").value.trim();
+      if (raw) {
+        try {
+          const arr = JSON.parse(raw);
+          if (!Array.isArray(arr) || !arr.every(x => x && x.urls)) throw new Error("must be a list of servers, each with a \"urls\" field");
+        } catch (err) {
+          statusEl.textContent = "That isn't valid ICE servers JSON: " + err.message;
+          return;
+        }
+      }
+      try {
+        await db.collection("gameSettings").doc("main").set({ iceServersJson: raw }, { merge: true });
+        statusEl.textContent = raw ? "TURN servers saved ✓" : "Cleared — STUN only ✓";
+      } catch (err) { statusEl.textContent = "Couldn't save: " + err.message; }
+      setTimeout(() => statusEl.textContent = "", 3000);
+    };
+
+    async function loadDamiiLeaderboard() {
+      const el = document.getElementById("adminDamiiLeaderboard");
+      try {
+        const snap = await db.collection("damiiLeaderboard").orderBy("wins", "desc").limit(20).get();
+        if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>Empty</p>"; return; }
+        let html = "<table><tr><th>#</th><th>Name</th><th>Wins</th></tr>";
+        let r = 1;
+        snap.forEach(doc => {
+          const d = doc.data();
+          html += `<tr><td>${r}</td><td>${esc(d.name || "Player")}</td><td>${d.wins || 0}</td></tr>`;
+          r++;
+        });
+        el.innerHTML = html + "</table>";
+      } catch (err) {
+        el.innerHTML = "<p class='error'>Couldn't load: " + esc(err.message) + "</p>";
+      }
+    }
+
+    document.getElementById("resetDamiiLbBtn").onclick = async () => {
+      if (!confirm("Really reset the entire Damii leaderboard?")) return;
+      const snap = await db.collection("damiiLeaderboard").get();
+      const batch = db.batch();
+      snap.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      loadDamiiLeaderboard();
+      alert("Damii leaderboard reset");
+    };
+
+    document.getElementById("saveLudoBtn").onclick = async () => {
+      const statusEl = document.getElementById("ludoSettingsStatus");
+      try {
+        await db.collection("gameSettings").doc("main").set({
+          ludoAiPrize: document.getElementById("ludoAiPrize").value.trim(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        statusEl.textContent = "Ludo settings saved ✓";
+      } catch (err) { statusEl.textContent = "Couldn't save: " + err.message; }
+      setTimeout(() => statusEl.textContent = "", 2500);
+    };
+
+    async function loadLudoLeaderboard() {
+      const el = document.getElementById("adminLudoLeaderboard");
+      try {
+        const snap = await db.collection("ludoLeaderboard").orderBy("wins", "desc").limit(20).get();
+        if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>Empty</p>"; return; }
+        let html = "<table><tr><th>#</th><th>Name</th><th>Wins</th></tr>";
+        let r = 1;
+        snap.forEach(doc => {
+          const d = doc.data();
+          html += `<tr><td>${r}</td><td>${esc(d.name || "Player")}</td><td>${d.wins || 0}</td></tr>`;
+          r++;
+        });
+        el.innerHTML = html + "</table>";
+      } catch (err) {
+        el.innerHTML = "<p class='error'>Couldn't load: " + esc(err.message) + "</p>";
+      }
+    }
+
+    document.getElementById("resetLudoLbBtn").onclick = async () => {
+      if (!confirm("Really reset the entire Ludo leaderboard?")) return;
+      const snap = await db.collection("ludoLeaderboard").get();
+      const batch = db.batch();
+      snap.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      loadLudoLeaderboard();
+      alert("Ludo leaderboard reset");
+    };
+
+    async function loadKaisaMatches() {
+      const el = document.getElementById("adminKaisaMatches");
+      try {
+        // Single-field filter (no orderBy) so no extra Firestore index is needed; sorted here instead.
+        const snap = await db.collection("matches").where("game", "in", ["kaisa", "damii", "ludo"]).limit(100).get();
+        if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>No online matches yet</p>"; return; }
+        const rows = [];
+        snap.forEach(doc => rows.push({ id: doc.id, ...doc.data() }));
+        rows.sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0));
+        let html = "<table><tr><th>Game</th><th>Room</th><th>Host</th><th>Guest</th><th>Score</th><th>Status</th><th>Winner</th></tr>";
+        rows.slice(0, 20).forEach(m => {
+          const winner = m.winner === "host" ? m.hostName : m.winner === "guest" ? m.guestName : "-";
+          html += `<tr><td>${m.game === "damii" ? "♟️" : m.game === "ludo" ? "🎲" : "🎱"}</td><td>${esc(m.id)}</td><td>${esc(m.hostName || "-")}</td><td>${esc(m.guestName || "-")}</td>` +
+                  `<td>${(m.game === "damii" || m.game === "ludo") ? "-" : (m.hostScore || 0) + "-" + (m.guestScore || 0)}</td><td>${esc(m.status || "-")}</td><td>${esc(winner || "-")}</td></tr>`;
+        });
+        el.innerHTML = html + "</table>";
+      } catch (err) {
+        el.innerHTML = "<p class='error'>Couldn't load: " + esc(err.message) + "</p>";
+      }
+    }
+
+    async function loadUsers() {
+      const snap = await db.collection("users").orderBy("createdAt", "desc").limit(30).get();
+      const el = document.getElementById("adminUsers");
+      if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>No users yet</p>"; return; }
+      let html = "<table><tr><th>Name</th><th>Balls</th><th>Foosball wins</th><th>Kaisa wins</th><th>Damii wins</th><th>Ludo wins</th></tr>";
+      snap.forEach(doc => {
+        const d = doc.data();
+        html += `<tr><td>${d.name || doc.id.slice(0,6)}</td><td>${d.balls || 0}</td><td>${d.wins || 0}</td><td>${d.kaisaWins || 0}</td><td>${d.damiiWins || 0}</td><td>${d.ludoWins || 0}</td></tr>`;
+      });
+      html += "</table>";
+      el.innerHTML = html;
+    }
+
+    async function loadWinners() {
+      const snap = await db.collection("winners").orderBy("createdAt", "desc").limit(30).get();
+      const el = document.getElementById("adminWinners");
+      if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>No winners yet</p>"; return; }
+      let html = "<table><tr><th>Name</th><th>Phone</th><th>Prize</th><th>Score</th><th>Game</th><th>Mode</th></tr>";
+      snap.forEach(doc => {
+        const w = doc.data();
+        const score = w.finalScore ? `${w.finalScore.you}-${w.finalScore.opponent}` : "-";
+        html += `<tr><td>${w.name || "-"}</td><td>${w.phone || "-"}</td><td>${w.prize || "-"}</td><td>${score}</td><td>${w.game === "kaisa" ? "🎱 Kaisa" + (w.difficulty ? " (" + w.difficulty + ")" : "") : w.game === "damii" ? "♟️ Damii" : w.game === "ludo" ? "🎲 Ludo" + (w.difficulty ? " (" + w.difficulty + ")" : "") : "⚽ Foosball"}</td><td>${w.mode || "-"}</td></tr>`;
+      });
+      html += "</table>";
+      el.innerHTML = html;
+    }
+
+    async function loadTx() {
+      const snap = await db.collection("transactions").orderBy("createdAt", "desc").limit(20).get();
+      const el = document.getElementById("adminTx");
+      if (snap.empty) { el.innerHTML = "<p style='color:#64748b'>No transactions</p>"; return; }
+      let html = "<table><tr><th>Type</th><th>Balls</th><th>GHc</th><th>Status</th></tr>";
+      snap.forEach(doc => {
+        const d = doc.data();
+        html += `<tr><td>${d.type}</td><td>${d.balls}</td><td>${d.amountGhc || "-"}</td><td>${d.status}</td></tr>`;
+      });
+      html += "</table>";
+      el.innerHTML = html;
+    }
+
+  </script>
+</body>
+</html>
