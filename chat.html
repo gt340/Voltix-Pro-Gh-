@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Voltix Pro – Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #020617;
+      color: #e2e8f0;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      background: #0f172a;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .topbar img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #3b82f6; }
+    .topbar h1 { font-size: 1rem; flex: 1; }
+    .tabs {
+      display: flex;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active { color: #60a5fa; border-bottom-color: #3b82f6; }
+    .view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .view.active { display: flex; }
+    .chat-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 10px;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      background: #0f172a;
+      cursor: pointer;
+    }
+    .chat-item:active { background: #1e293b; }
+    .avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1.1rem;
+    }
+    .chat-meta { flex: 1; min-width: 0; }
+    .chat-meta .name { font-weight: 600; font-size: 0.95rem; }
+    .chat-meta .preview { font-size: 0.8rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .msg {
+      max-width: 80%;
+      padding: 8px 12px;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .msg.me {
+      align-self: flex-end;
+      background: #1d4ed8;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.them {
+      align-self: flex-start;
+      background: #1e293b;
+      border-bottom-left-radius: 4px;
+    }
+    .msg .time { font-size: 0.65rem; color: #94a3b8; margin-top: 2px; text-align: right; }
+    .msg img.media { max-width: 100%; border-radius: 8px; margin-top: 4px; }
+    .msg audio { width: 180px; margin-top: 4px; }
+    .composer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: #0f172a;
+      border-top: 1px solid #1e293b;
+    }
+    .composer input[type="text"] {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 20px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+    }
+    .icon-btn {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none;
+    }
+    .topbar .icon-btn { width: 34px; height: 34px; font-size: 1rem; }
+    .icon-btn.rec { background: #7f1d1d; }
+    .icon-btn.send { background: #2563eb; }
+    .hidden { display: none !important; }
+    .social-links {
+      padding: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .social-links a {
+      background: #1e293b;
+      color: #60a5fa;
+      padding: 8px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.8rem;
+      border: 1px solid #334155;
+    }
+    .join-box {
+      padding: 16px;
+      text-align: center;
+    }
+    .join-box input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 1rem;
+      margin: 8px 0;
+    }
+    .btn {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-gold { background: linear-gradient(135deg, #b45309, #fbbf24); color: #0f172a; }
+    .empty { text-align: center; color: #64748b; padding: 30px 16px; font-size: 0.9rem; }
+  
+    /* ---------- Site-wide announcements banner ---------- */
+    #anncBar { position: relative; z-index: 80; }
+    .annc-card {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-left: 4px solid #fbbf24;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      position: relative;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .annc-card img { max-width: 64px; max-height: 64px; border-radius: 6px; flex-shrink: 0; object-fit: cover; }
+    .annc-card .annc-body { flex: 1; min-width: 0; line-height: 1.35; word-break: break-word; }
+    .annc-card audio { width: 100%; max-width: 260px; margin-top: 6px; height: 32px; display: block; }
+    .annc-card .annc-close {
+      background: none; border: none; color: #94a3b8; font-size: 1.15rem; cursor: pointer;
+      line-height: 1; padding: 2px 4px; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="anncBar"></div>
+  <div class="topbar">
+    <img src="logo.png" alt="Voltix" onerror="this.style.display='none'" />
+    <h1 id="chatTitle">Voltix Chat</h1>
+    <button class="icon-btn" id="backBtn" style="display:none;">←</button>
+    <a href="foosball.html" class="icon-btn" title="Foosball">⚽</a>
+    <a href="kaisa.html" class="icon-btn" title="Kaisa">🎱</a>
+<a href="damii.html" class="icon-btn" title="Damii">♟️</a>
+    <a href="ludo.html" class="icon-btn" title="Ludo">🎲</a>
+    <a href="home.html" class="icon-btn" title="Store">🛍️</a>
+  </div>
+
+  <div class="tabs" id="mainTabs">
+    <div class="tab active" data-tab="group">Group</div>
+    <div class="tab" data-tab="chats">Friends</div>
+    <div class="tab" data-tab="social">Social</div>
+  </div>
+
+  <!-- GROUP CHAT -->
+  <div class="view active" id="view-group">
+    <div class="messages" id="groupMessages"></div>
+    <div class="composer">
+      <button class="icon-btn" id="groupImgBtn">📷</button>
+      <input type="file" id="groupImgInput" accept="image/*" class="hidden" />
+      <button class="icon-btn" id="groupVoiceBtn">🎤</button>
+      <input type="text" id="groupInput" placeholder="Message the group…" />
+      <button class="icon-btn send" id="groupSendBtn">➤</button>
+    </div>
+  </div>
+
+  <!-- FRIENDS / 1:1 LIST -->
+  <div class="view" id="view-chats">
+    <div id="pendingChallengeBanner" class="join-box hidden" style="border:1px solid #f59e0b;">
+      <p style="font-size:0.85rem; color:#fbbf24; font-weight:600;">⚡ You have a <span id="pendingChallengeGameText">Foosball</span> challenge code to share: <span id="pendingChallengeCodeText"></span></p>
+      <p style="font-size:0.78rem; color:#94a3b8; margin:4px 0 8px;">Tap a friend below to send it, or post it to the group chat.</p>
+      <button class="btn btn-gold" id="sendChallengeToGroupBtn">Send to Group Chat</button>
+      <button class="btn" id="cancelChallengeShareBtn">Cancel</button>
+    </div>
+    <div class="join-box">
+      <p style="font-size:0.85rem; color:#94a3b8;">Start a chat with a friend’s phone or name</p>
+      <input type="text" id="friendId" placeholder="Phone number or username" />
+      <button class="btn" id="startChatBtn">Start Chat</button>
+    </div>
+    <div class="chat-list" id="friendsList"></div>
+  </div>
+
+  <!-- 1:1 CHAT VIEW -->
+  <div class="view" id="view-dm">
+    <div class="messages" id="dmMessages"></div>
+    <div class="composer">
+      <button class="icon-btn" id="dmImgBtn">📷</button>
+      <input type="file" id="dmImgInput" accept="image/*" class="hidden" />
+      <button class="icon-btn" id="dmVoiceBtn">🎤</button>
+      <input type="text" id="dmInput" placeholder="Message…" />
+      <button class="icon-btn send" id="dmSendBtn">➤</button>
+    </div>
+  </div>
+
+  <!-- SOCIAL LINKS -->
+  <div class="view" id="view-social">
+    <div class="join-box">
+      <h3 style="color:#fbbf24; margin-bottom:8px;">Join Voltix Family</h3>
+      <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:12px;">
+        Share these links with family & friends so they can join the community and play Foosball, Kaisa, Damii and Ludo.
+      </p>
+    </div>
+    <div class="social-links" id="socialLinks">
+      <!-- Filled by JS / admin settings -->
+      <a href="#" id="linkWhatsapp" target="_blank">WhatsApp Group</a>
+      <a href="#" id="linkTelegram" target="_blank">Telegram</a>
+      <a href="#" id="linkFacebook" target="_blank">Facebook</a>
+      <a href="#" id="linkInstagram" target="_blank">Instagram</a>
+      <a href="#" id="linkTiktok" target="_blank">TikTok</a>
+      <a href="#" id="linkWebsite" target="_blank">Website / Game</a>
+    </div>
+    <div class="join-box">
+      <p style="font-size:0.8rem; color:#64748b;">
+        Admin can update these links from the dashboard.<br>
+        Your name and phone number help friends find you in chat.
+      </p>
+      <input type="text" id="myName" placeholder="Your display name (e.g. Kwame)" maxlength="30" />
+      <input type="tel" id="myPhone" placeholder="Your phone number (e.g. 024xxxxxxx)" />
+      <button class="btn" id="saveProfileBtn">Save My Info</button>
+      <div class="status" id="profileStatus" style="font-size:0.8rem; color:#22c55e; margin-top:6px;"></div>
+    </div>
+  </div>
+
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    // =====================================================
+    //  PASTE THE SAME FIREBASE CONFIG HERE
+    // =====================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+      authDomain: "voltix-pro-dc363.firebaseapp.com",
+      projectId: "voltix-pro-dc363",
+      storageBucket: "voltix-pro-dc363.firebasestorage.app",
+      messagingSenderId: "778425016855",
+      appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252",
+      measurementId: "G-5BQWW8P46P"
+    };
+    // =====================================================
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ---------- Site-wide announcements banner (posted from Admin) ----------
+    (function loadAnnouncementBanner() {
+      const bar = document.getElementById("anncBar");
+      if (!bar) return;
+      function escAnnc(s) {
+        return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+      db.collection("announcements").where("active", "==", true).limit(20).get()
+        .then(snap => {
+          if (snap.empty) return;
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0))
+            .slice(0, 5);
+          docs.forEach(a => {
+            const card = document.createElement("div");
+            card.className = "annc-card";
+            let html = "";
+            if (a.imageUrl) html += `<img src="${escAnnc(a.imageUrl)}" alt="" />`;
+            html += `<div class="annc-body">`;
+            if (a.text) html += `<div>${escAnnc(a.text)}</div>`;
+            if (a.audioUrl) html += `<audio controls src="${escAnnc(a.audioUrl)}"></audio>`;
+            html += `</div><button type="button" class="annc-close" aria-label="Dismiss">✕</button>`;
+            card.innerHTML = html;
+            card.querySelector(".annc-close").onclick = () => card.remove();
+            bar.appendChild(card);
+          });
+        })
+        .catch(() => {});
+    })();
+
+    // Cloudinary config (unsigned upload preset) — used for chat images/voice notes
+    const CLOUDINARY_CLOUD_NAME = "gi28yswe";
+    const CLOUDINARY_UPLOAD_PRESET = "Voltix Pro GH";
+
+    async function uploadToCloudinary(file, resourceType = "auto") {
+      const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      const res = await fetch(url, { method: "POST", body: formData });
+      const data = await res.json();
+      if (!data.secure_url) throw new Error(data.error?.message || "Upload failed");
+      return data.secure_url;
+    }
+
+    // ---- The games that can send challenges ----
+    // Messages saved before this list existed have no "game" field and are Foosball.
+    const GAMES = {
+      foosball: { label: "Foosball Challenge", icon: "⚡", page: "foosball.html" },
+      kaisa:    { label: "Kaisa Challenge",    icon: "🎱", page: "kaisa.html" },
+      damii:    { label: "Damii Challenge",    icon: "♟️", page: "damii.html" },
+      ludo:     { label: "Ludo Challenge",     icon: "🎲", page: "ludo.html" }
+    };
+    function gameInfo(key) { return GAMES[key] || GAMES.foosball; }
+
+    let currentUser = null;
+    let userData = { name: "Player", phone: "" };
+    let currentDmId = null;
+    let unsubGroup = null;
+
+    // ---- Challenge code sharing (came from a game's "Share to Chat") ----
+    const urlParams = new URLSearchParams(window.location.search);
+    let pendingChallengeCode = urlParams.get("shareCode");
+    let pendingChallengeGame = GAMES[urlParams.get("game")] ? urlParams.get("game") : "foosball";
+    if (pendingChallengeCode) {
+      document.getElementById("pendingChallengeBanner").classList.remove("hidden");
+      document.getElementById("pendingChallengeCodeText").textContent = pendingChallengeCode;
+      document.getElementById("pendingChallengeGameText").textContent = gameInfo(pendingChallengeGame).label.replace(" Challenge", "");
+      // Switch to Friends tab so the banner + friend list are visible immediately
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.querySelector('.tab[data-tab="chats"]')?.classList.add("active");
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      document.getElementById("view-chats")?.classList.add("active");
+    }
+
+    function clearPendingChallenge() {
+      pendingChallengeCode = null;
+      document.getElementById("pendingChallengeBanner").classList.add("hidden");
+      // Clean the URL so refreshing doesn't re-show the banner
+      window.history.replaceState({}, "", "chat.html");
+    }
+    let unsubDm = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    // ---- Auth ----
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        const snap = await db.collection("users").doc(user.uid).get();
+        if (snap.exists) userData = { ...userData, ...snap.data() };
+        else {
+          await db.collection("users").doc(user.uid).set({
+            name: "Player" + Math.floor(Math.random()*9000+1000),
+            phone: "",
+            balls: 0,
+            wins: 0,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        }
+        if (userData.phone) document.getElementById("myPhone").value = userData.phone;
+        if (userData.name) document.getElementById("myName").value = userData.name;
+        loadGroupChat();
+        loadFriendsList();
+        loadSocialLinks();
+      } else {
+        await auth.signInAnonymously();
+      }
+    });
+
+    // ---- Tabs ----
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById("view-" + tab.dataset.tab).classList.add("active");
+        document.getElementById("backBtn").style.display = "none";
+        document.getElementById("mainTabs").style.display = "flex";
+        document.getElementById("chatTitle").textContent = "Voltix Chat";
+        if (unsubDm) { unsubDm(); unsubDm = null; }
+      };
+    });
+
+    // ---- Group Chat ----
+    function loadGroupChat() {
+      if (unsubGroup) unsubGroup();
+      const box = document.getElementById("groupMessages");
+      unsubGroup = db.collection("groupChat").orderBy("createdAt", "asc").limitToLast(100)
+        .onSnapshot(snap => {
+          box.innerHTML = "";
+          snap.forEach(doc => {
+            const m = doc.data();
+            box.appendChild(renderMsg(m, m.uid === currentUser.uid));
+          });
+          box.scrollTop = box.scrollHeight;
+        });
+    }
+
+    function renderMsg(m, isMe) {
+      const div = document.createElement("div");
+      div.className = "msg " + (isMe ? "me" : "them");
+      let html = "";
+      if (!isMe && m.name) html += `<div style="font-size:0.7rem;color:#60a5fa;margin-bottom:2px;">${escapeHtml(m.name)}</div>`;
+      if (m.type === "image" && m.url) {
+        html += `<img class="media" src="${escapeHtml(m.url)}" alt="img" />`;
+      } else if (m.type === "voice" && m.url) {
+        html += `<audio controls src="${escapeHtml(m.url)}"></audio>`;
+      } else if (m.type === "challenge" && m.code) {
+        const g = gameInfo(m.game);
+        html += `
+          <div style="background:#1e293b; border:1px solid #f59e0b; border-radius:10px; padding:10px; min-width:180px;">
+            <div style="font-weight:700; color:#fbbf24;">${g.icon} ${escapeHtml(g.label)}</div>
+            <div style="font-size:0.8rem; color:#94a3b8; margin:4px 0;">Room code: <b style="color:#e2e8f0;">${escapeHtml(m.code)}</b></div>
+            <a href="${g.page}?joinCode=${encodeURIComponent(m.code)}" style="display:inline-block; margin-top:6px; background:linear-gradient(135deg,#b45309,#fbbf24); color:#0f172a; font-weight:700; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:0.85rem;">Join Challenge</a>
+          </div>`;
+      } else {
+        html += escapeHtml(m.text || "");
+      }
+      const t = m.createdAt?.toDate ? m.createdAt.toDate() : new Date();
+      html += `<div class="time">${t.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}</div>`;
+      div.innerHTML = html;
+      return div;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    async function sendGroupMessage(text, type = "text", url = null, code = null, game = null) {
+      if (!currentUser) return;
+      await db.collection("groupChat").add({
+        uid: currentUser.uid,
+        name: userData.name || "Player",
+        text: text || "",
+        type,
+        url: url || null,
+        code: code || null,
+        game: game || null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    document.getElementById("groupSendBtn").onclick = () => {
+      const input = document.getElementById("groupInput");
+      const text = input.value.trim();
+      if (!text) return;
+      sendGroupMessage(text);
+      input.value = "";
+    };
+    document.getElementById("groupInput").onkeydown = (e) => {
+      if (e.key === "Enter") document.getElementById("groupSendBtn").click();
+    };
+
+    // Image upload
+    document.getElementById("groupImgBtn").onclick = () => document.getElementById("groupImgInput").click();
+    document.getElementById("groupImgInput").onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = await uploadToCloudinary(file, "image");
+      await sendGroupMessage("", "image", url);
+      e.target.value = "";
+    };
+
+    // Voice message
+    async function toggleVoice(btnId, sendFn) {
+      const btn = document.getElementById(btnId);
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+          mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+          mediaRecorder.onstop = async () => {
+            const blob = new Blob(audioChunks, { type: "audio/webm" });
+            stream.getTracks().forEach(t => t.stop());
+            const url = await uploadToCloudinary(blob, "video"); // Cloudinary stores audio under "video" resource type
+            await sendFn(url);
+          };
+          mediaRecorder.start();
+          isRecording = true;
+          btn.classList.add("rec");
+          btn.textContent = "⏹";
+        } catch (err) {
+          alert("Microphone permission needed for voice messages.");
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        btn.classList.remove("rec");
+        btn.textContent = "🎤";
+      }
+    }
+
+    document.getElementById("groupVoiceBtn").onclick = () => {
+      toggleVoice("groupVoiceBtn", (url) => sendGroupMessage("", "voice", url));
+    };
+
+    // ---- 1:1 Chats ----
+    function dmId(uid1, uid2) {
+      return [uid1, uid2].sort().join("_");
+    }
+
+    document.getElementById("startChatBtn").onclick = async () => {
+      const q = document.getElementById("friendId").value.trim();
+      if (!q) return;
+      // Find user by phone or name
+      let target = null;
+      const byPhone = await db.collection("users").where("phone", "==", q).limit(1).get();
+      if (!byPhone.empty) target = { id: byPhone.docs[0].id, ...byPhone.docs[0].data() };
+      else {
+        const byName = await db.collection("users").where("name", "==", q).limit(1).get();
+        if (!byName.empty) target = { id: byName.docs[0].id, ...byName.docs[0].data() };
+      }
+      if (!target) {
+        alert("User not found. Ask them to save their number in the Social tab first.");
+        return;
+      }
+      if (target.id === currentUser.uid) {
+        alert("That's you!");
+        return;
+      }
+      openDm(target.id, target.name || "Friend");
+    };
+
+    function openDm(friendUid, friendName) {
+      currentDmId = dmId(currentUser.uid, friendUid);
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      document.getElementById("view-dm").classList.add("active");
+      document.getElementById("mainTabs").style.display = "none";
+      document.getElementById("backBtn").style.display = "flex";
+      document.getElementById("chatTitle").textContent = friendName;
+
+      if (unsubDm) unsubDm();
+      const box = document.getElementById("dmMessages");
+      box.innerHTML = "";
+      unsubDm = db.collection("dms").doc(currentDmId).collection("messages")
+        .orderBy("createdAt", "asc").limitToLast(100)
+        .onSnapshot(snap => {
+          box.innerHTML = "";
+          snap.forEach(doc => {
+            const m = doc.data();
+            box.appendChild(renderMsg(m, m.uid === currentUser.uid));
+          });
+          box.scrollTop = box.scrollHeight;
+        });
+
+      // Save to friends list
+      db.collection("users").doc(currentUser.uid).collection("friends").doc(friendUid).set({
+        name: friendName,
+        lastAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // If the user arrived here to share a challenge code, send it now
+      if (pendingChallengeCode) {
+        const codeToSend = pendingChallengeCode;
+        const gameToSend = pendingChallengeGame;
+        clearPendingChallenge();
+        setTimeout(() => sendDm("", "challenge", null, codeToSend, gameToSend), 300);
+      }
+    }
+
+    document.getElementById("backBtn").onclick = () => {
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      document.getElementById("view-chats").classList.add("active");
+      document.getElementById("mainTabs").style.display = "flex";
+      document.querySelector('.tab[data-tab="chats"]').classList.add("active");
+      document.querySelectorAll(".tab").forEach(t => { if (t.dataset.tab !== "chats") t.classList.remove("active"); });
+      document.getElementById("backBtn").style.display = "none";
+      document.getElementById("chatTitle").textContent = "Voltix Chat";
+      if (unsubDm) { unsubDm(); unsubDm = null; }
+      loadFriendsList();
+    };
+
+    async function sendDm(text, type = "text", url = null, code = null, game = null) {
+      if (!currentDmId || !currentUser) return;
+      await db.collection("dms").doc(currentDmId).collection("messages").add({
+        uid: currentUser.uid,
+        name: userData.name || "Player",
+        text: text || "",
+        type,
+        url: url || null,
+        code: code || null,
+        game: game || null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    document.getElementById("dmSendBtn").onclick = () => {
+      const input = document.getElementById("dmInput");
+      const text = input.value.trim();
+      if (!text) return;
+      sendDm(text);
+      input.value = "";
+    };
+    document.getElementById("dmInput").onkeydown = (e) => {
+      if (e.key === "Enter") document.getElementById("dmSendBtn").click();
+    };
+
+    document.getElementById("dmImgBtn").onclick = () => document.getElementById("dmImgInput").click();
+    document.getElementById("dmImgInput").onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = await uploadToCloudinary(file, "image");
+      await sendDm("", "image", url);
+      e.target.value = "";
+    };
+
+    document.getElementById("dmVoiceBtn").onclick = () => {
+      toggleVoice("dmVoiceBtn", (url) => sendDm("", "voice", url));
+    };
+
+    document.getElementById("sendChallengeToGroupBtn").onclick = async () => {
+      if (!pendingChallengeCode) return;
+      await sendGroupMessage("", "challenge", null, pendingChallengeCode, pendingChallengeGame);
+      alert("Challenge posted to the group chat!");
+      clearPendingChallenge();
+    };
+    document.getElementById("cancelChallengeShareBtn").onclick = () => clearPendingChallenge();
+
+    async function loadFriendsList() {
+      if (!currentUser) return;
+      const snap = await db.collection("users").doc(currentUser.uid).collection("friends")
+        .orderBy("lastAt", "desc").limit(30).get();
+      const list = document.getElementById("friendsList");
+      if (snap.empty) {
+        list.innerHTML = '<div class="empty">No chats yet. Start one with a phone number or username above.</div>';
+        return;
+      }
+      list.innerHTML = "";
+      snap.forEach(doc => {
+        const f = doc.data();
+        const item = document.createElement("div");
+        item.className = "chat-item";
+        item.innerHTML = `
+          <div class="avatar">${escapeHtml((f.name || "?")[0].toUpperCase())}</div>
+          <div class="chat-meta">
+            <div class="name">${escapeHtml(f.name || "Friend")}</div>
+            <div class="preview">Tap to open chat</div>
+          </div>`;
+        item.onclick = () => openDm(doc.id, f.name || "Friend");
+        list.appendChild(item);
+      });
+    }
+
+    // ---- Social links (from admin settings) ----
+    async function loadSocialLinks() {
+      const snap = await db.collection("gameSettings").doc("main").get();
+      if (!snap.exists) return;
+      const s = snap.data();
+      if (s.social) {
+        if (s.social.whatsapp) document.getElementById("linkWhatsapp").href = s.social.whatsapp;
+        if (s.social.telegram) document.getElementById("linkTelegram").href = s.social.telegram;
+        if (s.social.facebook) document.getElementById("linkFacebook").href = s.social.facebook;
+        if (s.social.instagram) document.getElementById("linkInstagram").href = s.social.instagram;
+        if (s.social.tiktok) document.getElementById("linkTiktok").href = s.social.tiktok;
+        if (s.social.website) document.getElementById("linkWebsite").href = s.social.website;
+      }
+    }
+
+    document.getElementById("saveProfileBtn").onclick = async () => {
+      const phone = document.getElementById("myPhone").value.trim();
+      const name = document.getElementById("myName").value.trim();
+      const statusEl = document.getElementById("profileStatus");
+
+      if (!name && !phone) return alert("Enter a name or phone number");
+
+      // If changing name, make sure it's not already taken by someone else
+      if (name && name !== userData.name) {
+        const existing = await db.collection("users").where("name", "==", name).limit(1).get();
+        if (!existing.empty && existing.docs[0].id !== currentUser.uid) {
+          alert("That name is already taken by another player. Try a different one.");
+          return;
+        }
+      }
+
+      const updates = {};
+      if (name) updates.name = name;
+      if (phone) updates.phone = phone;
+
+      await db.collection("users").doc(currentUser.uid).update(updates);
+      userData = { ...userData, ...updates };
+      statusEl.textContent = "Saved! Friends can now find you by name or number.";
+      setTimeout(() => statusEl.textContent = "", 3000);
+    };
+  </script>
+</body>
+</html>
