@@ -30,7 +30,14 @@ Ghana's premium earpods e-commerce store — genuine quality, real prices, deliv
 | `notifications.html` | Customer notifications |
 | `about.html` / `contact.html` / `help.html` | Static info pages |
 | `spin.html` | Spin-to-win coin/discount game |
+| `games.html` | Games hub — links out to the four games below |
+| `foosball.html` | Foosball Challenge — live 2D game, vs AI or online friend |
+| `kaisa.html` | Kaisa Challenge — pool game, vs AI, online friend, or pass & play |
+| `damii.html` | Damii — Ghanaian draughts, vs AI (3-level campaign) or online friend |
+| `ludo.html` | Ludo — vs AI (3-level campaign), online friend, or local/custom |
+| `chat.html` | Games chat — group chat, 1:1 DMs, and challenge-code sharing across all four games |
 | `admin.html` | Store owner dashboard (products, orders, reviews, referrals, spin winners, music, hero/founder media) — **not linked from anywhere in the public site; keep the URL private** |
+| `games-admin.html` | Games dashboard (game settings, prizes, leaderboards, TURN/connection, sound, announcements) — linked from `admin.html`, same admin login; **not linked from the public site; keep the URL private** |
 | `app.js` | Shared logic: Firebase/Firestore wrapper (`VDB`), cart, wishlist, product cards, music player, image optimization |
 | `style.css` | Shared design system (colors, components, layout) |
 
@@ -43,6 +50,7 @@ Ghana's premium earpods e-commerce store — genuine quality, real prices, deliv
 - `categories` — shop category list
 - `spinWinners` / `spinReferrals` — Spin & Win game results
 - `settings/store` — hero media, founder media, promo banner, music playlist
+- Games collections — `users` (ball balance + wins, shared across all games), `matches` (online challenge rooms), `leaderboard` / `kaisaLeaderboard` / `damiiLeaderboard` / `ludoLeaderboard`, `groupChat` / `dms`, `announcements`, `gameSettings`, `winners`. All games use the **same Firebase project** as the store, so `firestore.rules` in this repo covers both the store and the games in one file — publish it as-is in the Firebase console.
 
 ## Referral commissions
 

@@ -3,6 +3,7 @@ Allow: /
 
 # Private / not meant to be found via search
 Disallow: /admin.html
+Disallow: /games-admin.html
 Disallow: /cart.html
 Disallow: /checkout.html
 Disallow: /account.html
