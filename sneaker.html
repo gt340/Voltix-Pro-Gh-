@@ -40,7 +40,7 @@ input{width:100%;padding:11px;border-radius:10px;border:1px solid #333;backgroun
 <div id="top"><div class="panel">
   <div class="row"><h1>Sneaker Sink</h1>
     <div class="row" style="gap:4px"><a class="chip" href="games.html">🎮</a><a class="chip" href="chat.html">💬</a><a class="chip" href="home.html">🛍️</a><button class="chip" id="lbBtn">🏆</button><button class="chip g" id="shopBtn">Shop</button></div></div>
-  <div class="st">Balls <b id="balls">0</b> | Prize <b id="pts">0</b>/<span id="tgt">15</span> | Gems <b id="gems">0</b> | Pwr <b id="pw">1</b> Aim <b id="am">0</b></div>
+  <div class="st">Coins <b id="coins">0</b> | Prize <b id="pts">0</b>/<span id="tgt">15</span> | Gems <b id="gems">0</b> | Pwr <b id="pw">1</b> Aim <b id="am">0</b></div>
   <div class="row" style="justify-content:flex-start;margin-top:5px"><button class="chip on" data-t="normal">Normal</button><button class="chip" data-t="light">Light</button><button class="chip" data-t="heavy">Heavy</button></div>
 </div></div>
 <div id="room"><div id="roomTxt"></div><div id="roomScore" style="margin-top:3px"></div></div>
@@ -54,8 +54,9 @@ input{width:100%;padding:11px;border-radius:10px;border:1px solid #333;backgroun
 
 <div class="modal" id="shop"><div class="box">
   <h3>Shop &amp; Upgrades</h3>
-  <p>Each solo drop uses 1 ball. Sink a coin to earn prize points (green +1, gold +3) and gems. Reach <b id="tgt2">15</b> points to win: <b id="prizeTxt">a prize</b>.</p>
-  <a class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px" href="foosball.html?buy=1">💎 Buy Balls</a>
+  <p>Each solo drop uses 1 coin. Sink a coin to earn prize points (green +1, gold +3) and gems. Reach <b id="tgt2">15</b> points to win: <b id="prizeTxt">a prize</b>.</p>
+  <button class="btn" id="buyBtn" style="background:linear-gradient(135deg,#16a34a,#22c55e)">Buy 50 Coins</button>
+  <p id="buySt"></p>
   <button class="btn" id="upPw" style="background:linear-gradient(135deg,#f59e0b,#d97706)"></button>
   <button class="btn" id="upAm" style="background:linear-gradient(135deg,#06b6d4,#0891b2)"></button>
   <p>Power: less drift and a bigger hit zone. Aim: pulls the coin toward a cup under water.</p>
@@ -65,13 +66,13 @@ input{width:100%;padding:11px;border-radius:10px;border:1px solid #333;backgroun
 <div class="modal" id="lbM"><div class="box"><h3>Sneaker Sink Champions</h3><div id="lbList">Loading…</div><button class="btn d" data-close="lbM">Close</button></div></div>
 
 <div class="modal" id="shareM"><div class="box"><h3>Room <span id="codeTxt" style="color:#4ade80"></span></h3>
-  <p>Online race: 8 drops each, first to <b>5</b> points wins. Drops are free in a race, a friend joining pays 1 ball, and the loser pays 2.</p>
+  <p>Online race: 8 drops each, first to <b>5</b> points wins. Drops are free in a race, a friend joining pays 1 coin, and the loser pays 2 coins.</p>
   <button class="btn" id="shareLink">🔗 Share Invite Link</button><button class="btn" id="shareGrp">💬 Post to Group Chat</button>
   <p id="shareMsg"></p><button class="btn d" id="cancelRoom">Cancel Room</button></div></div>
 
-<div class="modal" id="joinM"><div class="box"><h3>Join a Race</h3><p>Enter the room code. Joining costs 1 ball.</p>
+<div class="modal" id="joinM"><div class="box"><h3>Join a Race</h3><p>Enter the room code. Joining costs 1 coin.</p>
   <input id="joinCode" maxlength="6" placeholder="Room code" style="text-transform:uppercase"><p id="joinMsg" style="color:#f87171"></p>
-  <button class="btn" id="joinGo">Join (1 ball)</button><button class="btn d" data-close="joinM">Cancel</button></div></div>
+  <button class="btn" id="joinGo">Join (1 coin)</button><button class="btn d" data-close="joinM">Cancel</button></div></div>
 
 <div class="modal" id="winM"><div class="box"><h3>🎉 You Won!</h3><p id="winPrize"></p><p>Enter your phone number so we can send your prize.</p>
   <input id="winPhone" type="tel" placeholder="e.g. 024xxxxxxx"><p id="winSt"></p>
@@ -83,12 +84,14 @@ input{width:100%;padding:11px;border-radius:10px;border:1px solid #333;backgroun
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://js.paystack.co/v1/inline.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+const PAYSTACK_PUBLIC_KEY="pk_live_9136ecd40ccc704b3e337e4168138f97186bff96";
 firebase.initializeApp({apiKey:"AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",authDomain:"voltix-pro-dc363.firebaseapp.com",projectId:"voltix-pro-dc363",storageBucket:"voltix-pro-dc363.firebasestorage.app",messagingSenderId:"778425016855",appId:"1:778425016855:web:6bbe58c7e8b7ffa9ccf252"});
 const auth=firebase.auth(),db=firebase.firestore(),FV=firebase.firestore.FieldValue;
-let me=null,U={balls:0,name:'Player',sinkGems:0,sinkPower:1,sinkAim:0,sinkPts:0,sinkTotal:0};
-let S={sneakerPrize:'Free earpods discount',sneakerTarget:15};
+let me=null,U={sinkCoins:0,name:'Player',sinkGems:0,sinkPower:1,sinkAim:0,sinkPts:0,sinkTotal:0};
+let S={sneakerPrize:'Free earpods discount',sneakerTarget:15,sneakerCoinPack:50,sneakerCoinPriceGhc:10};
 const ONLINE_DROPS=8,ONLINE_WIN=5;
 
 // ---------- announcements ----------
@@ -105,22 +108,37 @@ async function boot(){
     if(!s.exists){await ref.set({balls:0,wins:0,name:'Player'+(1000+Math.floor(Math.random()*9000)),createdAt:FV.serverTimestamp()});s=await ref.get()}
     U={...U,...s.data()};un();res()}catch(e){un();rej(e)}},rej)});
   try{const s=await db.collection('gameSettings').doc('main').get();if(s.exists)S={...S,...s.data()}}catch(e){}
-  S.sneakerTarget=parseInt(S.sneakerTarget)||15;ui();
+  S.sneakerTarget=parseInt(S.sneakerTarget)||15;S.sneakerCoinPack=parseInt(S.sneakerCoinPack)||50;S.sneakerCoinPriceGhc=Number(S.sneakerCoinPriceGhc)||10;ui();
 }
 function save(f){Object.assign(U,f);return db.collection('users').doc(me.uid).update(f).catch(e=>console.warn(e))}
 function pCost(){return 4+(U.sinkPower-1)*3}function aCost(){return 6+U.sinkAim*4}
 function ui(){
-  $('balls').textContent=U.balls||0;$('pts').textContent=U.sinkPts||0;$('gems').textContent=U.sinkGems||0;$('pw').textContent=U.sinkPower;$('am').textContent=U.sinkAim;
+  const c=U.sinkCoins||0;
+  $('coins').textContent=c;$('pts').textContent=U.sinkPts||0;$('gems').textContent=U.sinkGems||0;$('pw').textContent=U.sinkPower;$('am').textContent=U.sinkAim;
   $('tgt').textContent=$('tgt2').textContent=S.sneakerTarget;$('prizeTxt').textContent=S.sneakerPrize||'a prize';
+  $('buyBtn').textContent='Buy '+S.sneakerCoinPack+' Coins — Ghc '+S.sneakerCoinPriceGhc;
   $('upPw').textContent=U.sinkPower>=10?'Power MAX':'Upgrade Power ('+pCost()+' gems)';$('upPw').disabled=U.sinkPower>=10||U.sinkGems<pCost();
   $('upAm').textContent=U.sinkAim>=5?'Aim MAX':'Upgrade Aim ('+aCost()+' gems)';$('upAm').disabled=U.sinkAim>=5||U.sinkGems<aCost();
-  $('dropBtn').disabled=busy||(!online&&(U.balls||0)<=0)||(online&&(!started||myDrops>=ONLINE_DROPS||over));
-  $('dropBtn').textContent=online?'Drop ('+Math.max(0,ONLINE_DROPS-myDrops)+' left)':((U.balls||0)>0?'Drop Coin':'Buy Balls First');
+  $('dropBtn').disabled=busy||(!online&&c<=0)||(online&&(!started||myDrops>=ONLINE_DROPS||over));
+  $('dropBtn').textContent=online?'Drop ('+Math.max(0,ONLINE_DROPS-myDrops)+' left)':(c>0?'Drop Coin':'Buy Coins First');
 }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('show'));
 $('shopBtn').onclick=()=>{ui();$('shop').classList.add('show')};
 $('upPw').onclick=async()=>{if(U.sinkPower>=10||U.sinkGems<pCost())return;await save({sinkGems:U.sinkGems-pCost(),sinkPower:U.sinkPower+1});ui();say('Power UP!','win')};
 $('upAm').onclick=async()=>{if(U.sinkAim>=5||U.sinkGems<aCost())return;await save({sinkGems:U.sinkGems-aCost(),sinkAim:U.sinkAim+1});ui();say('Aim UP!','hard')};
+
+// ---------- buy coins (Paystack -> /api/verify-payment credits sinkCoins) ----------
+$('buyBtn').onclick=()=>{
+  if(!me)return;const st=$('buySt'),b=$('buyBtn');b.disabled=true;st.textContent='Opening secure payment window…';
+  PaystackPop.setup({key:PAYSTACK_PUBLIC_KEY,email:me.uid+'@voltix-player.app',amount:Math.round(S.sneakerCoinPriceGhc*100),currency:'GHS',
+    metadata:{userId:me.uid,type:'sinkCoins'},
+    callback:function(r){st.textContent='Verifying payment…';
+      fetch('/api/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:r.reference,userId:me.uid,type:'sinkCoins',amountGhc:S.sneakerCoinPriceGhc})})
+      .then(x=>x.json()).then(async d=>{
+        if(d.success){const s=await db.collection('users').doc(me.uid).get();U.sinkCoins=(s.data()||{}).sinkCoins||0;ui();st.style.color='#86efac';st.textContent='Payment confirmed! Coins added ✓';tone(660,.15)}
+        else{st.style.color='#f87171';st.textContent='Could not verify. Reference: '+r.reference}b.disabled=false})
+      .catch(()=>{st.style.color='#f87171';st.textContent='Verification failed. Reference: '+r.reference;b.disabled=false})},
+    onClose:function(){st.textContent='Payment window closed.';b.disabled=false}}).openIframe()};
 $('lbBtn').onclick=async()=>{$('lbM').classList.add('show');const l=$('lbList');
   try{const s=await db.collection('sinkLeaderboard').orderBy('points','desc').limit(10).get();l.textContent='';if(s.empty){l.textContent='No players yet. Be the first!';return}
   let r=1;s.forEach(d=>{const x=d.data(),row=document.createElement('div');row.className='lb';const a=document.createElement('span'),b=document.createElement('span');a.textContent='#'+r+' '+(x.name||'Player');b.textContent=(x.points||0)+' pts';row.append(a,b);l.appendChild(row);r++})}
@@ -164,8 +182,8 @@ let busy=false,active=null,vel=new THREE.Vector3(),splashed=false;
 async function drop(){
   if(busy||!me)return;
   if(online){if(!started||myDrops>=ONLINE_DROPS||over)return}
-  else if((U.balls||0)<=0){say('Buy balls first','miss');return}
-  busy=true;if(online)myDrops++;else{U.balls--;db.collection('users').doc(me.uid).update({balls:FV.increment(-1)}).catch(()=>{})}
+  else if((U.sinkCoins||0)<=0){say('Buy coins first','miss');return}
+  busy=true;if(online)myDrops++;else{U.sinkCoins--;db.collection('users').doc(me.uid).update({sinkCoins:FV.increment(-1)}).catch(()=>{})}
   ui();ring.visible=false;
   const t=CT[cur];active=new THREE.Mesh(cgeo(cur),new THREE.MeshStandardMaterial({color:t.c,metalness:.85,roughness:.2}));active.position.copy(tg);active.userData.t=cur;scene.add(active);
   const dr=Math.max(.006,.038-U.sinkPower*.0032)/t.m;vel.set((Math.random()-.5)*dr,0,(Math.random()-.5)*dr);splashed=false;tone(550,.07)}
@@ -202,7 +220,7 @@ function watch(){unsub=db.collection('matches').doc(code).onSnapshot(s=>{const d
   else if(d.status==='cancelled'){w=isHost?'host':'guest'}
   if(w)endRace(w)});ui()}
 function endRace(w){over=true;const mine=isHost?'host':'guest';
-  if(w==='draw')say('Draw!','hard');else if(w===mine){say('You win the race!','win');lbAdd(3)}else{say('You lost −2 balls','miss');save({balls:Math.max(0,(U.balls||0)-2)}).then(ui)}
+  if(w==='draw')say('Draw!','hard');else if(w===mine){say('You win the race!','win');lbAdd(3)}else{say('You lost −2 coins','miss');save({sinkCoins:Math.max(0,(U.sinkCoins||0)-2)}).then(ui)}
   if(isHost)db.collection('matches').doc(code).update({status:'finished',winner:w}).catch(()=>{});
   setTimeout(leave,3500)}
 function leave(){if(unsub){unsub();unsub=null}if(isHost&&code&&!started)db.collection('matches').doc(code).update({status:'cancelled'}).catch(()=>{});
@@ -217,13 +235,13 @@ $('shareLink').onclick=async()=>{const url=new URL('sneaker.html?joinCode='+code
 $('shareGrp').onclick=async()=>{try{await db.collection('groupChat').add({uid:me.uid,name:U.name,text:'',type:'challenge',game:'sneaker',code,url:null,createdAt:FV.serverTimestamp()});$('shareMsg').textContent='Posted to the group chat ✓'}catch(e){$('shareMsg').textContent="Couldn't post: "+e.message}};
 $('joinBtn').onclick=()=>{$('joinMsg').textContent='';$('joinM').classList.add('show')};
 $('joinGo').onclick=async()=>{const c=$('joinCode').value.trim().toUpperCase(),m=$('joinMsg');if(!c||code)return;
-  if((U.balls||0)<1){m.textContent='You need 1 ball to join.';return}
+  if((U.sinkCoins||0)<1){m.textContent='You need 1 coin to join.';return}
   const ref=db.collection('matches').doc(c);
   try{const s=await ref.get();if(!s.exists){m.textContent='Room not found.';return}const d=s.data();
     if(d.game!=='sneaker'){location.href=({kaisa:'kaisa.html',damii:'damii.html',ludo:'ludo.html'}[d.game]||'foosball.html')+'?joinCode='+c;return}
     if(d.hostId===me.uid){m.textContent="That's your own room.";return}
     await db.runTransaction(async tx=>{const cu=await tx.get(ref);if(!cu.exists||cu.data().status!=='waiting')throw new Error('Room already started or finished.');tx.update(ref,{guestId:me.uid,guestName:U.name,status:'playing'})});
-    await db.collection('users').doc(me.uid).update({balls:FV.increment(-1)});U.balls--;
+    await db.collection('users').doc(me.uid).update({sinkCoins:FV.increment(-1)});U.sinkCoins--;
     code=c;isHost=false;$('joinM').classList.remove('show');watch()}catch(e){m.textContent=e.message||'Could not join.'}};
 
 // ---------- loop ----------

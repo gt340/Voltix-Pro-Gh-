@@ -1,0 +1,9 @@
+{
+  "name": "voltix-pro-foosball",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Voltix Pro foosball challenge game with Firebase + Paystack payments",
+  "dependencies": {
+    "firebase-admin": "^12.1.0"
+  }
+}
