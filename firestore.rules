@@ -164,6 +164,12 @@ service cloud.firestore {
       allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
     }
 
+    // Sneaker Sink leaderboard — same rules again
+    match /sinkLeaderboard/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+    }
+
     // Site announcements (text/image/voice) shown at the top of every page —
     // everyone can read; only admins can post, edit or delete them.
     match /announcements/{id} {
@@ -189,7 +195,7 @@ service cloud.firestore {
       }
     }
 
-    // Challenge Friend rooms (Foosball, Kaisa, Damii and Ludo — Kaisa/Damii/Ludo rooms carry
+    // Challenge Friend rooms (Foosball, Kaisa, Damii, Ludo and Sneaker Sink — Kaisa/Damii/Ludo/Sneaker rooms carry
     // a game field) — any signed-in player can create/read/join. WebRTC signaling lives in
     // the signal subcollection; the relay subcollection carries game messages when a
     // direct connection isn't possible.
