@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Voltix Pro GH – Sneaker Sink</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a12;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#fff;user-select:none;touch-action:none;position:fixed}
+#cv{position:fixed;inset:0}canvas{display:block;width:100%!important;height:100%!important;touch-action:none}
+.panel{background:rgba(12,12,22,.9);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:8px 12px}
+#top{position:fixed;top:0;left:0;right:0;padding:8px 10px;padding-top:max(8px,env(safe-area-inset-top));z-index:20}
+#anncBar{position:fixed;left:0;right:0;bottom:0;z-index:60}
+.annc{background:#1e293b;border-left:4px solid #fbbf24;padding:8px 12px;font-size:.82rem;display:flex;gap:8px;align-items:center}
+.annc img{width:44px;height:44px;border-radius:6px;object-fit:cover}.annc div{flex:1}.annc button{background:none;border:0;color:#94a3b8;font-size:1.1rem}
+.row{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+h1{font-size:1rem;background:linear-gradient(90deg,#c084fc,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.st{font-size:.76rem;line-height:1.45;margin-top:3px}.st b{color:#fbbf24}
+.chip{padding:6px 10px;border-radius:18px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:.74rem;font-weight:600;text-decoration:none}
+.chip.on{background:linear-gradient(135deg,#7c3aed,#db2777);border-color:transparent}.chip.g{background:linear-gradient(135deg,#16a34a,#22c55e);border:0}
+#msg{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);font-size:clamp(1.5rem,7vw,2.4rem);font-weight:800;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s;text-shadow:0 4px 24px #000;z-index:30;white-space:nowrap}
+#msg.show{opacity:1}#msg.win{color:#4ade80}#msg.miss{color:#f87171}#msg.hard{color:#fbbf24}
+#ctl{position:fixed;bottom:0;left:0;right:0;padding:10px 14px;padding-bottom:max(14px,env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;z-index:20;background:linear-gradient(transparent,rgba(0,0,0,.65))}
+.btn{background:linear-gradient(135deg,#7c3aed,#db2777);border:0;color:#fff;padding:14px 16px;border-radius:999px;font-size:.95rem;font-weight:700;flex:1;max-width:170px;min-height:48px;touch-action:manipulation}
+.btn:disabled{opacity:.4}.btn.d{background:linear-gradient(135deg,#374151,#4b5563)}.btn.gr{background:linear-gradient(135deg,#059669,#10b981)}.btn.bl{background:linear-gradient(135deg,#2563eb,#3b82f6)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100;display:none;align-items:center;justify-content:center;padding:14px;overflow-y:auto;touch-action:pan-y}
+.modal.show{display:flex}.box{background:#12121f;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:16px;width:100%;max-width:380px;max-height:92vh;overflow-y:auto}
+.box h3{margin-bottom:8px;color:#c084fc}.box p,.hint{font-size:.8rem;opacity:.85;line-height:1.45;margin:4px 0}
+.box .btn{max-width:none;width:100%;margin-top:8px}
+input{width:100%;padding:11px;border-radius:10px;border:1px solid #333;background:#0b0b16;color:#fff;font-size:1rem;margin-top:6px}
+.lb{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;font-size:.88rem}
+#room{position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(0,0,0,.8);padding:8px 14px;border-radius:12px;font-size:.82rem;text-align:center;display:none}
+#load{position:fixed;inset:0;background:#0a0a12;display:flex;align-items:center;justify-content:center;z-index:200;text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<div id="load"><div id="loadTxt">Loading tank…</div></div>
+<div id="cv"></div>
+
+<div id="top"><div class="panel">
+  <div class="row"><h1>Sneaker Sink</h1>
+    <div class="row" style="gap:4px"><a class="chip" href="games.html">🎮</a><a class="chip" href="chat.html">💬</a><a class="chip" href="home.html">🛍️</a><button class="chip" id="lbBtn">🏆</button><button class="chip g" id="shopBtn">Shop</button></div></div>
+  <div class="st">Balls <b id="balls">0</b> | Prize <b id="pts">0</b>/<span id="tgt">15</span> | Gems <b id="gems">0</b> | Pwr <b id="pw">1</b> Aim <b id="am">0</b></div>
+  <div class="row" style="justify-content:flex-start;margin-top:5px"><button class="chip on" data-t="normal">Normal</button><button class="chip" data-t="light">Light</button><button class="chip" data-t="heavy">Heavy</button></div>
+</div></div>
+<div id="room"><div id="roomTxt"></div><div id="roomScore" style="margin-top:3px"></div></div>
+<div id="msg"></div>
+
+<div id="ctl">
+  <button class="btn" id="dropBtn">Drop Coin</button>
+  <button class="btn gr" id="hostBtn" style="max-width:110px">Host</button>
+  <button class="btn bl" id="joinBtn" style="max-width:110px">Join</button>
+</div>
+
+<div class="modal" id="shop"><div class="box">
+  <h3>Shop &amp; Upgrades</h3>
+  <p>Each solo drop uses 1 ball. Sink a coin to earn prize points (green +1, gold +3) and gems. Reach <b id="tgt2">15</b> points to win: <b id="prizeTxt">a prize</b>.</p>
+  <a class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px" href="foosball.html?buy=1">💎 Buy Balls</a>
+  <button class="btn" id="upPw" style="background:linear-gradient(135deg,#f59e0b,#d97706)"></button>
+  <button class="btn" id="upAm" style="background:linear-gradient(135deg,#06b6d4,#0891b2)"></button>
+  <p>Power: less drift and a bigger hit zone. Aim: pulls the coin toward a cup under water.</p>
+  <button class="btn d" data-close="shop">Close</button>
+</div></div>
+
+<div class="modal" id="lbM"><div class="box"><h3>Sneaker Sink Champions</h3><div id="lbList">Loading…</div><button class="btn d" data-close="lbM">Close</button></div></div>
+
+<div class="modal" id="shareM"><div class="box"><h3>Room <span id="codeTxt" style="color:#4ade80"></span></h3>
+  <p>Online race: 8 drops each, first to <b>5</b> points wins. Drops are free in a race, a friend joining pays 1 ball, and the loser pays 2.</p>
+  <button class="btn" id="shareLink">🔗 Share Invite Link</button><button class="btn" id="shareGrp">💬 Post to Group Chat</button>
+  <p id="shareMsg"></p><button class="btn d" id="cancelRoom">Cancel Room</button></div></div>
+
+<div class="modal" id="joinM"><div class="box"><h3>Join a Race</h3><p>Enter the room code. Joining costs 1 ball.</p>
+  <input id="joinCode" maxlength="6" placeholder="Room code" style="text-transform:uppercase"><p id="joinMsg" style="color:#f87171"></p>
+  <button class="btn" id="joinGo">Join (1 ball)</button><button class="btn d" data-close="joinM">Cancel</button></div></div>
+
+<div class="modal" id="winM"><div class="box"><h3>🎉 You Won!</h3><p id="winPrize"></p><p>Enter your phone number so we can send your prize.</p>
+  <input id="winPhone" type="tel" placeholder="e.g. 024xxxxxxx"><p id="winSt"></p>
+  <button class="btn" id="winGo">Submit</button><button class="btn d" data-close="winM">Close</button></div></div>
+
+<div id="anncBar"></div>
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+firebase.initializeApp({apiKey:"AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",authDomain:"voltix-pro-dc363.firebaseapp.com",projectId:"voltix-pro-dc363",storageBucket:"voltix-pro-dc363.firebasestorage.app",messagingSenderId:"778425016855",appId:"1:778425016855:web:6bbe58c7e8b7ffa9ccf252"});
+const auth=firebase.auth(),db=firebase.firestore(),FV=firebase.firestore.FieldValue;
+let me=null,U={balls:0,name:'Player',sinkGems:0,sinkPower:1,sinkAim:0,sinkPts:0,sinkTotal:0};
+let S={sneakerPrize:'Free earpods discount',sneakerTarget:15};
+const ONLINE_DROPS=8,ONLINE_WIN=5;
+
+// ---------- announcements ----------
+db.collection('announcements').where('active','==',true).limit(5).get().then(s=>{s.forEach(d=>{const a=d.data(),c=document.createElement('div');c.className='annc';
+ if(a.imageUrl){const i=document.createElement('img');i.src=a.imageUrl;c.appendChild(i)}
+ const t=document.createElement('div');t.textContent=a.text||'';c.appendChild(t);
+ const x=document.createElement('button');x.textContent='✕';x.onclick=()=>c.remove();c.appendChild(x);$('anncBar').appendChild(c)})}).catch(()=>{});
+
+// ---------- account ----------
+async function boot(){
+  await new Promise((res,rej)=>{const un=auth.onAuthStateChanged(async u=>{try{
+    if(!u){u=(await auth.signInAnonymously()).user}
+    me=u;const ref=db.collection('users').doc(u.uid);let s=await ref.get();
+    if(!s.exists){await ref.set({balls:0,wins:0,name:'Player'+(1000+Math.floor(Math.random()*9000)),createdAt:FV.serverTimestamp()});s=await ref.get()}
+    U={...U,...s.data()};un();res()}catch(e){un();rej(e)}},rej)});
+  try{const s=await db.collection('gameSettings').doc('main').get();if(s.exists)S={...S,...s.data()}}catch(e){}
+  S.sneakerTarget=parseInt(S.sneakerTarget)||15;ui();
+}
+function save(f){Object.assign(U,f);return db.collection('users').doc(me.uid).update(f).catch(e=>console.warn(e))}
+function pCost(){return 4+(U.sinkPower-1)*3}function aCost(){return 6+U.sinkAim*4}
+function ui(){
+  $('balls').textContent=U.balls||0;$('pts').textContent=U.sinkPts||0;$('gems').textContent=U.sinkGems||0;$('pw').textContent=U.sinkPower;$('am').textContent=U.sinkAim;
+  $('tgt').textContent=$('tgt2').textContent=S.sneakerTarget;$('prizeTxt').textContent=S.sneakerPrize||'a prize';
+  $('upPw').textContent=U.sinkPower>=10?'Power MAX':'Upgrade Power ('+pCost()+' gems)';$('upPw').disabled=U.sinkPower>=10||U.sinkGems<pCost();
+  $('upAm').textContent=U.sinkAim>=5?'Aim MAX':'Upgrade Aim ('+aCost()+' gems)';$('upAm').disabled=U.sinkAim>=5||U.sinkGems<aCost();
+  $('dropBtn').disabled=busy||(!online&&(U.balls||0)<=0)||(online&&(!started||myDrops>=ONLINE_DROPS||over));
+  $('dropBtn').textContent=online?'Drop ('+Math.max(0,ONLINE_DROPS-myDrops)+' left)':((U.balls||0)>0?'Drop Coin':'Buy Balls First');
+}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('show'));
+$('shopBtn').onclick=()=>{ui();$('shop').classList.add('show')};
+$('upPw').onclick=async()=>{if(U.sinkPower>=10||U.sinkGems<pCost())return;await save({sinkGems:U.sinkGems-pCost(),sinkPower:U.sinkPower+1});ui();say('Power UP!','win')};
+$('upAm').onclick=async()=>{if(U.sinkAim>=5||U.sinkGems<aCost())return;await save({sinkGems:U.sinkGems-aCost(),sinkAim:U.sinkAim+1});ui();say('Aim UP!','hard')};
+$('lbBtn').onclick=async()=>{$('lbM').classList.add('show');const l=$('lbList');
+  try{const s=await db.collection('sinkLeaderboard').orderBy('points','desc').limit(10).get();l.textContent='';if(s.empty){l.textContent='No players yet. Be the first!';return}
+  let r=1;s.forEach(d=>{const x=d.data(),row=document.createElement('div');row.className='lb';const a=document.createElement('span'),b=document.createElement('span');a.textContent='#'+r+' '+(x.name||'Player');b.textContent=(x.points||0)+' pts';row.append(a,b);l.appendChild(row);r++})}
+  catch(e){l.textContent="Couldn't load: "+e.message}};
+async function lbAdd(pts){try{const r=db.collection('sinkLeaderboard').doc(me.uid),s=await r.get();
+  if(s.exists)await r.update({points:FV.increment(pts),name:U.name});else await r.set({name:U.name,points:pts,uid:me.uid})}catch(e){}}
+
+// ---------- scene ----------
+let msgT;function say(t,c){const m=$('msg');m.textContent=t;m.className='show '+c;clearTimeout(msgT);msgT=setTimeout(()=>m.className='',1500)}
+let AC;function tone(f,d,v){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.setValueAtTime(v||.1,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x0b0b16);
+const cam=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,80);
+const ren=new THREE.WebGLRenderer({antialias:true});ren.setSize(innerWidth,innerHeight);ren.setPixelRatio(Math.min(devicePixelRatio||1,2));$('cv').appendChild(ren.domElement);
+cam.position.set(4.1,6.4,12.5);cam.lookAt(0,2,0);
+scene.add(new THREE.AmbientLight(0x606080,1.15));const dl=new THREE.DirectionalLight(0xffffff,1.3);dl.position.set(4,14,8);scene.add(dl);
+const pl=new THREE.PointLight(0xa855f7,1.5,25);pl.position.set(-3,6,2);scene.add(pl);
+const TW=6.5,TH=5,WY=3.9,FY=.15;
+const fl=new THREE.Mesh(new THREE.BoxGeometry(TW,.2,TW),new THREE.MeshStandardMaterial({color:0x1c1c2e}));scene.add(fl);
+const gm=new THREE.MeshStandardMaterial({color:0x66bbee,transparent:true,opacity:.25,side:THREE.DoubleSide,depthWrite:false});
+[[TW+.2,TH,.1,0,TH/2,-TW/2],[TW+.2,TH,.1,0,TH/2,TW/2],[.1,TH,TW,-TW/2,TH/2,0],[.1,TH,TW,TW/2,TH/2,0]].forEach(a=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a[0],a[1],a[2]),gm);m.position.set(a[3],a[4],a[5]);scene.add(m)});
+const wt=new THREE.Mesh(new THREE.PlaneGeometry(TW-.3,TW-.3),new THREE.MeshStandardMaterial({color:0x2a9fd8,transparent:true,opacity:.48,side:THREE.DoubleSide}));wt.rotation.x=-Math.PI/2;wt.position.y=WY;scene.add(wt);
+function cup(r,h,col,x,z){const g=new THREE.Group();
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(r,r*.93,h,28,1,true),new THREE.MeshStandardMaterial({color:col,transparent:true,opacity:.6,side:THREE.DoubleSide}));s.position.y=h/2+.12;g.add(s);
+  const rm=new THREE.Mesh(new THREE.TorusGeometry(r,.045,8,28),new THREE.MeshStandardMaterial({color:0xffffff,metalness:.6}));rm.rotation.x=Math.PI/2;rm.position.y=h+.1;g.add(rm);
+  g.position.set(x,0,z);g.userData.r=r;scene.add(g);return g}
+const easy=cup(.72,1.08,0x44cc77,-1.2,.1),hard=cup(.38,.9,0xeebb33,1.4,-.3);
+const CT={light:{r:.15,h:.028,m:.5,d:.91,c:0x88ccff},normal:{r:.185,h:.042,m:1,d:.94,c:0xc8c8c8},heavy:{r:.21,h:.055,m:1.65,d:.97,c:0xffd700}};
+let cur='normal';const gc={};const cgeo=t=>gc[t]||(gc[t]=new THREE.CylinderGeometry(CT[t].r,CT[t].r,CT[t].h,14));
+const pile=[],bg=new THREE.CylinderGeometry(.16,.16,.035,10),sm=new THREE.MeshStandardMaterial({color:0xb0b0b0,metalness:.8,roughness:.3}),gdm=new THREE.MeshStandardMaterial({color:0xffd700,metalness:.85,roughness:.2});
+for(let i=0;i<50;i++){const m=new THREE.Mesh(bg,Math.random()>.8?gdm:sm),a=Math.random()*6.28,r=.95+Math.random()*2.2;m.position.set(Math.cos(a)*r,.11+Math.random()*.4,Math.sin(a)*r);m.rotation.set((Math.random()-.5)*.7,0,(Math.random()-.5)*.7);scene.add(m);pile.push(m)}
+const ring=new THREE.Mesh(new THREE.RingGeometry(.22,.34,28),new THREE.MeshBasicMaterial({color:0xc084fc,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.set(0,5.5,0);scene.add(ring);
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-t]').forEach(x=>x.classList.remove('on'));b.classList.add('on');cur=b.dataset.t;tone(380,.07)});
+
+// ---------- aim ----------
+const rc=new THREE.Raycaster(),pt=new THREE.Vector2(),pn=new THREE.Plane(new THREE.Vector3(0,1,0),-5.5),tg=new THREE.Vector3(0,5.5,0);
+function aim(x,y){if(busy)return;pt.set(x/innerWidth*2-1,-y/innerHeight*2+1);rc.setFromCamera(pt,cam);if(rc.ray.intersectPlane(pn,tg)){const l=TW/2-.45;tg.x=Math.max(-l,Math.min(l,tg.x));tg.z=Math.max(-l,Math.min(l,tg.z));ring.position.set(tg.x,5.5,tg.z)}}
+const cvs=ren.domElement;cvs.addEventListener('pointerdown',e=>aim(e.clientX,e.clientY));cvs.addEventListener('pointermove',e=>aim(e.clientX,e.clientY));
+
+// ---------- drop ----------
+let busy=false,active=null,vel=new THREE.Vector3(),splashed=false;
+async function drop(){
+  if(busy||!me)return;
+  if(online){if(!started||myDrops>=ONLINE_DROPS||over)return}
+  else if((U.balls||0)<=0){say('Buy balls first','miss');return}
+  busy=true;if(online)myDrops++;else{U.balls--;db.collection('users').doc(me.uid).update({balls:FV.increment(-1)}).catch(()=>{})}
+  ui();ring.visible=false;
+  const t=CT[cur];active=new THREE.Mesh(cgeo(cur),new THREE.MeshStandardMaterial({color:t.c,metalness:.85,roughness:.2}));active.position.copy(tg);active.userData.t=cur;scene.add(active);
+  const dr=Math.max(.006,.038-U.sinkPower*.0032)/t.m;vel.set((Math.random()-.5)*dr,0,(Math.random()-.5)*dr);splashed=false;tone(550,.07)}
+$('dropBtn').onclick=drop;
+function finish(){
+  const pb=1+(U.sinkPower-1)*.06;let hit=null,pts=0;
+  if(Math.hypot(active.position.x-easy.position.x,active.position.z-easy.position.z)<easy.userData.r*1.18*pb){hit='e';pts=1}
+  if(Math.hypot(active.position.x-hard.position.x,active.position.z-hard.position.z)<hard.userData.r*1.12*pb){hit='h';pts=3}
+  if(hit){active.position.y=.28;active.rotation.set(0,0,0);tone(660,.2);
+    if(online){myScore+=pts;say(hit==='h'?'GOLD! +3':'SINK! +1','win')}
+    else{U.sinkPts+=pts;U.sinkGems+=hit==='h'?2:1;U.sinkTotal+=pts;save({sinkPts:U.sinkPts,sinkGems:U.sinkGems,sinkTotal:U.sinkTotal});lbAdd(pts);
+      if(U.sinkPts>=S.sneakerTarget){say('🏆 PRIZE WON!','hard');setTimeout(()=>{$('winPrize').textContent='Prize: '+(S.sneakerPrize||'');$('winPhone').value=U.phone||'';$('winSt').textContent='';$('winM').classList.add('show')},1200)}
+      else say((hit==='h'?'GOLD! +3':'SINK! +1')+' ('+U.sinkPts+'/'+S.sneakerTarget+')',hit==='h'?'hard':'win')}
+  }else{say('So close…','miss');tone(160,.18);active.position.y=.13+Math.random()*.28}
+  pile.push(active);if(pile.length>90)scene.remove(pile.shift());active=null;
+  if(online)pushScore();
+  setTimeout(()=>{busy=false;const l=2.6;tg.set((Math.random()-.5)*2*l,5.5,(Math.random()-.5)*2*l);ring.position.copy(tg);ring.visible=true;ui()},1000)}
+$('winGo').onclick=async()=>{const ph=$('winPhone').value.trim();if(!ph){$('winSt').textContent='Enter a phone number.';return}
+  try{await db.collection('winners').add({uid:me.uid,name:U.name,phone:ph,prize:S.sneakerPrize||'',mode:'ai',game:'sneaker',finalScore:{points:U.sinkPts},createdAt:FV.serverTimestamp()});
+  await save({phone:ph,sinkPts:0});ui();$('winSt').style.color='#86efac';$('winSt').textContent="Submitted! We'll contact you.";setTimeout(()=>$('winM').classList.remove('show'),1500)}
+  catch(e){$('winSt').style.color='#f87171';$('winSt').textContent="Couldn't submit: "+e.message}};
+
+// ---------- online race (Firestore match doc) ----------
+let online=false,isHost=false,code=null,unsub=null,started=false,over=false,myScore=0,myDrops=0;
+const mk=()=>{const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=c[Math.floor(Math.random()*c.length)];return s};
+function pushScore(){if(!code)return;const p=isHost?'host':'guest',u={};u[p+'Score']=myScore;u[p+'Drops']=myDrops;db.collection('matches').doc(code).update(u).catch(()=>{})}
+function watch(){unsub=db.collection('matches').doc(code).onSnapshot(s=>{const d=s.data();if(!d)return;
+  if(!started&&d.status==='playing'&&d.guestId){started=true;online=true;myScore=0;myDrops=0;$('shareM').classList.remove('show');$('room').style.display='block';$('roomTxt').textContent=(isHost?'You vs '+(d.guestName||'Friend'):(d.hostName||'Host')+' vs You');say('Race on!','win')}
+  if(!started)return;const hs=d.hostScore||0,gs=d.guestScore||0,hd=d.hostDrops||0,gd=d.guestDrops||0;
+  $('roomScore').textContent='Host '+hs+' – '+gs+' Guest  (drops '+hd+'/'+gd+' of '+ONLINE_DROPS+')';
+  if(over)return;let w=null;
+  if(hs>=ONLINE_WIN||gs>=ONLINE_WIN)w=hs===gs?'draw':hs>gs?'host':'guest';
+  else if(hd>=ONLINE_DROPS&&gd>=ONLINE_DROPS)w=hs===gs?'draw':hs>gs?'host':'guest';
+  else if(d.status==='cancelled'){w=isHost?'host':'guest'}
+  if(w)endRace(w)});ui()}
+function endRace(w){over=true;const mine=isHost?'host':'guest';
+  if(w==='draw')say('Draw!','hard');else if(w===mine){say('You win the race!','win');lbAdd(3)}else{say('You lost −2 balls','miss');save({balls:Math.max(0,(U.balls||0)-2)}).then(ui)}
+  if(isHost)db.collection('matches').doc(code).update({status:'finished',winner:w}).catch(()=>{});
+  setTimeout(leave,3500)}
+function leave(){if(unsub){unsub();unsub=null}if(isHost&&code&&!started)db.collection('matches').doc(code).update({status:'cancelled'}).catch(()=>{});
+  code=null;online=false;started=false;over=false;myScore=0;myDrops=0;$('room').style.display='none';ui()}
+$('hostBtn').onclick=async()=>{if(code)return;code=mk();isHost=true;
+  try{await db.collection('matches').doc(code).set({game:'sneaker',hostId:me.uid,hostName:U.name,guestId:null,status:'waiting',createdAt:FV.serverTimestamp()})}catch(e){say("Couldn't host",'miss');code=null;return}
+  $('codeTxt').textContent=code;$('shareMsg').textContent='Waiting for your friend…';$('shareM').classList.add('show');watch()};
+$('cancelRoom').onclick=()=>{$('shareM').classList.remove('show');if(code)db.collection('matches').doc(code).update({status:'cancelled'}).catch(()=>{});if(unsub){unsub();unsub=null}code=null};
+$('shareLink').onclick=async()=>{const url=new URL('sneaker.html?joinCode='+code,location.href).href,text='Race me in Sneaker Sink on Voltix Pro! Room code: '+code+'\n'+url;
+  if(navigator.share){try{await navigator.share({text});return}catch(e){}}
+  try{await navigator.clipboard.writeText(text);$('shareMsg').textContent='Link copied — paste it to your friend.'}catch(e){prompt('Copy and send:',text)}};
+$('shareGrp').onclick=async()=>{try{await db.collection('groupChat').add({uid:me.uid,name:U.name,text:'',type:'challenge',game:'sneaker',code,url:null,createdAt:FV.serverTimestamp()});$('shareMsg').textContent='Posted to the group chat ✓'}catch(e){$('shareMsg').textContent="Couldn't post: "+e.message}};
+$('joinBtn').onclick=()=>{$('joinMsg').textContent='';$('joinM').classList.add('show')};
+$('joinGo').onclick=async()=>{const c=$('joinCode').value.trim().toUpperCase(),m=$('joinMsg');if(!c||code)return;
+  if((U.balls||0)<1){m.textContent='You need 1 ball to join.';return}
+  const ref=db.collection('matches').doc(c);
+  try{const s=await ref.get();if(!s.exists){m.textContent='Room not found.';return}const d=s.data();
+    if(d.game!=='sneaker'){location.href=({kaisa:'kaisa.html',damii:'damii.html',ludo:'ludo.html'}[d.game]||'foosball.html')+'?joinCode='+c;return}
+    if(d.hostId===me.uid){m.textContent="That's your own room.";return}
+    await db.runTransaction(async tx=>{const cu=await tx.get(ref);if(!cu.exists||cu.data().status!=='waiting')throw new Error('Room already started or finished.');tx.update(ref,{guestId:me.uid,guestName:U.name,status:'playing'})});
+    await db.collection('users').doc(me.uid).update({balls:FV.increment(-1)});U.balls--;
+    code=c;isHost=false;$('joinM').classList.remove('show');watch()}catch(e){m.textContent=e.message||'Could not join.'}};
+
+// ---------- loop ----------
+const clk=new THREE.Clock();
+(function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.033);ring.rotation.z+=dt*1.5;
+  if(active){const t=CT[active.userData.t];vel.y+=-15.5*(.7+t.m*.3)*dt;
+    if(!splashed&&active.position.y<WY+.2){splashed=true;tone(180,.15,.08)}
+    if(active.position.y<WY){vel.multiplyScalar(t.d);vel.y*=.98;
+      if(U.sinkAim>0){let n=null,nd=99;[easy,hard].forEach(c=>{const d=Math.hypot(active.position.x-c.position.x,active.position.z-c.position.z);if(d<nd){nd=d;n=c}});
+        if(n&&nd<1.8){const p=.8*U.sinkAim*dt*.6;vel.x+=(n.position.x-active.position.x)*p;vel.z+=(n.position.z-active.position.z)*p}}}
+    active.position.addScaledVector(vel,dt);const sp=vel.length()*dt*(1.9/t.m);active.rotation.x+=sp;active.rotation.z+=sp*.6;
+    const l=TW/2-.28;if(Math.abs(active.position.x)>l){active.position.x=Math.sign(active.position.x)*l;vel.x*=-.3}if(Math.abs(active.position.z)>l){active.position.z=Math.sign(active.position.z)*l;vel.z*=-.3}
+    if(active.position.y<=FY+t.h){active.position.y=FY+t.h;vel.set(0,0,0);finish()}}
+  ren.render(scene,cam)})();
+addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+document.body.addEventListener('touchmove',e=>{if(!e.target.closest('.modal'))e.preventDefault()},{passive:false});
+
+boot().then(()=>{$('load').style.display='none';const j=new URLSearchParams(location.search).get('joinCode');
+  if(j){$('joinCode').value=j.toUpperCase();$('joinM').classList.add('show');history.replaceState({},'','sneaker.html')}})
+ .catch(e=>{$('loadTxt').textContent='Sign-in failed: '+(e.message||e)+'. Check your connection and reload.'});
+</script>
+</body>
+</html>
