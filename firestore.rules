@@ -93,11 +93,18 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == userId;
+      // balls and Sneaker Sink coins can only go DOWN from the browser;
+      // adding them happens server-side (verify-payment) after Paystack confirms.
       allow update: if request.auth != null && request.auth.uid == userId &&
         (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['balls']) ||
           (request.resource.data.balls is number && resource.data.balls is number
             && request.resource.data.balls < resource.data.balls)
+        ) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkCoins']) ||
+          (request.resource.data.sinkCoins is number
+            && request.resource.data.sinkCoins < resource.data.get('sinkCoins', 0))
         );
 
       // Each user's own friends list — only they can read/write it
@@ -195,10 +202,10 @@ service cloud.firestore {
       }
     }
 
-    // Challenge Friend rooms (Foosball, Kaisa, Damii, Ludo and Sneaker Sink — Kaisa/Damii/Ludo/Sneaker rooms carry
-    // a game field) — any signed-in player can create/read/join. WebRTC signaling lives in
-    // the signal subcollection; the relay subcollection carries game messages when a
-    // direct connection isn't possible.
+    // Challenge Friend rooms (Foosball, Kaisa, Damii, Ludo and Sneaker Sink) — any
+    // signed-in player can create/read/join. WebRTC signaling lives in the signal
+    // subcollection; the relay subcollection carries game messages when a direct
+    // connection isn't possible.
     match /matches/{matchId} {
       allow read, write: if request.auth != null;
       match /signal/{sigId} {
