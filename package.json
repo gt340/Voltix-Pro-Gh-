@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Voltix Pro foosball challenge game with Firebase + Paystack payments",
+  "scripts": {
+    "test": "node --test tests/payments.test.js"
+  },
   "dependencies": {
     "firebase-admin": "^12.1.0"
   }
