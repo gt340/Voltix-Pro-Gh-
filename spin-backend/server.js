@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
+const safety = require('./safety');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -21,6 +22,7 @@ const RELOADLY_CLIENT_SECRET = process.env.RELOADLY_CLIENT_SECRET;
 
 const SPIN_COST = 20;
 const DAILY_SPIN_CAP = 10;
+const FREE_SPIN_PER_IP_PER_DAY = 5; // PROPOSED default — Commander to confirm before production
 
 // ---------- PAYSTACK (server-side verification, shared by verify + webhook) ----------
 async function paystackVerify(reference){
@@ -97,6 +99,13 @@ app.get('/api/wallet', async (req,res)=>{
 app.post('/api/claim-free-spin', async (req,res)=>{
   const { phone, name } = req.body;
   if(!phone) return res.status(400).json({ error:'phone required' });
+  // Anti-farming: at most FREE_SPIN_PER_IP_PER_DAY new free spins per network address per day.
+  // (A phone number can still only ever claim once — that check below is unchanged.)
+  const ip = String((req.headers['x-forwarded-for'] || req.ip || '')).split(',')[0].trim();
+  if(ip){
+    const rl = await safety.rateLimit(payDeps, 'free-spin-ip:' + ip, FREE_SPIN_PER_IP_PER_DAY, 24*60*60*1000);
+    if(!rl.ok) return res.status(429).json({ error:'Too many free spin claims from this network today' });
+  }
   const walletRef = db.collection('wallets').doc(phone);
   const snap = await walletRef.get();
   const alreadyClaimed = snap.exists && snap.data().claimedFreeSpin;
@@ -244,6 +253,17 @@ async function sendReloadlyData(phone, network, amountMB){
     recipientPhone: { countryCode:'GH', number: phone }
   }, { headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' } });
 }
+
+// ---------- QUOTE COINS (new): the SERVER picks reference + amount, so the webhook can credit even if the browser closes ----------
+app.post('/api/quote-coins', async (req,res)=>{
+  try{
+    const r = await payments.handleQuoteCoins(payDeps, req.body || {});
+    res.status(r.http).json(r.json);
+  } catch(err){
+    console.error('quote-coins failed:', err.message);
+    res.status(500).json({ error:'Could not create quote' });
+  }
+});
 
 // ---------- BUY COINS ----------
 // Records the REQUEST for a purchase only. Price and coin quantity are defined by the
