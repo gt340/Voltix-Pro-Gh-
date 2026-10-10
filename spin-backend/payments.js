@@ -7,11 +7,15 @@
 
 const crypto = require('crypto');
 
-const SPIN_PACKAGES = Object.freeze({
-  PACKAGE_100: Object.freeze({ id: 'PACKAGE_100', priceGhs: 10,   pesewas: 1000, coins: 100 }),
-  PACKAGE_250: Object.freeze({ id: 'PACKAGE_250', priceGhs: 22.5, pesewas: 2250, coins: 250 }),
-  PACKAGE_500: Object.freeze({ id: 'PACKAGE_500', priceGhs: 45,   pesewas: 4500, coins: 500 }),
-});
+const catalog = require('./catalog');
+const safety = require('./safety');
+const ball = require('./ball-payments');
+
+// Derived from the canonical catalogue (legacy ids kept for the existing client).
+const SPIN_PACKAGES = Object.freeze(Object.fromEntries(['SPIN_100', 'SPIN_250', 'SPIN_500'].map((id) => {
+  const p = catalog.PACKAGES[id];
+  return [p.legacyId, Object.freeze({ id: p.legacyId, priceGhs: p.pesewas / 100, pesewas: p.pesewas, coins: p.credits })];
+})));
 const PACKAGE_BY_PESEWAS = Object.freeze(
   Object.values(SPIN_PACKAGES).reduce((m, p) => { m[p.pesewas] = p; return m; }, {})
 );
@@ -36,7 +40,7 @@ async function claimReference(db, reference, purpose, nowMs) {
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(evRef);
     const prev = snap.exists ? snap.data() : null;
-    if (prev && prev.status === 'SUCCESS') return { state: 'ALREADY_PROCESSED' };
+    if (prev && (prev.status === 'SUCCESS' || prev.status === 'REFUNDED')) return { state: 'ALREADY_PROCESSED' };
     if (prev && prev.status === 'PROCESSING' && prev.leaseExpiresAt > nowMs) return { state: 'IN_PROGRESS' };
     tx.set(evRef, {
       status: 'PROCESSING', purpose, leaseToken: token, leaseExpiresAt: nowMs + LEASE_MS,
@@ -175,6 +179,8 @@ async function creditSpinPurchase(deps, reference) {
     }, { merge: true });
   });
   if (lostLease) return { http: 409, code: 'IN_PROGRESS', json: { status: 'processing' } };
+  await safety.audit(deps, { type: 'payment.credited', purpose: 'spinCoins', packageId: pkg.id, amountPesewas: paid, credits: pkg.coins, ref: reference, actor: purchase.phone });
+  await safety.recordPayment(deps, { purpose: 'spinCoins', amountPesewas: paid, feesPesewas: Number.isInteger(data.fees) ? data.fees : undefined, credits: pkg.coins });
   return { http: 200, json: { status: 'confirmed', coins: await walletOf() } };
 }
 
@@ -186,10 +192,9 @@ async function handleBuyCoins(deps, body) {
   if (!isValidPhone(phone)) return { http: 400, json: { error: 'Valid phone required' } };
   let requested = null;
   if (packageId !== undefined && packageId !== null) {
-    if (typeof packageId !== 'string' || !Object.prototype.hasOwnProperty.call(SPIN_PACKAGES, packageId)) {
-      return { http: 400, json: { error: 'Unknown package' } };
-    }
-    requested = packageId;
+    const cp = catalog.getPackage(packageId);
+    if (!cp || cp.purpose !== 'spinCoins') return { http: 400, json: { error: 'Unknown package' } };
+    requested = cp.legacyId;
   }
   const purchaseRef = db.collection('coinPurchases').doc(ref);
   const record = {
@@ -233,25 +238,69 @@ function verifyWebhookSignature(rawBody, signature, secret) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Server-created purchase: the SERVER picks the reference and the amount, and records the purchase
+// BEFORE the customer pays, so the webhook can credit it even if the browser closes mid-checkout.
+async function handleQuoteCoins(deps, body) {
+  const { phone, packageId, spinRefCode, name } = body || {};
+  if (!isValidPhone(phone)) return { http: 400, json: { error: 'Valid phone required' } };
+  const cp = catalog.getPackage(packageId);
+  if (!cp || cp.purpose !== 'spinCoins') return { http: 400, json: { error: 'Unknown package' } };
+  const rl = await safety.rateLimit(deps, 'quote-coins:' + digitsOf(phone), 10, 60 * 60 * 1000);
+  if (!rl.ok) return { http: 429, json: { error: 'Too many requests, try again later' } };
+  const reference = 'COINS-' + crypto.randomBytes(10).toString('hex');
+  const res = await handleBuyCoins(deps, { phone, ref: reference, spinRefCode, name, packageId: cp.legacyId });
+  if (res.http !== 200) return res;
+  return { http: 200, json: { reference, packageId: cp.id, amountPesewas: cp.pesewas, currency: catalog.CURRENCY, coins: cp.credits, email: digitsOf(phone) + '@voltix.com' } };
+}
+
+// Webhook: signature is verified over the raw body with HMAC-SHA512 (timing-safe) BEFORE anything
+// else happens. charge.success -> the same idempotent credit path as manual verification.
+// refund.* -> never auto-debits: marks the reference and opens a manual review item.
 async function handleWebhook(deps, { rawBody, signature }) {
   if (!verifyWebhookSignature(rawBody, signature, deps.paystackSecret)) {
     return { http: 401, text: 'Invalid signature' };
   }
   let event;
   try { event = JSON.parse(rawBody.toString('utf8')); } catch (e) { return { http: 400, text: 'Bad payload' }; }
-  if (event && event.event === 'charge.success' && event.data && isValidReference(event.data.reference)) {
-    const ref = event.data.reference;
-    const exists = (await deps.db.collection('coinPurchases').doc(ref).get()).exists;
-    if (exists) {
+  const type = event && event.event;
+  const d = (event && event.data) || {};
+  const { db } = deps;
+
+  if (type === 'charge.success' && isValidReference(d.reference)) {
+    const ref = d.reference;
+    if ((await db.collection('coinPurchases').doc(ref).get()).exists) {
       const r = await creditSpinPurchase(deps, ref);
       if (r.transient) return { http: 500, text: 'Retry later' };
+    } else if ((await db.collection('paymentIntents').doc(ref).get()).exists) {
+      const r = await ball.creditBallPayment(deps, { reference: ref });
+      if (r.http === 502) return { http: 500, text: 'Retry later' };
     }
+    return { http: 200, text: 'OK' };
+  }
+
+  if (typeof type === 'string' && type.startsWith('refund.')) {
+    const ref = d.transaction_reference || (d.transaction && d.transaction.reference);
+    if (isValidReference(ref)) {
+      const evRef = db.collection('paymentEvents').doc(ref);
+      const ev = await evRef.get();
+      if (ev.exists && type === 'refund.processed') {
+        // status stays SUCCESS so the reference can never be credited again; credits are NOT clawed back automatically.
+        await evRef.set({ refunded: true, refundedAt: (deps.now || Date.now)() }, { merge: true });
+        await db.collection('reviewQueue').doc('refund-' + ref).set({
+          type: 'refund', ref, purpose: ev.data().purpose || null, credited: ev.data().credited || 0,
+          status: 'open', note: 'Refund processed by Paystack. Credits were NOT reversed automatically.',
+          createdAt: (deps.now || Date.now)(),
+        }, { merge: true });
+      }
+      await safety.audit(deps, { type: type, ref, status: d.status });
+    }
+    return { http: 200, text: 'OK' };
   }
   return { http: 200, text: 'OK' };
 }
 
 module.exports = {
   SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, creditSpinPurchase,
-  handleBuyCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
+  handleBuyCoins, handleQuoteCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
   isValidReference, isValidPhone,
 };
