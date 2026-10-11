@@ -37,7 +37,7 @@ test('CATALOG: approved prices and credits are unchanged from Phase 1B', () => {
 });
 
 test('CATALOG: shared copies in spin-backend/ are byte-identical (no silent drift)', () => {
-  for (const f of ['catalog.js', 'safety.js', 'ball-payments.js']) {
+  for (const f of ['catalog.js', 'safety.js', 'ball-payments.js', 'net.js']) {
     assert.equal(fs.readFileSync(path.join(__dirname, '..', 'lib', f), 'utf8'), fs.readFileSync(path.join(__dirname, '..', 'spin-backend', f), 'utf8'), f);
   }
 });
@@ -243,8 +243,9 @@ test('METRICS: game events validate type, game and credit bounds', async () => {
   assert.equal((await api.handleTrackEvent(d, { token: 'tok-u1', game: 'ludo', type: 'jackpot' })).http, 400);
   assert.equal((await api.handleTrackEvent(d, { game: 'ludo', type: 'win' })).http, 401);
   await api.handleTrackEvent(d, { token: 'tok-u1', game: 'ludo', type: 'attempt', credits: 999999 });
-  const m = db.read('metricsDaily/' + safety.dayKey(clock) + '_ludo');
+  const m = db.read('reportedEventsDaily/' + safety.dayKey(clock) + '_ludo');
   assert.equal(m.attempts, 2); assert.equal(m.wins, 1); assert.equal(m.creditsConsumed, 2);   // oversized credits ignored
+  assert.equal(db.read('metricsDaily/' + safety.dayKey(clock) + '_ludo'), undefined);       // never mixed into money counters
 });
 
 // ---------- G. free-spin farming limiter ----------
