@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
-const safety = require('./safety');
+const { clientIp } = require('./net');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -22,7 +22,7 @@ const RELOADLY_CLIENT_SECRET = process.env.RELOADLY_CLIENT_SECRET;
 
 const SPIN_COST = 20;
 const DAILY_SPIN_CAP = 10;
-const FREE_SPIN_PER_IP_PER_DAY = 5; // PROPOSED default — Commander to confirm before production
+const FREE_SPIN_PER_IP_PER_DAY = 5; // PROVISIONAL (not activated in production) — see docs in the Phase 2A report
 
 // ---------- PAYSTACK (server-side verification, shared by verify + webhook) ----------
 async function paystackVerify(reference){
@@ -97,25 +97,18 @@ app.get('/api/wallet', async (req,res)=>{
 
 // ---------- FREE STARTER SPIN ----------
 app.post('/api/claim-free-spin', async (req,res)=>{
-  const { phone, name } = req.body;
-  if(!phone) return res.status(400).json({ error:'phone required' });
-  // Anti-farming: at most FREE_SPIN_PER_IP_PER_DAY new free spins per network address per day.
-  // (A phone number can still only ever claim once — that check below is unchanged.)
-  const ip = String((req.headers['x-forwarded-for'] || req.ip || '')).split(',')[0].trim();
-  if(ip){
-    const rl = await safety.rateLimit(payDeps, 'free-spin-ip:' + ip, FREE_SPIN_PER_IP_PER_DAY, 24*60*60*1000);
-    if(!rl.ok) return res.status(429).json({ error:'Too many free spin claims from this network today' });
+  try{
+    const { phone, name } = req.body || {};
+    if(!phone) return res.status(400).json({ error:'phone required' });
+    const ip = clientIp(req.headers, req.socket && req.socket.remoteAddress);
+    const r = await payments.handleClaimFreeSpin(payDeps, {
+      phone, name, ipKey: ip, perNetworkPerDay: FREE_SPIN_PER_IP_PER_DAY
+    });
+    res.status(r.http).json(r.json);
+  } catch(err){
+    console.error('claim-free-spin failed:', err.message);
+    res.status(500).json({ error:'Could not claim free spin' });
   }
-  const walletRef = db.collection('wallets').doc(phone);
-  const snap = await walletRef.get();
-  const alreadyClaimed = snap.exists && snap.data().claimedFreeSpin;
-  if(alreadyClaimed) return res.json({ claimed:false, coins: snap.data().coins || 0 });
-
-  const updateData = { coins: admin.firestore.FieldValue.increment(20), claimedFreeSpin: true };
-  if(name) updateData.name = name;
-  await walletRef.set(updateData, { merge:true });
-  const newSnap = await walletRef.get();
-  res.json({ claimed:true, coins: newSnap.data().coins || 0 });
 });
 
 // ---------- SPIN REFERRAL CODES ----------
