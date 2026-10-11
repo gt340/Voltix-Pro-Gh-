@@ -5,7 +5,9 @@
 
 const crypto = require('crypto');
 
-const shortHash = (v) => crypto.createHash('sha256').update('voltix-audit:' + String(v)).digest('hex').slice(0, 12);
+// Keyed hash: set AUDIT_PEPPER (random secret) in the server environment so short identifiers such as an IP
+// address cannot be reversed by brute force. Without it a fixed key is used (weaker, still never raw data).
+const shortHash = (v) => crypto.createHmac('sha256', process.env.AUDIT_PEPPER || 'voltix-audit').update(String(v)).digest('hex').slice(0, 16);
 
 const AUDIT_FIELDS = ['type', 'purpose', 'packageId', 'amountPesewas', 'credits', 'status', 'code', 'ref', 'game'];
 
@@ -27,11 +29,11 @@ async function rateLimit(deps, key, limit, windowMs) {
     const snap = await tx.get(ref);
     const cur = snap.exists ? snap.data() : null;
     if (!cur || nowMs - cur.windowStart >= windowMs) {
-      tx.set(ref, { windowStart: nowMs, count: 1 }, { merge: false });
+      tx.set(ref, { windowStart: nowMs, count: 1, ttlAt: new Date(nowMs + windowMs * 2) }, { merge: false });
       return { ok: true, remaining: limit - 1 };
     }
     if (cur.count >= limit) return { ok: false, remaining: 0 };
-    tx.set(ref, { windowStart: cur.windowStart, count: cur.count + 1 }, { merge: false });
+    tx.set(ref, { windowStart: cur.windowStart, count: cur.count + 1, ttlAt: new Date(cur.windowStart + windowMs * 2) }, { merge: false });
     return { ok: true, remaining: limit - cur.count - 1 };
   });
 }
@@ -59,13 +61,50 @@ async function recordPayment(deps, { purpose, amountPesewas, feesPesewas, credit
   });
 }
 
-const EVENT_TYPES = { attempt: 'attempts', completed: 'completedGames', win: 'wins', loss: 'losses', claim: 'prizeClaims' };
-async function recordGameEvent(deps, game, type, credits) {
+// CLIENT-REPORTED behaviour (attempts, wins, losses, credits used). Untrusted by nature, so it lives in
+// its own collection and is never mixed into the server-verified money counters in metricsDaily.
+const EVENT_TYPES = { attempt: 'attempts', completed: 'completedGames', win: 'wins', loss: 'losses' };
+async function recordReportedEvent(deps, game, type, credits) {
   if (!GAMES.includes(game) || !EVENT_TYPES[type]) return false;
-  const inc = { [EVENT_TYPES[type]]: 1 };
-  if (Number.isInteger(credits) && credits > 0 && credits <= 100) inc.creditsConsumed = credits;
-  await bump(deps, game, inc);
+  try {
+    const day = dayKey((deps.now || Date.now)());
+    const data = { game, day, [EVENT_TYPES[type]]: deps.FieldValue.increment(1) };
+    if (Number.isInteger(credits) && credits > 0 && credits <= 100) data.creditsConsumed = deps.FieldValue.increment(credits);
+    await deps.db.collection('reportedEventsDaily').doc(day + '_' + game).set(data, { merge: true });
+  } catch (e) { /* ignore */ }
   return true;
 }
 
-module.exports = { shortHash, audit, rateLimit, recordPayment, recordGameEvent, GAMES, dayKey };
+// SERVER-OBSERVED events (a prize claim reached the server). Still counters only.
+async function recordServerEvent(deps, game, field) {
+  if (!GAMES.includes(game) || field !== 'prizeClaimsSubmitted') return false;
+  await bump(deps, game, { [field]: 1 });
+  return true;
+}
+
+// Refund processed by Paystack for an already-credited reference (money out, never netted silently).
+async function recordRefund(deps, { purpose, amountPesewas }) {
+  await bump(deps, PURPOSE_GAME[purpose] || 'unknown', { refundCount: 1, refundedPesewas: amountPesewas || 0 });
+}
+
+// Turns one metricsDaily document into an honest report. Prize cost and other costs are UNKNOWN unless the
+// caller supplies them; a contribution number is produced ONLY when every input is known.
+function economicsReport(doc, costs) {
+  const d = doc || {}; const c = costs || {};
+  const gross = d.grossPesewas || 0, refunds = d.refundedPesewas || 0;
+  const feesComplete = (d.paidPurchases || 0) === (d.feeKnownPurchases || 0);
+  const out = {
+    grossPesewas: gross, refundedPesewas: refunds, netRevenuePesewas: gross - refunds,
+    paystackFeesPesewas: feesComplete ? (d.paystackFeesPesewas || 0) : 'UNKNOWN',
+    prizeCostPesewas: Number.isFinite(c.prizeCostPesewas) ? c.prizeCostPesewas : 'UNKNOWN',
+    otherVariableCostPesewas: Number.isFinite(c.otherVariableCostPesewas) ? c.otherVariableCostPesewas : 'UNKNOWN',
+    contributionPesewas: 'UNKNOWN', contributionMarginPct: 'UNKNOWN',
+  };
+  if (feesComplete && Number.isFinite(c.prizeCostPesewas) && Number.isFinite(c.otherVariableCostPesewas)) {
+    out.contributionPesewas = gross - refunds - out.paystackFeesPesewas - c.prizeCostPesewas - c.otherVariableCostPesewas;
+    out.contributionMarginPct = gross > 0 ? Math.round((out.contributionPesewas / gross) * 1000) / 10 : 'UNKNOWN';
+  }
+  return out;
+}
+
+module.exports = { shortHash, audit, rateLimit, recordPayment, recordReportedEvent, recordServerEvent, recordRefund, economicsReport, GAMES, dayKey };

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Voltix Pro foosball challenge game with Firebase + Paystack payments",
   "scripts": {
-    "test": "node --test tests/payments.test.js tests/sneaker-coins.test.js tests/phase2.test.js",
+    "test": "node --test tests/payments.test.js tests/sneaker-coins.test.js tests/phase2.test.js tests/phase2a.test.js",
     "sync": "node scripts/sync-shared.js"
   },
   "dependencies": {
