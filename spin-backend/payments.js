@@ -238,6 +238,35 @@ function verifyWebhookSignature(rawBody, signature, secret) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Free starter spin (20 coins, once per phone). The per-network cap is a PROVISIONAL setting, not activated in
+// production. Order matters: a phone that already claimed never consumes network quota, and the grant itself
+// is one atomic transaction so concurrent requests for the same phone can never pay out twice.
+const FREE_SPIN_COINS = 20;
+async function handleClaimFreeSpin(deps, { phone, name, ipKey, perNetworkPerDay }) {
+  if (!isValidPhone(phone)) return { http: 400, json: { error: 'phone required' } };
+  const { db, FieldValue } = deps;
+  const walletRef = db.collection('wallets').doc(phone);
+  const pre = await walletRef.get();
+  if (pre.exists && pre.data().claimedFreeSpin) return { http: 200, json: { claimed: false, coins: pre.data().coins || 0 } };
+  if (ipKey && perNetworkPerDay > 0) {
+    const rl = await safety.rateLimit(deps, 'free-spin-net:' + ipKey, perNetworkPerDay, 24 * 60 * 60 * 1000);
+    if (!rl.ok) return { http: 429, json: { error: 'Too many free spin claims from this network today' } };
+  }
+  let granted = false; let coins = 0;
+  await db.runTransaction(async (tx) => {
+    granted = false;
+    const snap = await tx.get(walletRef);
+    if (snap.exists && snap.data().claimedFreeSpin) { coins = snap.data().coins || 0; return; }
+    const upd = { coins: FieldValue.increment(FREE_SPIN_COINS), claimedFreeSpin: true };
+    if (typeof name === 'string' && name) upd.name = name.slice(0, 80);
+    tx.set(walletRef, upd, { merge: true });
+    coins = (snap.exists ? (snap.data().coins || 0) : 0) + FREE_SPIN_COINS;
+    granted = true;
+  });
+  if (granted) await safety.audit(deps, { type: 'freespin.granted', actor: phone });
+  return { http: 200, json: { claimed: granted, coins } };
+}
+
 // Server-created purchase: the SERVER picks the reference and the amount, and records the purchase
 // BEFORE the customer pays, so the webhook can credit it even if the browser closes mid-checkout.
 async function handleQuoteCoins(deps, body) {
@@ -285,6 +314,9 @@ async function handleWebhook(deps, { rawBody, signature }) {
       const ev = await evRef.get();
       if (ev.exists && type === 'refund.processed') {
         // status stays SUCCESS so the reference can never be credited again; credits are NOT clawed back automatically.
+        if (!ev.data().refunded) {
+          await safety.recordRefund(deps, { purpose: ev.data().purpose, amountPesewas: ev.data().amountPesewas });
+        }
         await evRef.set({ refunded: true, refundedAt: (deps.now || Date.now)() }, { merge: true });
         await db.collection('reviewQueue').doc('refund-' + ref).set({
           type: 'refund', ref, purpose: ev.data().purpose || null, credited: ev.data().credited || 0,
@@ -301,6 +333,6 @@ async function handleWebhook(deps, { rawBody, signature }) {
 
 module.exports = {
   SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, creditSpinPurchase,
-  handleBuyCoins, handleQuoteCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
+  handleBuyCoins, handleQuoteCoins, handleClaimFreeSpin, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
   isValidReference, isValidPhone,
 };
