@@ -53,14 +53,15 @@ test('FREE SPIN: window resets after 24h; invalid phone rejected', async () => {
 });
 
 // ---------- network identity / proxy bypass / privacy ----------
-test('NETWORK: spoofed X-Forwarded-For is ignored; platform headers win; IPv6 is bucketed by /64', () => {
-  assert.equal(net.clientIp({ 'x-forwarded-for': '6.6.6.6, 7.7.7.7' }, '10.0.0.1'), '10.0.0.1');            // spoof cannot choose the identity
-  assert.equal(net.clientIp({ 'x-forwarded-for': '6.6.6.6', 'x-vercel-forwarded-for': '41.66.1.2' }, '10.0.0.1'), '41.66.1.2');
-  assert.equal(net.clientIp({ 'x-real-ip': '41.66.1.3' }, null), '41.66.1.3');
-  assert.equal(net.clientIp({ 'x-vercel-forwarded-for': '2001:db8:abcd:12:1:2:3:4' }), '2001:db8:abcd:12');
-  assert.equal(net.clientIp({ 'x-vercel-forwarded-for': '2001:db8:abcd:12:ffff:ffff:ffff:ffff' }), '2001:db8:abcd:12');
+test('NETWORK: spoofed X-Forwarded-For is ignored; platform headers win only when trusted; IPv6 is bucketed by /64', () => {
+  const trust = { trustPlatformHeaders: true };
+  assert.equal(net.clientIp({ 'x-forwarded-for': '6.6.6.6, 7.7.7.7' }, '41.66.1.1', trust), '41.66.1.1');          // spoof cannot choose the identity
+  assert.equal(net.clientIp({ 'x-forwarded-for': '6.6.6.6', 'x-vercel-forwarded-for': '41.66.1.2' }, '10.0.0.1', trust), '41.66.1.2');
+  assert.equal(net.clientIp({ 'x-real-ip': '41.66.1.3' }, null, trust), '41.66.1.3');
+  assert.equal(net.clientIp({ 'x-vercel-forwarded-for': '2a01:4f8:abcd:12:1:2:3:4' }, null, trust), '2a01:4f8:abcd:12');
+  assert.equal(net.clientIp({ 'x-vercel-forwarded-for': '2a01:4f8:abcd:12:ffff:ffff:ffff:ffff' }, null, trust), '2a01:4f8:abcd:12');
   assert.equal(net.clientIp({}, '::ffff:41.66.1.9'), '41.66.1.9');
-  assert.equal(net.clientIp({ 'x-vercel-forwarded-for': 'garbage' }, null), null);
+  assert.equal(net.clientIp({ 'x-vercel-forwarded-for': 'garbage' }, null, trust), null);
 });
 
 test('PRIVACY: the network address is never stored raw, and a secret pepper changes the stored hash', async () => {

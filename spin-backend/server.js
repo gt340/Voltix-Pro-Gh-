@@ -100,7 +100,9 @@ app.post('/api/claim-free-spin', async (req,res)=>{
   try{
     const { phone, name } = req.body || {};
     if(!phone) return res.status(400).json({ error:'phone required' });
-    const ip = clientIp(req.headers, req.socket && req.socket.remoteAddress);
+    // Platform headers are trusted only when actually running on Vercel; otherwise the raw socket address is used.
+    // A null result (missing/private/internal address) means NO network quota is applied, never a shared one.
+    const ip = clientIp(req.headers, req.socket && req.socket.remoteAddress, { trustPlatformHeaders: process.env.VERCEL === '1' });
     const r = await payments.handleClaimFreeSpin(payDeps, {
       phone, name, ipKey: ip, perNetworkPerDay: FREE_SPIN_PER_IP_PER_DAY
     });
