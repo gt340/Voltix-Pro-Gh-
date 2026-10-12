@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_PRODUCTION_PROJECT = 'voltix-pro-dc363';   // public id from the web config; override with PRODUCTION_FIREBASE_PROJECT_ID
-const SKIP_DIRS = new Set(['node_modules', '.git', 'tests', 'docs', 'scripts', '.vercel']);
+const SKIP_DIRS = new Set(['node_modules', '.git', 'tests', 'docs', 'scripts', '.vercel', 'config']);
 const SCAN_EXT = /\.(html|js|json)$/i;
 
 function walk(dir, visit) {
