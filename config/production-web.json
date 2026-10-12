@@ -1,0 +1,14 @@
+{
+  "_note": "PUBLIC client-side values that already ship in the deployed pages. Not secrets. Used only so Preview builds can find and replace them.",
+  "firebase": {
+    "apiKey": "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
+    "authDomain": "voltix-pro-dc363.firebaseapp.com",
+    "projectId": "voltix-pro-dc363",
+    "storageBucket": "voltix-pro-dc363.firebasestorage.app",
+    "messagingSenderId": "778425016855",
+    "appId": "1:778425016855:web:6bbe58c7e8b7ffa9ccf252",
+    "measurementId": "G-5BQWW8P46P"
+  },
+  "spinBackendHosts": ["spin-backend-delta.vercel.app"],
+  "blockedProductionHosts": ["voltix-pro-game-theta.vercel.app"]
+}
