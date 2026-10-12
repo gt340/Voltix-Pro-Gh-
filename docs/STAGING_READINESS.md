@@ -1,64 +1,82 @@
-# Staging readiness checklist (Phase 2A.1)
+# Staging readiness and configuration isolation (Phase 2A.2)
 
-Goal: a Preview deployment that can run the new payment code with **test money and test data only**, so that
-write-capable endpoints can be exercised without touching Production. Nothing here is activated by merging.
+Goal: Preview deployments use a dedicated **staging Firebase project** and **Paystack TEST** configuration, while
+Production keeps exactly the configuration it has today. Nothing activates until this branch is merged.
 
-Run `node scripts/staging-readiness.js` inside the Preview build/runtime. It prints PASS or BLOCKED, never prints
-secret values or the Firebase project id, and exits non-zero when BLOCKED. PASS covers automated checks only.
+## How the isolation works (nothing to change in the game pages)
+1. **Build time (`vercel-build` -> `scripts/apply-env-config.js`)**, in both repositories:
+   - `VERCEL_ENV=production`: no file is changed. If any `STAGING_*` variable is attached to Production the build FAILS.
+   - `VERCEL_ENV=preview`: every deployable `.html/.js/.json` file is rewritten: Production Firebase web config ->
+     `STAGING_FIREBASE_WEB_CONFIG`, `pk_live_...` -> `STAGING_PAYSTACK_PUBLIC_KEY`, the Production spin backend host ->
+     `STAGING_SPIN_BACKEND_URL`. The build FAILS (nothing is deployed) if any staging input is missing/malformed, any
+     page initialises Firebase from an unrecognised source, any page uses Paystack without a recognisable key,
+     any Production-only host appears, any Production value would survive, or the server-side staging variables below
+     are not approved. Anything else (unknown `VERCEL_ENV`) FAILS.
+   - The build log prints per-file coverage (file names and counts only, never values).
+2. **Run time (`lib/env-guard.js`)**: `api/verify-payment.js`, the new `/api/*` routes and `spin-backend/server.js`
+   answer **503** and never initialise Firebase or Paystack unless the environment is Production (unchanged) or an
+   approved staging setup (staging service account declared in `STAGING_FIREBASE_PROJECT_ID`, `sk_test_` secret,
+   `AUDIT_PEPPER`). So a Preview that still carries Production credentials cannot write to Production even if built.
+3. Duplicate copies: the same script and config file exist in `Voltix-Pro-Gh-` and `voltix-pro-game`; the offline tests
+   check that identical pages receive identical treatment.
 
-## A. Dedicated staging Firebase project
-1. Create a NEW Firebase project (suggested id `voltix-staging-<random>`). Do not reuse Production.
-2. Enable Firestore (Native mode) and Authentication > Sign-in method > Anonymous.
-3. Authentication > Settings > Authorized domains: add the stable staging/preview domain.
-4. Deploy the current `firestore.rules` to the staging project (not Production).
-5. Create a TTL policy: collection `rateLimits`, field `ttlAt`.
-6. Create a service account key for the staging project only. Store it only in Vercel (Section C).
-7. Seed only fake data: one test `admins/{uid}` document, `gameSettings/main` with test prize text, no real customers.
+## Dashboard setup (all values are entered by the project owner; never paste them into chat, tickets or commits)
+### A. Staging Firebase project
+1. Firebase console > Add project (suggested id `voltix-staging-<random>`). Do not reuse Production.
+2. Build > Firestore Database > Create (Native mode). Build > Authentication > Sign-in method > enable **Anonymous**.
+3. Authentication > Settings > Authorized domains: add the staging/preview host(s).
+4. Firestore > Rules: paste the repository's `firestore.rules` into the **staging** project only.
+5. Firestore > TTL: create a policy for collection `rateLimits`, field `ttlAt`.
+6. Project settings > General > Your apps > add a **Web app**; copy its config object (used in section C).
+7. Project settings > Service accounts > Generate new private key (staging project). Keep the JSON private.
+8. Seed fake data only (one test `admins/{uid}` doc, `gameSettings/main` with test prize text).
 
-## B. Preview web configuration targeting staging  (**currently a BLOCKER**)
-The Firebase web config is hard-coded in the page files (`chat.html`, `sneaker.html`, and, from earlier reads,
-`foosball.html`, `damii.html`, `kaisa.html`, `ludo.html`, plus the store scripts). A Preview deployment of those pages
-would therefore talk to the PRODUCTION Firebase project from the browser. Likewise `pk_live_...` is hard-coded in the
-payment pages. The readiness check lists the files and returns BLOCKED until this is solved.
-Proposed fix (needs approval, touches the pages): one `firebase-config.js` that every page loads and that selects the
-staging web config and the Paystack TEST public key when `location.hostname` is a Preview/staging host, and the
-production values otherwise. Production behaviour must remain byte-for-byte the same.
+### B. Paystack test mode
+1. Paystack dashboard > toggle **Test mode** > Settings > API Keys & Webhooks: copy the **test** public key (`pk_test_...`) and
+   **test** secret key (`sk_test_...`).
+2. Same page, Test mode still on: set **Test Webhook URL** to `https://<staging spin-backend host>/api/paystack-webhook`.
+   The live webhook URL is untouched. Preview URLs sit behind Vercel sign-in and Paystack cannot reach them: use a stable
+   staging alias without that protection, or Vercel "Protection Bypass for Automation".
 
-## C. Preview-only environment variables (per project)
-Create these with target **Preview only** (optionally restricted to the branch `phase2a/staging-gates`):
+### C. Preview-only environment variables (set for each project below, target **Preview** only)
+| Variable | Value | `voltix-pro-gh` | `voltix-pro-game` | `spin-backend` |
+|---|---|---|---|---|
+| `STAGING_FIREBASE_WEB_CONFIG` | JSON of the staging web app config: `apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId[, measurementId]` | yes | yes | no |
+| `STAGING_FIREBASE_PROJECT_ID` | the staging project id | yes | yes | yes |
+| `STAGING_PAYSTACK_PUBLIC_KEY` | `pk_test_...` | yes | yes | no |
+| `STAGING_SPIN_BACKEND_URL` | `https://<staging spin-backend host>` (no path) | yes | yes | no |
+| `FIREBASE_SERVICE_ACCOUNT` | staging service-account JSON | yes | yes | yes |
+| `PAYSTACK_SECRET_KEY` | `sk_test_...` | yes | yes | yes |
+| `AUDIT_PEPPER` | random secret, 32+ characters | yes | yes | yes |
+Mark the secret ones Sensitive.
 
-| Variable | Value |
-|---|---|
-| `FIREBASE_SERVICE_ACCOUNT` | staging project service-account JSON |
-| `STAGING_FIREBASE_PROJECT_ID` | the staging project id (the check requires it to match the credential) |
-| `PAYSTACK_SECRET_KEY` | Paystack **test** secret key (`sk_test_...`) |
-| `AUDIT_PEPPER` | random secret, 32+ characters (keeps stored network hashes unreadable) |
+### D. Remove Production credentials from Preview
+On `spin-backend` and `voltix-pro-game`, the existing `FIREBASE_SERVICE_ACCOUNT` and `PAYSTACK_SECRET_KEY` are one record each
+targeting **Production and Preview**. Edit each record and untick **Preview** (keep Production). Create the Preview-only
+records from section C. `voltix-pro-gh` already has Production-only records. **Never** attach any `STAGING_*` variable to Production.
 
-Projects: `voltix-pro-gh`, `spin-backend`, `voltix-pro-game`.
+### E. Staging spin backend
+Deploy `spin-backend` to a stable staging alias (a Preview deployment with a fixed alias). Its Preview-only variables are
+the three rows marked for `spin-backend` above; the guard refuses to serve until they are all valid.
 
-## D. Production credentials excluded from Preview
-Today the existing `FIREBASE_SERVICE_ACCOUNT` and `PAYSTACK_SECRET_KEY` records on `spin-backend` and
-`voltix-pro-game` are a single record each targeting **both Production and Preview**. Edit each record so its target
-is **Production only**, then add the Preview-only records from Section C. Never delete the Production values.
-`voltix-pro-gh` already has Production-only records.
+### F. Fresh deployments
+Variables apply only to builds created after the change. After C-E, redeploy the branch
+(`phase2a/staging-gates`) in every project. Do not promote anything to Production.
 
-## E. Separate test-mode webhook
-Paystack Dashboard > Settings > API Keys & Webhooks, with the **Test mode** switch on: set the Test Webhook URL to
-`https://<staging-or-preview-host>/api/paystack-webhook` (spin-backend). The live webhook URL stays untouched.
-Preview URLs are behind Vercel sign-in, which blocks Paystack. Use a stable staging alias without that protection, or
-Vercel's Protection Bypass for Automation. Paystack signs test events with the test secret, so signature checks are real.
+## Verification (evidence to collect before calling staging isolated)
+1. Build logs of each project's latest **Preview** deployment: `[COVERAGE]` lines list every page (including all six
+   games) and end with `[CONFIG] Preview build: staging configuration applied ... no Production value remains.`
+2. `node scripts/staging-readiness.js` (run in the Preview build/runtime) prints `STAGING READINESS: PASS`.
+3. Vercel Environment Variables listing (names and targets only) for the three projects matching sections C and D.
+4. Firebase console: the staging project id differs from Production and holds no production data.
+5. Paystack dashboard in Test mode showing the test webhook URL.
+6. Timestamps: latest Preview deployment is newer than the newest variable in each project.
+7. Read-only probe: `GET <staging host>/api/catalog` (writes nothing). Then a staging-only write test: the new document
+   appears in the **staging** Firestore and not in Production.
+A PASS from offline tests or from the readiness script alone does not prove isolation; items 3-7 are dashboard evidence.
 
-## F. Fresh preview deployments
-Vercel applies variables only to builds created after the change. After Sections C and D, redeploy the branch
-(do not promote anything to Production) and confirm each project's latest Preview deployment is newer than its
-newest variable.
-
-## Evidence required to call staging isolated
-1. `node scripts/staging-readiness.js` output = PASS, captured from the Preview deployment (not a laptop).
-2. Vercel env screenshot or API listing (names + targets only) showing the four Preview-only variables and the
-   Production-only targets on the original records, for all three projects.
-3. Firebase console showing the staging project id differs from Production, with no production data.
-4. Paystack dashboard in Test mode showing the test webhook URL.
-5. Timestamps: latest Preview deployment is newer than the newest variable on each project.
-6. A read-only probe: on staging, a quote or catalogue call writes only into the staging project (check the staging
-   console, and confirm the production console shows no new `paymentIntents`/`rateLimits`).
+## Known preconditions and risks
+- The build hook requires Vercel to serve the project root after `vercel-build` (framework "Other", no Output Directory
+  override). This is verified by the first successful staging build; if Vercel reports a missing Output Directory, set it
+  to `.` in the project settings before merging.
+- Preview builds FAIL on purpose until sections A-D are complete. That is the fail-closed state.
