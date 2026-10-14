@@ -55,6 +55,7 @@ function scanText(text, prod) {
   c.productionSpinBackend = prod.spinBackendHosts.reduce((n, h) => n + count(text, h), 0);
   c.blockedProductionHost = prod.blockedProductionHosts.reduce((n, h) => n + count(text, h), 0);
   c.initializeApp = (text.match(/initializeApp\s*\(/g) || []).length;
+  c.firebaseAdminSdk = count(text, 'firebase-admin');            // server-side Admin SDK code has no browser web config
   c.paystackUsage = (text.match(/PaystackPop|js\.paystack\.co/g) || []).length;
   return c;
 }
@@ -134,7 +135,7 @@ function plan(env, root) {
   if (!guard.ok) guard.reasons.forEach((r) => errors.push('Server environment: ' + r));
   for (const f of files) {
     const c = f.counts;
-    if (c.initializeApp > 0 && c['firebase.projectId'] === 0) errors.push(f.rel + ': initializeApp() without a recognised Production Firebase config (unknown config source).');
+    if (c.initializeApp > 0 && c['firebase.projectId'] === 0 && c.firebaseAdminSdk === 0) errors.push(f.rel + ': initializeApp() without a recognised Production Firebase config (unknown config source).');
     if (c.paystackUsage > 0 && c.paystackLiveKey + c.paystackTestKey === 0) errors.push(f.rel + ': uses Paystack but no public key literal was found (unknown key source).');
     if (c.blockedProductionHost > 0) errors.push(f.rel + ': references a Production host that has no staging mapping.');
   }
