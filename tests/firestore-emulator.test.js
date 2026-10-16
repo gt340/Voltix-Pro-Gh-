@@ -151,6 +151,10 @@ test("Sneaker Sink protected balances and prize records cannot be client-written
   await assertFails(updateDoc(doc(alice, "users/alice"), { sinkPower: 10 }));
   await assertFails(updateDoc(doc(alice, "users/alice"), { sinkAim: 5 }));
   await assertFails(updateDoc(doc(alice, "users/alice"), { sinkTotal: 9999 }));
+  await assertFails(updateDoc(doc(alice, "users/alice"), { wins: 999 }));
+  await assertFails(updateDoc(doc(alice, "users/alice"), { ludoWins: 999 }));
+  await assertFails(updateDoc(doc(alice, "users/alice"), { damiiWins: 999 }));
+  await assertFails(updateDoc(doc(alice, "users/alice"), { kaisaWins: 999 }));
   await assertFails(setDoc(doc(alice, "users/new-player"), {
     balls: 0, sinkCoins: 0, sinkPts: 0, sinkGems: 500, sinkPower: 10, sinkAim: 5, sinkTotal: 9999,
   }));
@@ -162,6 +166,6 @@ test("Sneaker Sink protected balances and prize records cannot be client-written
 
 test("public leaderboard reads are allowed but another player's leaderboard cannot be written", async () => {
   await assertSucceeds(getDocs(collection(anonDb(), "leaderboard")));
-  await assertSucceeds(setDoc(doc(userDb("alice"), "leaderboard/alice"), { score: 12 }));
+  await assertFails(setDoc(doc(userDb("alice"), "leaderboard/alice"), { score: 12 }));
   await assertFails(setDoc(doc(userDb("alice"), "leaderboard/bob"), { score: 999999 }));
 });
