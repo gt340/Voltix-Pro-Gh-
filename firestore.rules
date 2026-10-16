@@ -216,13 +216,28 @@ service cloud.firestore {
     // subcollection; the relay subcollection carries game messages when a direct
     // connection isn't possible.
     match /matches/{matchId} {
-      allow create: if request.auth != null && request.resource.data.hostId == request.auth.uid && request.resource.data.status == 'waiting';
+      allow create: if request.auth != null
+        && request.resource.data.hostId == request.auth.uid
+        && request.resource.data.status == 'waiting'
+        && request.resource.data.guestId == null
+        && (!('hostScore' in request.resource.data) || request.resource.data.hostScore == 0)
+        && (!('guestScore' in request.resource.data) || request.resource.data.guestScore == 0)
+        && (!('hostDrops' in request.resource.data) || request.resource.data.hostDrops == 0)
+        && (!('guestDrops' in request.resource.data) || request.resource.data.guestDrops == 0);
       allow read: if request.auth != null && (resource.data.hostId == request.auth.uid || resource.data.guestId == request.auth.uid || resource.data.status == 'waiting');
       allow update: if request.auth != null && (
-        (resource.data.get('game', '') != 'sneaker' && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hostScore','hostDrops','status','winner','finishedAt'])) ||
-        (resource.data.get('game', '') == 'sneaker' && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'cancelled') ||
-        (resource.data.status == 'waiting' && resource.data.guestId == null && request.resource.data.guestId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.status == 'playing' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestId','guestName','status'])) ||
-        (resource.data.get('game', '') != 'sneaker' && resource.data.guestId == request.auth.uid && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestScore','guestDrops']))
+        (resource.data.hostId == request.auth.uid
+          && request.resource.data.hostId == resource.data.hostId
+          && request.resource.data.guestId == resource.data.guestId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'cancelled')
+        ||
+        (resource.data.status == 'waiting'
+          && resource.data.guestId == null
+          && request.resource.data.guestId == request.auth.uid
+          && request.resource.data.hostId == resource.data.hostId
+          && request.resource.data.status == 'playing'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestId','guestName','status']))
       );
       allow delete: if request.auth != null && resource.data.hostId == request.auth.uid;
       match /signal/{sigId} {
