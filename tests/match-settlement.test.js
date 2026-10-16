@@ -66,6 +66,19 @@ test('a second settlement of the same match is rejected without double credit', 
   assert.equal(db.read('users/host').ludoWins, 2);
 });
 
+test('settlement IDs cannot be reused for a different match', async () => {
+  const db = seededDb();
+  const first = payload();
+  assert.equal((await settleVerifiedMatch(deps(db), first, signed(first))).http, 200);
+  db.seed('matches/match_5678', {
+    status: 'playing', game: 'ludo', hostId: 'host', guestId: 'guest',
+    hostName: 'Host', guestName: 'Guest', hostScore: 0, guestScore: 0,
+  });
+  const second = payload({ matchId: 'match_5678' });
+  assert.equal((await settleVerifiedMatch(deps(db), second, signed(second))).http, 409);
+  assert.equal(db.read('matches/match_5678').status, 'playing');
+});
+
 test('payload cannot settle a waiting, mismatched-game, or malformed match', async () => {
   const waitingDb = seededDb('waiting');
   const p = payload();
