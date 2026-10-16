@@ -56,16 +56,16 @@ test('Sneaker Sink economy, scores, leaderboard and prize claims are server-owne
 
 test('game clients do not submit unverified prize claims directly to Firestore', () => {
   const foosball = fs.readFileSync(path.join(__dirname, '..', 'foosball.html'), 'utf8');
-  assert.match(foosball, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.match(foosball, /Prize submissions are temporarily paused until the server can verify (game|match) results/);
   assert.doesNotMatch(foosball, /collection\(['"]winners['"]\)\.add\(/);
   const ludo = fs.readFileSync(path.join(__dirname, '..', 'ludo.html'), 'utf8');
-  assert.match(ludo, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.match(ludo, /Prize submissions are temporarily paused until the server can verify (game|match) results/);
   assert.doesNotMatch(ludo, /collection\(['"]winners['"]\)\.add\(/);
   const damii = fs.readFileSync(path.join(__dirname, '..', 'damii.html'), 'utf8');
-  assert.match(damii, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.match(damii, /Prize submissions are temporarily paused until the server can verify (game|match) results/);
   assert.doesNotMatch(damii, /collection\(['"]winners['"]\)\.add\(/);
   const kaisa = fs.readFileSync(path.join(__dirname, '..', 'kaisa.html'), 'utf8');
-  assert.match(kaisa, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.match(kaisa, /Prize submissions are temporarily paused until the server can verify (game|match) results/);
   assert.doesNotMatch(kaisa, /collection\(['"]winners['"]\)\.add\(/);
 });
 
