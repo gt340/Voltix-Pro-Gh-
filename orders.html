@@ -217,6 +217,7 @@ function openOrderDetail(idx){
   const order = allOrders[idx];
   if(!order) return;
 
+  document.querySelector('.order-detail-sheet a[href^="track-order.html"]').href = 'track-order.html?ref=' + encodeURIComponent(order.ref);
   document.getElementById('odRef').textContent = order.ref;
   document.getElementById('odDate').textContent = new Date(order.date).toLocaleString('en-GB');
   document.getElementById('odAddress').textContent = `${order.customer.address}, ${order.customer.city}`;
