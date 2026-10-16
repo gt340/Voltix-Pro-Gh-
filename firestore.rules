@@ -98,9 +98,13 @@ service cloud.firestore {
         && (!('sinkGems' in request.resource.data) || request.resource.data.sinkGems == 0)
         && (!('sinkPower' in request.resource.data) || request.resource.data.sinkPower == 1)
         && (!('sinkAim' in request.resource.data) || request.resource.data.sinkAim == 0)
-        && (!('sinkTotal' in request.resource.data) || request.resource.data.sinkTotal == 0);
+        && (!('sinkTotal' in request.resource.data) || request.resource.data.sinkTotal == 0)
+        && (!('wins' in request.resource.data) || request.resource.data.wins == 0)
+        && (!('ludoWins' in request.resource.data) || request.resource.data.ludoWins == 0)
+        && (!('damiiWins' in request.resource.data) || request.resource.data.damiiWins == 0)
+        && (!('kaisaWins' in request.resource.data) || request.resource.data.kaisaWins == 0);
       allow update: if request.auth != null && request.auth.uid == userId
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal'])
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal','wins','ludoWins','damiiWins','kaisaWins'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['balls']) ||
           (request.resource.data.balls is number && resource.data.balls is number && request.resource.data.balls >= 0 && request.resource.data.balls < resource.data.balls))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkCoins']) ||
@@ -147,26 +151,30 @@ service cloud.firestore {
 
     match /leaderboard/{docId} {
       allow read: if true;
-      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+      // Results are server-owned until game outcomes are validated.
+      allow write: if isAdmin();
     }
 
     // Kaisa Challenge (pool game) leaderboard — same rules as the foosball one,
     // kept in its own collection so the two games' champions don't mix.
     match /kaisaLeaderboard/{docId} {
       allow read: if true;
-      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+      // Results are server-owned until game outcomes are validated.
+      allow write: if isAdmin();
     }
 
     // Damii (Ghanaian draughts) leaderboard — same rules again
     match /damiiLeaderboard/{docId} {
       allow read: if true;
-      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+      // Results are server-owned until game outcomes are validated.
+      allow write: if isAdmin();
     }
 
     // Ludo leaderboard — same rules again
     match /ludoLeaderboard/{docId} {
       allow read: if true;
-      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+      // Results are server-owned until game outcomes are validated.
+      allow write: if isAdmin();
     }
 
     // Sneaker Sink leaderboard — same rules again
