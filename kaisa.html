@@ -1349,9 +1349,8 @@
 
     // ---------- Prize claim (vs AI, Normal/Hard) ----------
     $('claimPrizeBtn').onclick = () => {
-      $('winnerPrizeText').textContent = 'Prize: ' + (settings.kaisaAiPrize || '—');
-      $('winnerPhone').value = userData.phone || '';
-      $('winnerStatus').textContent = '';
+      $('winnerStatus').textContent = 'Prize claims are temporarily paused until the server can verify game results.';
+      $('submitWinnerBtn').disabled = true;
       $('winnerModal').classList.remove('hidden');
     };
     $('closeWinnerBtn').onclick = () => $('winnerModal').classList.add('hidden');
