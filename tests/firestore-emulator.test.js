@@ -131,6 +131,21 @@ test("match creation and joining are host/guest bound; signaling is participant-
   await assertFails(deleteDoc(doc(bob, "matches/match-1")));
 });
 
+test("Sneaker Sink protected balances and prize records cannot be client-written", async () => {
+  const alice = userDb("alice");
+  await assertFails(updateDoc(doc(alice, "users/alice"), { sinkGems: 999 }));
+  await assertFails(updateDoc(doc(alice, "users/alice"), { sinkPower: 10 }));
+  await assertFails(updateDoc(doc(alice, "users/alice"), { sinkAim: 5 }));
+  await assertFails(updateDoc(doc(alice, "users/alice"), { sinkTotal: 9999 }));
+  await assertFails(setDoc(doc(alice, "users/new-player"), {
+    balls: 0, sinkCoins: 0, sinkPts: 0, sinkGems: 500, sinkPower: 10, sinkAim: 5, sinkTotal: 9999,
+  }));
+  await assertFails(setDoc(doc(alice, "sinkLeaderboard/alice"), { uid: "alice", points: 999999 }));
+  await assertFails(setDoc(doc(alice, "winners/fake-win"), {
+    uid: "alice", game: "sneaker", finalScore: { points: 999999 }, prize: "Free earpods",
+  }));
+});
+
 test("public leaderboard reads are allowed but another player's leaderboard cannot be written", async () => {
   await assertSucceeds(getDocs(collection(anonDb(), "leaderboard")));
   await assertSucceeds(setDoc(doc(userDb("alice"), "leaderboard/alice"), { score: 12 }));
