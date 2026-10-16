@@ -530,20 +530,9 @@
         list.style.color = '#f87171';
       }
     }
+    // Persistent win credit is disabled until a trusted server can validate the match result.
     async function recordWin() {
-      if (!currentUser) return;
-      try {
-        await db.collection('users').doc(currentUser.uid).update({
-          damiiWins: firebase.firestore.FieldValue.increment(1)
-        });
-        const lbRef = db.collection('damiiLeaderboard').doc(currentUser.uid);
-        const lbSnap = await lbRef.get();
-        if (lbSnap.exists) {
-          await lbRef.update({ wins: firebase.firestore.FieldValue.increment(1), name: userData.name });
-        } else {
-          await lbRef.set({ name: userData.name, wins: 1, uid: currentUser.uid });
-        }
-      } catch (err) { console.warn('recordWin failed', err); }
+      console.info('Win recorded locally only; server-verified leaderboard settlement is not available yet.');
     }
 
     // ===================== DAMII ENGINE =====================
