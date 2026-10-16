@@ -46,6 +46,7 @@ beforeEach(async () => {
       hostId: "alice",
       guestId: null,
       status: "waiting",
+      game: "ludo",
       hostScore: 0,
       guestScore: 0,
       hostDrops: 0,
@@ -112,14 +113,18 @@ test("match creation and joining are host/guest bound; signaling is participant-
   const alice = userDb("alice");
   const bob = userDb("bob");
   await assertSucceeds(setDoc(doc(alice, "matches/new-match"), {
-    hostId: "alice", guestId: null, status: "waiting", hostScore: 0, guestScore: 0,
+    hostId: "alice", guestId: null, status: "waiting", game: "ludo", hostScore: 0, guestScore: 0,
     hostDrops: 0, guestDrops: 0,
   }));
   await assertFails(setDoc(doc(bob, "matches/bad-match"), {
     hostId: "alice", guestId: null, status: "waiting",
   }));
   await assertFails(setDoc(doc(alice, "matches/forged-match"), {
-    hostId: "alice", guestId: null, status: "waiting", hostScore: 999, guestScore: 0,
+    hostId: "alice", guestId: null, status: "waiting", game: "ludo", hostScore: 999, guestScore: 0,
+  }));
+  await assertFails(setDoc(doc(alice, "matches/unsupported-game"), {
+    hostId: "alice", guestId: null, status: "waiting", game: "sneaker",
+    hostScore: 0, guestScore: 0, hostDrops: 0, guestDrops: 0,
   }));
   await assertSucceeds(updateDoc(doc(bob, "matches/match-1"), {
     guestId: "bob", guestName: "Bob", status: "playing",
