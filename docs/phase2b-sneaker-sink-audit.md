@@ -52,3 +52,7 @@ The existing rules are materially safer than the original rules, but Sneaker Sin
 - Added unit and emulator tests for action transactions, replay protection, upgrade costs/caps, forged score/economy writes, prize forgery, and Sneaker Sink match score forgery.
 
 CI for the latest commits is still running; do not call these changes test-passed until the latest workflow runs finish green. This is not release-ready: shot simulation, score/gem awards, leaderboard updates, prize eligibility/claims, and authoritative multiplayer settlement remain unfinished. No merge or deployment was performed.
+
+## Cross-game win-counter hardening
+
+A further audit found that Foosball, Ludo, Damii and Kaisa clients increment user win counters and leaderboard documents directly. Since browser-computed results are not authoritative, the isolated rules now also deny client writes to `wins`, `ludoWins`, `damiiWins`, `kaisaWins`, and the public scoreboards. New user documents cannot seed those counters with non-zero values. Emulator coverage was expanded to test owner-side forgery attempts. Until server-side result validation is implemented, persistent win/leaderboard credit is intentionally fail-closed; this may mean current clients display a local win but cannot persist the leaderboard result.
