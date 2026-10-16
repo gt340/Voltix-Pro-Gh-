@@ -1692,7 +1692,6 @@
       db.collection('matches').doc(matchCode).update({
         status: 'finished',
         hostScore: playerScore,
-        guestScore: aiScore,
         winner: winner === 'player' ? 'host' : 'guest',
         finishedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch(() => {});
