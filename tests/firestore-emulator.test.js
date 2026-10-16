@@ -170,4 +170,7 @@ test("public leaderboard reads are allowed but another player's leaderboard cann
   await assertSucceeds(getDocs(collection(anonDb(), "leaderboard")));
   await assertFails(setDoc(doc(userDb("alice"), "leaderboard/alice"), { score: 12 }));
   await assertFails(setDoc(doc(userDb("alice"), "leaderboard/bob"), { score: 999999 }));
+  await assertFails(setDoc(doc(userDb("alice"), "kaisaLeaderboard/alice"), { wins: 999 }));
+  await assertFails(setDoc(doc(userDb("alice"), "damiiLeaderboard/alice"), { wins: 999 }));
+  await assertFails(setDoc(doc(userDb("alice"), "ludoLeaderboard/alice"), { wins: 999 }));
 });
