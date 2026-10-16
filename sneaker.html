@@ -54,7 +54,7 @@ input{width:100%;padding:11px;border-radius:10px;border:1px solid #333;backgroun
 
 <div class="modal" id="shop"><div class="box">
   <h3>Shop &amp; Upgrades</h3>
-  <p>Each solo drop uses 1 coin. Sink a coin to earn prize points (green +1, gold +3) and gems. Reach <b id="tgt2">15</b> points to win: <b id="prizeTxt">a prize</b>.</p>
+  <p>Each solo drop uses 1 coin. Shot results are preview-only while server-side physics validation is being built. Persistent points, gems, leaderboard updates, and prize claims are temporarily disabled.</p>
   <button class="btn" id="buyBtn" style="background:linear-gradient(135deg,#16a34a,#22c55e)">Buy 50 Coins</button>
   <p id="buySt"></p>
   <button class="btn" id="upPw" style="background:linear-gradient(135deg,#f59e0b,#d97706)"></button>
@@ -115,7 +115,7 @@ async function serverAction(action){
   if(!me)throw new Error('Sign in first.');
   const requestId=(crypto.randomUUID?crypto.randomUUID():('req_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,14)));
   const token=await me.getIdToken();
-  const response=await fetch('/api/sneaker-action',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action,requestId})});
+  let response;for(let attempt=0;attempt<2;attempt++){try{response=await fetch('/api/sneaker-action',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action,requestId})});break}catch(e){if(attempt===1)throw e}}
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data.success)throw new Error(data.error||'Game action failed.');
   return data;
