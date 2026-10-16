@@ -1,13 +1,13 @@
-import fs from "node:fs";
-import path from "node:path";
-import { after, before, beforeEach, test } from "node:test";
-import assert from "node:assert/strict";
-import {
+const fs = require("node:fs");
+const path = require("node:path");
+const { after, before, beforeEach, test } = require("node:test");
+const assert = require("node:assert/strict");
+const {
   initializeTestEnvironment,
   assertFails,
   assertSucceeds,
-} from "@firebase/rules-unit-testing";
-import {
+} = require("@firebase/rules-unit-testing");
+const {
   collection,
   deleteDoc,
   doc,
@@ -15,7 +15,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
-} from "firebase/firestore";
+} = require("firebase/firestore");
 
 const projectId = "demo-voltix-rules";
 let env;
