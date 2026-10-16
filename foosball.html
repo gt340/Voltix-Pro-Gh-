@@ -1802,26 +1802,9 @@
     }
 
     async function onMatchEnd(playerWon) {
-      if (playerWon) {
-        await db.collection("users").doc(currentUser.uid).update({
-          wins: firebase.firestore.FieldValue.increment(1)
-        });
-        // Update leaderboard
-        const lbRef = db.collection("leaderboard").doc(currentUser.uid);
-        const lbSnap = await lbRef.get();
-        if (lbSnap.exists) {
-          await lbRef.update({ wins: firebase.firestore.FieldValue.increment(1), name: userData.name });
-        } else {
-          await lbRef.set({ name: userData.name, wins: 1, uid: currentUser.uid });
-        }
-        if (gameMode === "ai") {
-          document.getElementById("winnerPrizeText").textContent = "Prize: " + matchPrizeText;
-          document.getElementById("winnerPhone").value = userData.phone || "";
-          document.getElementById("winnerStatus").textContent = "";
-          document.getElementById("winnerModal").classList.remove("hidden");
-          return; // quitGame happens after they submit their phone number
-        }
-      }
+      setStatus(playerWon
+        ? "You won locally. Prize and leaderboard credit are paused until the server can verify results."
+        : "Match complete. Prize and leaderboard records require server verification.");
       setTimeout(quitGame, 2500);
     }
 
