@@ -312,7 +312,7 @@ function placeOrder(){
 }
 
 function completeOrder(name, phone, region, city, address, total, paymentMethod){
-  const refNum = '#' + (Math.floor(Math.random()*9000)+1000);
+  const refNum = 'VOLTIX-' + Array.from(crypto.getRandomValues(new Uint8Array(8)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
   const order = {
     ref: refNum,
     date: new Date().toISOString(),
