@@ -133,8 +133,8 @@ function ui(){
 }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('show'));
 $('shopBtn').onclick=()=>{ui();$('shop').classList.add('show')};
-$('upPw').onclick=async()=>{if(U.sinkPower>=10||U.sinkGems<pCost())return;await save({sinkGems:U.sinkGems-pCost(),sinkPower:U.sinkPower+1});ui();say('Power UP!','win')};
-$('upAm').onclick=async()=>{if(U.sinkAim>=5||U.sinkGems<aCost())return;await save({sinkGems:U.sinkGems-aCost(),sinkAim:U.sinkAim+1});ui();say('Aim UP!','hard')};
+$('upPw').onclick=async()=>{if(U.sinkPower>=10||U.sinkGems<pCost())return;try{const r=await serverAction('upgradePower');U.sinkGems=r.sinkGems;U.sinkPower=r.sinkPower;ui();say('Power UP!','win')}catch(e){say(e.message||'Upgrade failed','miss');ui()}};
+$('upAm').onclick=async()=>{if(U.sinkAim>=5||U.sinkGems<aCost())return;try{const r=await serverAction('upgradeAim');U.sinkGems=r.sinkGems;U.sinkAim=r.sinkAim;ui();say('Aim UP!','hard')}catch(e){say(e.message||'Upgrade failed','miss');ui()}};
 
 // ---------- buy coins (Paystack -> /api/verify-payment credits sinkCoins) ----------
 $('buyBtn').onclick=()=>{
@@ -192,7 +192,7 @@ async function drop(){
   if(busy||!me)return;
   if(online){if(!started||myDrops>=ONLINE_DROPS||over)return}
   else if((U.sinkCoins||0)<=0){say('Buy coins first','miss');return}
-  busy=true;if(online)myDrops++;else{U.sinkCoins--;db.collection('users').doc(me.uid).update({sinkCoins:FV.increment(-1)}).catch(()=>{})}
+  busy=true;if(online)myDrops++;else{try{const r=await serverAction('spendDrop');U.sinkCoins=r.sinkCoins}catch(e){busy=false;say(e.message||'Could not spend coin','miss');ui();return}}
   ui();ring.visible=false;
   const t=CT[cur];active=new THREE.Mesh(cgeo(cur),new THREE.MeshStandardMaterial({color:t.c,metalness:.85,roughness:.2}));active.position.copy(tg);active.userData.t=cur;scene.add(active);
   const dr=Math.max(.006,.038-U.sinkPower*.0032)/t.m;vel.set((Math.random()-.5)*dr,0,(Math.random()-.5)*dr);splashed=false;tone(550,.07)}
