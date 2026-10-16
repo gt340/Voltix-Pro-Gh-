@@ -100,7 +100,7 @@ test('Sneaker Sink client does not submit score, leaderboard, or final-result wr
   const push = sneaker.match(/function pushScore\(\)\{([^}]*)\}/);
   assert.ok(push, 'pushScore function exists');
   assert.doesNotMatch(push[1], /\.update\(|\.set\(|\.add\(/);
-  const add = sneaker.match(/async function lbAdd\(\) \{([^}]*)\}/);
+  const add = sneaker.match(/async function lbAdd\(\)\{([^}]*)\}/);
   assert.ok(add, 'lbAdd function exists');
   assert.doesNotMatch(add[1], /collection\(|\.update\(|\.set\(|\.add\(/);
   assert.match(sneaker, /Trusted server settlement is required to finalize a match/);
