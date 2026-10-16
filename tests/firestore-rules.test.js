@@ -95,6 +95,17 @@ test('online matchmaking is paused while client-submitted results are forbidden'
   assert.match(onlineSource3, /Online matches are temporarily paused while secure server-side result validation is implemented/);
 });
 
+test('Sneaker Sink client does not submit score, leaderboard, or final-result writes', () => {
+  const sneaker = fs.readFileSync(path.join(__dirname, '..', 'sneaker.html'), 'utf8');
+  const push = sneaker.match(/function pushScore\(\) \{([^}]*)\}/);
+  assert.ok(push, 'pushScore function exists');
+  assert.doesNotMatch(push[1], /\.update\(|\.set\(|\.add\(/);
+  const add = sneaker.match(/async function lbAdd\(\) \{([^}]*)\}/);
+  assert.ok(add, 'lbAdd function exists');
+  assert.doesNotMatch(add[1], /collection\(|\.update\(|\.set\(|\.add\(/);
+  assert.match(sneaker, /Trusted server settlement is required to finalize a match/);
+});
+
 test('wallet, transaction, and chat writes are not broadly open to authenticated users', () => {
   assert.match(rules, /match \/transactions\/\{txId\} \{\s*allow read: if isAdmin\(\) \|\|/);
   assert.match(rules, /match \/groupChat\/\{docId\} \{\s*allow read: if request\.auth != null;\s*allow create: if request\.auth != null && request\.resource\.data\.uid == request\.auth\.uid;/);
