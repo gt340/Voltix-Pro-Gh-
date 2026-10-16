@@ -36,6 +36,15 @@ test('match rooms require host identity and restrict updates to participants', (
   assert.match(rules, /match \/signal\/\{sigId\} \{\s*allow read, write: if request\.auth != null &&/);
 });
 
+test('Kaisa host finalization does not overwrite the guest score', () => {
+  const kaisa = fs.readFileSync(path.join(__dirname, '..', 'kaisa.html'), 'utf8');
+  const start = kaisa.indexOf('function finalizeMatchDoc()');
+  assert.notEqual(start, -1, 'Kaisa finalizer must exist');
+  const end = kaisa.indexOf('}', start);
+  const finalizer = kaisa.slice(start, end);
+  assert.doesNotMatch(finalizer, /guestScore/);
+});
+
 test('wallet, transaction, and chat writes are not broadly open to authenticated users', () => {
   assert.match(rules, /match \/transactions\/\{txId\} \{\s*allow read: if isAdmin\(\) \|\|/);
   assert.match(rules, /match \/groupChat\/\{docId\} \{\s*allow read: if request\.auth != null;\s*allow create: if request\.auth != null && request\.resource\.data\.uid == request\.auth\.uid;/);
