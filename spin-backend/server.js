@@ -181,6 +181,8 @@ app.post('/api/spin', async (req,res)=>{
   let wallet = { coins:0, totalSpend:0, network:null };
   let finalNetwork = 'MTN';
   let prize = pickPrize();
+  let earpodTier = null;
+  let freeShipping = false;
   try {
     const result = await db.runTransaction(async tx => {
       const walletSnap = await tx.get(walletRef);
@@ -191,6 +193,11 @@ app.post('/api/spin', async (req,res)=>{
       if(balance < SPIN_COST) return { error:'Not enough coins', status:400 };
       wallet = current;
       finalNetwork = finalNetworkCandidate || current.network || 'MTN';
+      if(prize.type === 'earpods'){
+        earpodTier = getEligibleEarpodTier(Number(current.totalSpend)||0);
+        if(!earpodTier) prize = { id:'coins10', type:'coins', value:10 };
+        else freeShipping = (Number(current.totalSpend)||0) >= earpodTier.freeShipSpend;
+      }
       const updateData = {
         coins: balance - SPIN_COST,
         network: finalNetwork,
@@ -207,15 +214,6 @@ app.post('/api/spin', async (req,res)=>{
     console.error('spin transaction failed:', err.message);
     return res.status(500).json({ error:'Could not process spin' });
   }
-  const totalSpend = wallet.totalSpend || 0;
-  let earpodTier = null;
-  let freeShipping = false;
-  if(prize.type === 'earpods'){
-    earpodTier = getEligibleEarpodTier(totalSpend);
-    if(!earpodTier){ prize = { id:'coins10', type:'coins', value:10 }; }
-    else { freeShipping = totalSpend >= earpodTier.freeShipSpend; }
-  }
-
   try{
     if(prize.type === 'coins'){
       await walletRef.update({ coins: admin.firestore.FieldValue.increment(prize.value) });
