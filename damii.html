@@ -1008,33 +1008,10 @@
       $('winnerModal').classList.remove('hidden');
     };
     $('closeWinnerBtn').onclick = () => $('winnerModal').classList.add('hidden');
-    $('submitWinnerBtn').onclick = async () => {
-      const phone = $('winnerPhone').value.trim();
+    $('submitWinnerBtn').onclick = () => {
       const st = $('winnerStatus');
-      if (!phone) { st.textContent = 'Please enter a phone number.'; st.style.color = '#f87171'; return; }
-      $('submitWinnerBtn').disabled = true;
-      try {
-        await db.collection('winners').add({
-          uid: currentUser.uid,
-          name: userData.name || 'Player',
-          phone,
-          prize: settings.damiiAiPrize || '',
-          mode: 'ai',
-          game: 'damii',
-          finalScore: { you: countPieces('b'), opponent: countPieces('r') },
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        await db.collection('users').doc(currentUser.uid).update({ phone });
-        userData.phone = phone;
-        $('btnClaim').classList.add('hidden');
-        st.style.color = '#86efac';
-        st.textContent = "Submitted! We'll contact you about your prize.";
-        setTimeout(() => $('winnerModal').classList.add('hidden'), 1800);
-      } catch (err) {
-        st.style.color = '#f87171';
-        st.textContent = "Couldn't submit: " + err.message;
-      }
-      $('submitWinnerBtn').disabled = false;
+      st.style.color = '#fbbf24';
+      st.textContent = 'Prize submissions are temporarily paused until the server can verify game results. No request or phone number was saved.';
     };
 
     // ===================== MODES =====================
