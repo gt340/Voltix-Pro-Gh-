@@ -97,7 +97,7 @@ test('online matchmaking is paused while client-submitted results are forbidden'
 
 test('Sneaker Sink client does not submit score, leaderboard, or final-result writes', () => {
   const sneaker = fs.readFileSync(path.join(__dirname, '..', 'sneaker.html'), 'utf8');
-  const push = sneaker.match(/function pushScore\(\) \{([^}]*)\}/);
+  const push = sneaker.match(/function pushScore\(\)\{([^}]*)\}/);
   assert.ok(push, 'pushScore function exists');
   assert.doesNotMatch(push[1], /\.update\(|\.set\(|\.add\(/);
   const add = sneaker.match(/async function lbAdd\(\) \{([^}]*)\}/);
