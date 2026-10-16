@@ -95,18 +95,25 @@ app.get('/api/wallet', async (req,res)=>{
 
 // ---------- FREE STARTER SPIN ----------
 app.post('/api/claim-free-spin', async (req,res)=>{
-  const { phone, name } = req.body;
-  if(!phone) return res.status(400).json({ error:'phone required' });
+  const { phone, name } = req.body || {};
+  if(!phone || typeof phone !== 'string' || phone.length > 24 || /[\\/]/.test(phone)) return res.status(400).json({ error:'Valid phone required' });
   const walletRef = db.collection('wallets').doc(phone);
-  const snap = await walletRef.get();
-  const alreadyClaimed = snap.exists && snap.data().claimedFreeSpin;
-  if(alreadyClaimed) return res.json({ claimed:false, coins: snap.data().coins || 0 });
-
-  const updateData = { coins: admin.firestore.FieldValue.increment(20), claimedFreeSpin: true };
-  if(name) updateData.name = name;
-  await walletRef.set(updateData, { merge:true });
-  const newSnap = await walletRef.get();
-  res.json({ claimed:true, coins: newSnap.data().coins || 0 });
+  try {
+    const result = await db.runTransaction(async tx => {
+      const snap = await tx.get(walletRef);
+      const data = snap.exists ? snap.data() : {};
+      if(data.claimedFreeSpin) return { claimed:false, coins:Number(data.coins)||0 };
+      const coins = (Number(data.coins)||0) + 20;
+      const updateData = { coins, claimedFreeSpin:true };
+      if(typeof name === 'string') updateData.name = name.slice(0,80);
+      tx.set(walletRef, updateData, { merge:true });
+      return { claimed:true, coins };
+    });
+    res.json(result);
+  } catch(err) {
+    console.error('claim-free-spin failed:', err.message);
+    res.status(500).json({ error:'Could not claim starter coins' });
+  }
 });
 
 // ---------- SPIN REFERRAL CODES ----------
@@ -134,10 +141,30 @@ async function logSpinWinner(phone, name, prizeLabel, prizeId){
     status: 'pending', createdAt: new Date().toISOString()
   });
 }
+async function isAdminRequest(req) {
+  const header = req.headers.authorization || '';
+  const match = header.match(/^Bearer (.+)$/i);
+  if(!match) return false;
+  try {
+    const decoded = await admin.auth().verifyIdToken(match[1]);
+    const adminDoc = await db.collection('admins').doc(decoded.uid).get();
+    return adminDoc.exists;
+  } catch (_) {
+    return false;
+  }
+}
 app.post('/api/mark-winner-fulfilled', async (req,res)=>{
-  const { winnerId } = req.body;
-  await db.collection('spinWinners').doc(winnerId).update({ status:'fulfilled' });
-  res.json({ status:'ok' });
+  if(!(await isAdminRequest(req))) return res.status(403).json({ error:'Admin authorization required' });
+  const { winnerId } = req.body || {};
+  if(typeof winnerId !== 'string' || !/^[A-Za-z0-9_-]{1,150}$/.test(winnerId)) return res.status(400).json({ error:'Valid winner ID required' });
+  try {
+    await db.collection('spinWinners').doc(winnerId).update({ status:'fulfilled', fulfilledAt:new Date().toISOString() });
+    res.json({ status:'ok' });
+  } catch(err) {
+    if(err.code === 5) return res.status(404).json({ error:'Winner record not found' });
+    console.error('mark-winner-fulfilled failed:', err.message);
+    res.status(500).json({ error:'Could not update winner status' });
+  }
 });
 
 // ---------- SPIN ----------
@@ -145,31 +172,41 @@ app.post('/api/spin', async (req,res)=>{
   const { phone, network, name } = req.body;
   if(!phone) return res.status(400).json({ error:'phone required' });
 
+  if(typeof phone !== 'string' || phone.length > 24 || /[\\/]/.test(phone)) return res.status(400).json({ error:'Valid phone required' });
   const walletRef = db.collection('wallets').doc(phone);
-  const walletSnap = await walletRef.get();
-  const wallet = walletSnap.exists ? walletSnap.data() : { coins: 0, totalSpend: 0 };
-
-  const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-  let spinsTodayCount = 0;
-  try{
-    const spinsToday = await db.collection('spins')
-      .where('phone','==',phone)
-      .where('createdAt','>=', startOfDay.toISOString())
-      .get();
-    spinsTodayCount = spinsToday.size;
-  } catch(err){
-    console.error('Daily spin count query failed (likely missing index):', err.message);
-    // Fail open rather than blocking every spin if this query ever breaks again
-  }
-  if(spinsTodayCount >= DAILY_SPIN_CAP) return res.status(429).json({ error:'Daily spin limit reached' });
-  if(wallet.coins < SPIN_COST) return res.status(400).json({ error:'Not enough coins' });
-
-  const finalNetwork = network || wallet.network || 'MTN';
-  const updateData = { coins: admin.firestore.FieldValue.increment(-SPIN_COST), network: finalNetwork };
-  if(name) updateData.name = name;
-  await walletRef.set(updateData, { merge:true });
-
+  const spinRef = db.collection('spins').doc();
+  const nowDate = new Date();
+  const dayKey = nowDate.toISOString().slice(0,10);
+  const finalNetworkCandidate = ['MTN','TELECEL','AT'].includes(network) ? network : null;
+  let wallet = { coins:0, totalSpend:0, network:null };
+  let finalNetwork = 'MTN';
   let prize = pickPrize();
+  try {
+    const result = await db.runTransaction(async tx => {
+      const walletSnap = await tx.get(walletRef);
+      const current = walletSnap.exists ? walletSnap.data() : { coins:0, totalSpend:0 };
+      const currentCount = current.dailySpinDate === dayKey ? (Number(current.dailySpinCount)||0) : 0;
+      const balance = Number(current.coins)||0;
+      if(currentCount >= DAILY_SPIN_CAP) return { error:'Daily spin limit reached', status:429 };
+      if(balance < SPIN_COST) return { error:'Not enough coins', status:400 };
+      wallet = current;
+      finalNetwork = finalNetworkCandidate || current.network || 'MTN';
+      const updateData = {
+        coins: balance - SPIN_COST,
+        network: finalNetwork,
+        dailySpinDate: dayKey,
+        dailySpinCount: currentCount + 1
+      };
+      if(typeof name === 'string') updateData.name = name.slice(0,80);
+      tx.set(walletRef, updateData, { merge:true });
+      tx.set(spinRef, { phone, prizeId:prize.id, network:finalNetwork, createdAt:nowDate.toISOString(), dayKey }, { merge:false });
+      return { ok:true };
+    });
+    if(result.error) return res.status(result.status).json({ error:result.error });
+  } catch(err) {
+    console.error('spin transaction failed:', err.message);
+    return res.status(500).json({ error:'Could not process spin' });
+  }
   const totalSpend = wallet.totalSpend || 0;
   let earpodTier = null;
   let freeShipping = false;
@@ -178,8 +215,6 @@ app.post('/api/spin', async (req,res)=>{
     if(!earpodTier){ prize = { id:'coins10', type:'coins', value:10 }; }
     else { freeShipping = totalSpend >= earpodTier.freeShipSpend; }
   }
-
-  await db.collection('spins').add({ phone, prizeId: prize.id, network: finalNetwork, createdAt: new Date().toISOString() });
 
   try{
     if(prize.type === 'coins'){
