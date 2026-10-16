@@ -40,7 +40,8 @@ test('Kaisa host finalization does not overwrite the guest score', () => {
   const kaisa = fs.readFileSync(path.join(__dirname, '..', 'kaisa.html'), 'utf8');
   const start = kaisa.indexOf('function finalizeMatchDoc()');
   assert.notEqual(start, -1, 'Kaisa finalizer must exist');
-  const end = kaisa.indexOf('}', start);
+  const end = kaisa.indexOf('// ---------- Emoji reactions', start);
+  assert.notEqual(end, -1, 'Kaisa finalizer section boundary must exist');
   const finalizer = kaisa.slice(start, end);
   assert.doesNotMatch(finalizer, /guestScore/);
 });
