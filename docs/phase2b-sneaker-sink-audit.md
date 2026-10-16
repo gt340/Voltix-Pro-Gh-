@@ -56,3 +56,9 @@ CI for the latest commits is still running; do not call these changes test-passe
 ## Cross-game win-counter hardening
 
 A further audit found that Foosball, Ludo, Damii and Kaisa clients increment user win counters and leaderboard documents directly. Since browser-computed results are not authoritative, the isolated rules now also deny client writes to `wins`, `ludoWins`, `damiiWins`, `kaisaWins`, and the public scoreboards. New user documents cannot seed those counters with non-zero values. Emulator coverage was expanded to test owner-side forgery attempts. Until server-side result validation is implemented, persistent win/leaderboard credit is intentionally fail-closed; this may mean current clients display a local win but cannot persist the leaderboard result.
+
+## Remaining release blockers after the latest audit pass
+
+- Multiplayer match documents for Foosball, Kaisa, Damii and Ludo still permit participants to submit their own score/drop fields. Field ownership is not proof of a valid match result; those games need trusted result settlement and duplicate-settlement protection before release.
+- Spin & Win calls the separately hosted `spin-backend-delta.vercel.app` service. Its backend source is not in this repository, so this branch's rules audit does not establish that spin outcomes, wallet credits, referral bonuses, or prize fulfillment are safe. Audit that backend separately before claiming Spin & Win is secured.
+- Server-authoritative solo Sneaker Sink shot simulation and prize eligibility remain unfinished. Current scoring persistence is intentionally disabled.
