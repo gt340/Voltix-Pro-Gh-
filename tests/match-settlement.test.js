@@ -88,7 +88,8 @@ test('payload cannot settle a waiting, mismatched-game, or malformed match', asy
   const wrongGame = payload({ game: 'kaisa' });
   assert.equal((await settleVerifiedMatch(deps(gameDb), wrongGame, signed(wrongGame))).http, 409);
 
-  assert.equal((await settleVerifiedMatch(deps(gameDb), payload({ hostScore: -1 }), signed(payload({ hostScore: -1 }))).http, 400);
+  const malformed = payload({ hostScore: -1 });
+  assert.equal((await settleVerifiedMatch(deps(gameDb), malformed, signed(malformed))).http, 400);
 });
 
 test('draw finishes the match but does not increment a player leaderboard', async () => {
