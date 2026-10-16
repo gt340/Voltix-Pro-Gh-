@@ -1363,7 +1363,7 @@
       if (isHost) sendState();
     }
 
-    $('btnCreate').onclick = async () => {
+    $('btnCreate').onclick = async () => { alert('Online matches are temporarily paused while secure server-side result validation is implemented.'); return;
       if (!currentUser && !(await waitForAuth())) return;
       $('lobbyMsg').textContent = '';
       const code = makeCode();
@@ -1441,7 +1441,7 @@
       }
     };
 
-    $('btnJoin').onclick = async () => {
+    $('btnJoin').onclick = async () => { alert('Online matches are temporarily paused while secure server-side result validation is implemented.'); return;
       if (!currentUser && !(await waitForAuth())) return;
       const msgEl = $('lobbyMsg');
       msgEl.textContent = '';
