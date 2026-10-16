@@ -69,6 +69,21 @@ test('game clients do not submit unverified prize claims directly to Firestore',
   assert.doesNotMatch(kaisa, /collection\(['"]winners['"]\)\.add\(/);
 });
 
+test('game win counters are not written directly by unverified clients', () => {
+  const winSource0 = fs.readFileSync(path.join(__dirname, '..', 'ludo.html'), 'utf8');
+  const winFn0 = winSource0.match(/async function recordWin\(\) \{([\s\S]*?)\n    \}/);
+  assert.ok(winFn0, 'recordWin function exists in ludo.html');
+  assert.doesNotMatch(winFn0[1], /collection\(|\.update\(|\.set\(/);
+  const winSource1 = fs.readFileSync(path.join(__dirname, '..', 'damii.html'), 'utf8');
+  const winFn1 = winSource1.match(/async function recordWin\(\) \{([\s\S]*?)\n    \}/);
+  assert.ok(winFn1, 'recordWin function exists in damii.html');
+  assert.doesNotMatch(winFn1[1], /collection\(|\.update\(|\.set\(/);
+  const winSource2 = fs.readFileSync(path.join(__dirname, '..', 'kaisa.html'), 'utf8');
+  const winFn2 = winSource2.match(/async function recordWin\(\) \{([\s\S]*?)\n    \}/);
+  assert.ok(winFn2, 'recordWin function exists in kaisa.html');
+  assert.doesNotMatch(winFn2[1], /collection\(|\.update\(|\.set\(/);
+});
+
 test('wallet, transaction, and chat writes are not broadly open to authenticated users', () => {
   assert.match(rules, /match \/transactions\/\{txId\} \{\s*allow read: if isAdmin\(\) \|\|/);
   assert.match(rules, /match \/groupChat\/\{docId\} \{\s*allow read: if request\.auth != null;\s*allow create: if request\.auth != null && request\.resource\.data\.uid == request\.auth\.uid;/);
