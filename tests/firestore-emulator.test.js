@@ -87,6 +87,8 @@ test("wallets are inaccessible and admin-only catalog writes are enforced", asyn
 test("orders remain creatable by guests but private reads and mutations are admin-only", async () => {
   await assertSucceeds(setDoc(doc(anonDb(), "orders/guest-order"), { status: "pending" }));
   await assertFails(getDoc(doc(userDb("alice"), "orders/order-1")));
+  // This is the collection query used by getOrdersByPhone() in app.js.
+  await assertFails(getDocs(collection(userDb("alice"), "orders")));
   await assertFails(updateDoc(doc(userDb("alice"), "orders/order-1"), { status: "paid" }));
   await assertSucceeds(getDoc(doc(adminDb(), "orders/order-1")));
 });
