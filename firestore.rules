@@ -14,15 +14,15 @@ service cloud.firestore {
     // ===== STORE RULES (existing) =====
     match /products/{productId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
     match /categories/{id} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
     match /settings/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
     match /referrers/{uid} {
       // Doc ID is the referrer's own Firebase Auth UID (real login now,
@@ -38,15 +38,15 @@ service cloud.firestore {
     }
     match /referralSales/{docId} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read, update, delete: if isAdmin();
     }
     match /withdrawalRequests/{docId} {
-      allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.status == 'pending' && request.resource.data.amount is number && request.resource.data.amount > 0;
+      allow read, update, delete: if isAdmin();
     }
     match /coupons/{code} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
       // Lets checkout (no admin login) bump usedCount by exactly 1 when a
       // coupon is actually redeemed on an order — nothing else about the
       // coupon (discount value, active flag, expiry...) can change this way.
@@ -56,65 +56,60 @@ service cloud.firestore {
     }
     match /music/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
     match /shorts/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
     match /orders/{orderId} {
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
       allow create: if true;
-      allow update: if request.auth != null;
+      allow update, delete: if isAdmin();
     }
     match /wallets/{phone} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow read, write: if false;
     }
     match /spinWinners/{id} {
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
       allow write: if false;
     }
     match /spinReferrals/{id} {
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
       allow write: if false;
     }
     match /coinPurchases/{id} {
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
       allow write: if false;
     }
     match /reviews/{id} {
-      allow read: if resource.data.approved == true || request.auth != null;
-      allow create: if true;
-      allow update, delete: if request.auth != null;
+      allow read: if resource.data.approved == true || isAdmin();
+      allow create: if request.resource.data.approved == false && request.resource.data.featured == false;
+      allow update, delete: if isAdmin();
     }
 
     // ===== GAME RULES (new) =====
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // balls and Sneaker Sink coins can only go DOWN from the browser;
-      // adding them happens server-side (verify-payment) after Paystack confirms.
-      allow update: if request.auth != null && request.auth.uid == userId &&
-        (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['balls']) ||
-          (request.resource.data.balls is number && resource.data.balls is number
-            && request.resource.data.balls < resource.data.balls)
-        ) &&
-        (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkCoins']) ||
-          (request.resource.data.sinkCoins is number
-            && request.resource.data.sinkCoins < resource.data.get('sinkCoins', 0))
-        );
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow create: if request.auth != null && request.auth.uid == userId
+        && (!('balls' in request.resource.data) || request.resource.data.balls == 0)
+        && (!('sinkCoins' in request.resource.data) || request.resource.data.sinkCoins == 0)
+        && (!('sinkPts' in request.resource.data) || request.resource.data.sinkPts == 0);
+      allow update: if request.auth != null && request.auth.uid == userId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkPts'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['balls']) ||
+          (request.resource.data.balls is number && resource.data.balls is number && request.resource.data.balls >= 0 && request.resource.data.balls < resource.data.balls))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkCoins']) ||
+          (request.resource.data.sinkCoins is number && request.resource.data.sinkCoins >= 0 && request.resource.data.sinkCoins < resource.data.get('sinkCoins', 0)));
 
-      // Each user's own friends list — only they can read/write it
+// Each user's own friends list — only they can read/write it
       match /friends/{friendId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 
     match /transactions/{txId} {
-      allow read: if request.auth != null;
+      allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
       allow write: if false;
     }
 
@@ -186,7 +181,9 @@ service cloud.firestore {
 
     // Group chat — any signed-in player (including anonymous accounts) can read/post
     match /groupChat/{docId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
     }
 
     // Direct messages — dmId is formed as "uid1_uid2" (sorted), so only the
@@ -207,12 +204,19 @@ service cloud.firestore {
     // subcollection; the relay subcollection carries game messages when a direct
     // connection isn't possible.
     match /matches/{matchId} {
-      allow read, write: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.hostId == request.auth.uid && request.resource.data.status == 'waiting';
+      allow read: if request.auth != null && (resource.data.hostId == request.auth.uid || resource.data.guestId == request.auth.uid || resource.data.status == 'waiting');
+      allow update: if request.auth != null && (
+        (resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hostScore','hostDrops','status','winner','finishedAt'])) ||
+        (resource.data.status == 'waiting' && resource.data.guestId == null && request.resource.data.guestId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestId','guestName','status'])) ||
+        (resource.data.guestId == request.auth.uid && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestScore','guestDrops']))
+      );
+      allow delete: if request.auth != null && resource.data.hostId == request.auth.uid;
       match /signal/{sigId} {
-        allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null && (get(/databases/$(database)/documents/matches/$(matchId)).data.hostId == request.auth.uid || get(/databases/$(database)/documents/matches/$(matchId)).data.guestId == request.auth.uid);
       }
       match /relay/{relayId} {
-        allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null && (get(/databases/$(database)/documents/matches/$(matchId)).data.hostId == request.auth.uid || get(/databases/$(database)/documents/matches/$(matchId)).data.guestId == request.auth.uid);
       }
     }
   }
