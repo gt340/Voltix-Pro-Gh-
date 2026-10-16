@@ -1808,32 +1808,10 @@
       setTimeout(quitGame, 2500);
     }
 
-    document.getElementById("submitWinnerBtn").onclick = async () => {
-      const phone = document.getElementById("winnerPhone").value.trim();
+    document.getElementById("submitWinnerBtn").onclick = () => {
       const statusEl = document.getElementById("winnerStatus");
-      if (!phone) { statusEl.textContent = "Please enter a phone number."; statusEl.style.color = "#f87171"; return; }
-      try {
-        await db.collection("winners").add({
-          uid: currentUser.uid,
-          name: userData.name || "Player",
-          phone,
-          prize: matchPrizeText,
-          mode: gameMode,
-          finalScore: { you: playerScore, opponent: aiScore },
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        // Keep this number on the profile too, for next time
-        await db.collection("users").doc(currentUser.uid).update({ phone });
-        statusEl.style.color = "#86efac";
-        statusEl.textContent = "Submitted! We'll contact you about your prize.";
-        setTimeout(() => {
-          document.getElementById("winnerModal").classList.add("hidden");
-          quitGame();
-        }, 1800);
-      } catch (err) {
-        statusEl.style.color = "#f87171";
-        statusEl.textContent = "Couldn't submit: " + err.message;
-      }
+      statusEl.style.color = "#fbbf24";
+      statusEl.textContent = "Prize submissions are temporarily paused until the server can verify match results. No request or phone number was saved.";
     };
 
     // ---- Halftime / full-time / draw handling (vs AI) ----
