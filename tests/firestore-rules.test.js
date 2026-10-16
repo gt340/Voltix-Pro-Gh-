@@ -84,6 +84,17 @@ test('game win counters are not written directly by unverified clients', () => {
   assert.doesNotMatch(winFn2[1], /collection\(|\.update\(|\.set\(/);
 });
 
+test('online matchmaking is paused while client-submitted results are forbidden', () => {
+  const onlineSource0 = fs.readFileSync(path.join(__dirname, '..', 'foosball.html'), 'utf8');
+  assert.match(onlineSource0, /Online matches are temporarily paused while secure server-side result validation is implemented/);
+  const onlineSource1 = fs.readFileSync(path.join(__dirname, '..', 'ludo.html'), 'utf8');
+  assert.match(onlineSource1, /Online matches are temporarily paused while secure server-side result validation is implemented/);
+  const onlineSource2 = fs.readFileSync(path.join(__dirname, '..', 'damii.html'), 'utf8');
+  assert.match(onlineSource2, /Online matches are temporarily paused while secure server-side result validation is implemented/);
+  const onlineSource3 = fs.readFileSync(path.join(__dirname, '..', 'kaisa.html'), 'utf8');
+  assert.match(onlineSource3, /Online matches are temporarily paused while secure server-side result validation is implemented/);
+});
+
 test('wallet, transaction, and chat writes are not broadly open to authenticated users', () => {
   assert.match(rules, /match \/transactions\/\{txId\} \{\s*allow read: if isAdmin\(\) \|\|/);
   assert.match(rules, /match \/groupChat\/\{docId\} \{\s*allow read: if request\.auth != null;\s*allow create: if request\.auth != null && request\.resource\.data\.uid == request\.auth\.uid;/);
