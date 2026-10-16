@@ -76,3 +76,5 @@ The newest emulator/static test runs for both repositories are in progress. Do n
 The Ludo, Damii and Kaisa clients no longer attempt to increment persistent win counters or leaderboard documents after a local win. Their prize-submit handlers now stop locally with a clear paused notice and do not send phone numbers or create prize requests. Foosball's prize-submit handler follows the same behavior in the primary repository. Static regression tests cover these UI paths.
 
 This does not restore win credit or prize claims. Those functions remain unavailable until server-side game outcome validation and idempotent settlement are implemented. Latest CI runs for these newest changes are still pending.
+
+The online-match pause has now been applied consistently to the available game clients in both repositories: primary includes Foosball, Ludo, Damii and Kaisa; the duplicate contains Ludo, Damii and Kaisa. Static regression tests now assert the pause notice remains present. This is still a temporary fail-closed state, not a replacement for a server-authoritative game engine.
