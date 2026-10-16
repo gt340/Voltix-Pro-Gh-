@@ -15,7 +15,7 @@ test('private wallet and purchase records are not readable by any signed-in user
 
 test('user documents are owner/admin-readable and client updates cannot change sinkPts', () => {
   assert.match(rules, /allow read: if isAdmin\(\) \|\| \(request\.auth != null && request\.auth\.uid == userId\);/);
-  assert.match(rules, /hasAny\(\['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal'\]\)/);
+  assert.match(rules, /hasAny\(\['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal','wins','ludoWins','damiiWins','kaisaWins'\]\)/);
   assert.match(rules, /request\.resource\.data\.balls >= 0/);
   assert.match(rules, /request\.resource\.data\.sinkCoins >= 0/);
 });
@@ -47,7 +47,7 @@ test('Kaisa host finalization does not overwrite the guest score', () => {
 });
 
 test('Sneaker Sink economy, scores, leaderboard and prize claims are server-owned', () => {
-  assert.match(rules, /hasAny\(\['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal'\]\)/);
+  assert.match(rules, /hasAny\(\['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal','wins','ludoWins','damiiWins','kaisaWins'\]\)/);
   assert.match(rules, /request\.resource\.data\.sinkGems == 0/);
   assert.match(rules, /request\.resource\.data\.sinkPower == 1/);
   assert.match(rules, /match \/sinkLeaderboard\/\{docId\} \{[\s\S]*?allow write: if isAdmin\(\);/);
