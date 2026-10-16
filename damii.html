@@ -1003,9 +1003,8 @@
 
     // ---------- Prize claim (vs AI) ----------
     $('btnClaim').onclick = () => {
-      $('winnerPrizeText').textContent = 'Prize: ' + (settings.damiiAiPrize || '—');
-      $('winnerPhone').value = userData.phone || '';
-      $('winnerStatus').textContent = '';
+      $('winnerStatus').textContent = 'Prize claims are temporarily paused until the server can verify game results.';
+      $('submitWinnerBtn').disabled = true;
       $('winnerModal').classList.remove('hidden');
     };
     $('closeWinnerBtn').onclick = () => $('winnerModal').classList.add('hidden');
