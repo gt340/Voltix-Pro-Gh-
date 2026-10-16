@@ -1044,7 +1044,7 @@
 
     let unsubMatch = null;
 
-    document.getElementById("createRoomBtn").onclick = async () => {
+    document.getElementById("createRoomBtn").onclick = async () => { alert("Online matches are temporarily paused while secure server-side result validation is implemented."); return;
       if (!currentUser) {
         const ok = await waitForAuth();
         if (!ok || !currentUser) return;
@@ -1075,7 +1075,7 @@
       };
     };
 
-    document.getElementById("joinRoomBtn").onclick = async () => {
+    document.getElementById("joinRoomBtn").onclick = async () => { alert("Online matches are temporarily paused while secure server-side result validation is implemented."); return;
       if (!currentUser) {
         const ok = await waitForAuth();
         if (!ok || !currentUser) return;
