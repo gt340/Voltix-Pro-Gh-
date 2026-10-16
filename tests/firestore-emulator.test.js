@@ -119,6 +119,11 @@ test("match creation and joining are host/guest bound; signaling is participant-
   await assertSucceeds(updateDoc(doc(bob, "matches/match-1"), {
     guestId: "bob", guestName: "Bob", status: "playing",
   }));
+  // The host may finalize the room, but must not overwrite the guest's score.
+  await assertFails(updateDoc(doc(alice, "matches/match-1"), { guestScore: 999 }));
+  await assertSucceeds(updateDoc(doc(alice, "matches/match-1"), {
+    status: "finished", hostScore: 3, winner: "host",
+  }));
   await assertSucceeds(setDoc(doc(bob, "matches/match-1/signal/s1"), { offer: "test" }));
   await assertFails(setDoc(doc(userDb("mallory"), "matches/match-1/signal/s2"), { offer: "test" }));
   await assertFails(deleteDoc(doc(bob, "matches/match-1")));
