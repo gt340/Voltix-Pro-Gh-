@@ -62,3 +62,11 @@ A further audit found that Foosball, Ludo, Damii and Kaisa clients increment use
 - Multiplayer match documents for Foosball, Kaisa, Damii and Ludo still permit participants to submit their own score/drop fields. Field ownership is not proof of a valid match result; those games need trusted result settlement and duplicate-settlement protection before release.
 - Spin & Win calls the separately hosted `spin-backend-delta.vercel.app` service. Its backend source is not in this repository, so this branch's rules audit does not establish that spin outcomes, wallet credits, referral bonuses, or prize fulfillment are safe. Audit that backend separately before claiming Spin & Win is secured.
 - Server-authoritative solo Sneaker Sink shot simulation and prize eligibility remain unfinished. Current scoring persistence is intentionally disabled.
+
+## Multiplayer score path now fail-closed
+
+The latest rules revision denies browser writes to all match score/drop/winner/finalization fields for every game, not only Sneaker Sink. Match creation requires a waiting room with an empty guest seat and zero-valued initial scores/drops; guests may claim an open seat; hosts may cancel. Trusted server-side result settlement is not yet implemented.
+
+To avoid presenting broken online play as available, the primary repository's Foosball, Ludo, Damii, and Kaisa create/join handlers now show a temporary pause notice. AI/local gameplay remains available, but leaderboard credit and prize submissions remain paused where they depend on unverified client results. This is a deliberate security/availability tradeoff on the isolated branch only.
+
+The newest emulator/static test runs for both repositories are in progress. Do not treat this revision as verified until both finish green. No merge, deployment, Production settings change, or Production Firestore write was performed.
