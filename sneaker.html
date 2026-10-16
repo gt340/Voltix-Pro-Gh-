@@ -111,6 +111,15 @@ async function boot(){
   S.sneakerTarget=parseInt(S.sneakerTarget)||15;S.sneakerCoinPack=parseInt(S.sneakerCoinPack)||50;S.sneakerCoinPriceGhc=Number(S.sneakerCoinPriceGhc)||10;ui();
 }
 function save(f){Object.assign(U,f);return db.collection('users').doc(me.uid).update(f).catch(e=>console.warn(e))}
+async function serverAction(action){
+  if(!me)throw new Error('Sign in first.');
+  const requestId=(crypto.randomUUID?crypto.randomUUID():('req_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,14)));
+  const token=await me.getIdToken();
+  const response=await fetch('/api/sneaker-action',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action,requestId})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.success)throw new Error(data.error||'Game action failed.');
+  return data;
+}
 function pCost(){return 4+(U.sinkPower-1)*3}function aCost(){return 6+U.sinkAim*4}
 function ui(){
   const c=U.sinkCoins||0;
