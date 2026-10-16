@@ -94,7 +94,11 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId
         && (!('balls' in request.resource.data) || request.resource.data.balls == 0)
         && (!('sinkCoins' in request.resource.data) || request.resource.data.sinkCoins == 0)
-        && (!('sinkPts' in request.resource.data) || request.resource.data.sinkPts == 0);
+        && (!('sinkPts' in request.resource.data) || request.resource.data.sinkPts == 0)
+        && (!('sinkGems' in request.resource.data) || request.resource.data.sinkGems == 0)
+        && (!('sinkPower' in request.resource.data) || request.resource.data.sinkPower == 1)
+        && (!('sinkAim' in request.resource.data) || request.resource.data.sinkAim == 0)
+        && (!('sinkTotal' in request.resource.data) || request.resource.data.sinkTotal == 0);
       allow update: if request.auth != null && request.auth.uid == userId
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['balls']) ||
@@ -113,9 +117,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Prize winners — users can create their own record when they win
-    // (used to collect phone numbers for prize fulfillment). Only admins
-    // can read the full list, update, or delete.
+    // Prize records are server-created after trusted eligibility validation.
     match /winners/{winnerId} {
       // Prize claims must be created by trusted server-side validation, never by a browser.
       allow create: if false;
