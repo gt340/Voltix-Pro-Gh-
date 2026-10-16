@@ -48,10 +48,8 @@ test('Kaisa host finalization does not overwrite the guest score', () => {
 
 test('Sneaker Sink economy, scores, leaderboard and prize claims are server-owned', () => {
   assert.match(rules, /hasAny\(\['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal'\]\)/);
-  const lb = rules.slice(rules.indexOf('match /sinkLeaderboard/'), rules.indexOf('\\n    }', rules.indexOf('match /sinkLeaderboard/')) + 6);
-  assert.match(lb, /allow write: if isAdmin\(\);/);
-  const winners = rules.slice(rules.indexOf('match /winners/'), rules.indexOf('\\n    }', rules.indexOf('match /winners/')) + 6);
-  assert.match(winners, /allow create: if false;/);
+  assert.match(rules, /match \/sinkLeaderboard\/\{docId\} \{[\s\S]*?allow write: if isAdmin\(\);/);
+  assert.match(rules, /match \/winners\/\{winnerId\} \{[\s\S]*?allow create: if false;/);
 });
 
 test('wallet, transaction, and chat writes are not broadly open to authenticated users', () => {
