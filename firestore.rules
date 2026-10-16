@@ -96,7 +96,7 @@ service cloud.firestore {
         && (!('sinkCoins' in request.resource.data) || request.resource.data.sinkCoins == 0)
         && (!('sinkPts' in request.resource.data) || request.resource.data.sinkPts == 0);
       allow update: if request.auth != null && request.auth.uid == userId
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkPts'])
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkPts','sinkGems','sinkPower','sinkAim','sinkTotal'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['balls']) ||
           (request.resource.data.balls is number && resource.data.balls is number && request.resource.data.balls >= 0 && request.resource.data.balls < resource.data.balls))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinkCoins']) ||
@@ -117,7 +117,8 @@ service cloud.firestore {
     // (used to collect phone numbers for prize fulfillment). Only admins
     // can read the full list, update, or delete.
     match /winners/{winnerId} {
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      // Prize claims must be created by trusted server-side validation, never by a browser.
+      allow create: if false;
       allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
       allow update, delete: if isAdmin();
     }
@@ -169,7 +170,8 @@ service cloud.firestore {
     // Sneaker Sink leaderboard — same rules again
     match /sinkLeaderboard/{docId} {
       allow read: if true;
-      allow write: if isAdmin() || (request.auth != null && request.auth.uid == docId);
+      // Scores are server-owned until game outcomes are validated server-side.
+      allow write: if isAdmin();
     }
 
     // Site announcements (text/image/voice) shown at the top of every page —
