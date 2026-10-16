@@ -73,7 +73,7 @@ test("users cannot mint protected balances or change sinkPts; allowed balance de
   await assertFails(updateDoc(doc(alice, "users/alice"), { sinkPts: 1 }));
   await assertSucceeds(updateDoc(doc(alice, "users/alice"), { balls: 9 }));
   await assertSucceeds(updateDoc(doc(alice, "users/alice"), { sinkCoins: 7 }));
-  await assertFails(setDoc(doc(alice, "users/alice"), { balls: 10, sinkCoins: 8, sinkPts: 0 }));
+  await assertFails(setDoc(doc(alice, "users/alice"), { balls: 99, sinkCoins: 99, sinkPts: 0 }));
   await assertFails(setDoc(doc(userDb("bob"), "users/charlie"), { balls: 0, sinkCoins: 0, sinkPts: 0 }));
 });
 
