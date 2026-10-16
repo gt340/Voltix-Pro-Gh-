@@ -54,6 +54,21 @@ test('Sneaker Sink economy, scores, leaderboard and prize claims are server-owne
   assert.match(rules, /match \/winners\/\{winnerId\} \{[\s\S]*?allow create: if false;/);
 });
 
+test('game clients do not submit unverified prize claims directly to Firestore', () => {
+  const foosball = fs.readFileSync(path.join(__dirname, '..', 'foosball.html'), 'utf8');
+  assert.match(foosball, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.doesNotMatch(foosball, /collection\(['"]winners['"]\)\.add\(/);
+  const ludo = fs.readFileSync(path.join(__dirname, '..', 'ludo.html'), 'utf8');
+  assert.match(ludo, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.doesNotMatch(ludo, /collection\(['"]winners['"]\)\.add\(/);
+  const damii = fs.readFileSync(path.join(__dirname, '..', 'damii.html'), 'utf8');
+  assert.match(damii, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.doesNotMatch(damii, /collection\(['"]winners['"]\)\.add\(/);
+  const kaisa = fs.readFileSync(path.join(__dirname, '..', 'kaisa.html'), 'utf8');
+  assert.match(kaisa, /Prize submissions are temporarily paused until the server can verify game results/);
+  assert.doesNotMatch(kaisa, /collection\(['"]winners['"]\)\.add\(/);
+});
+
 test('wallet, transaction, and chat writes are not broadly open to authenticated users', () => {
   assert.match(rules, /match \/transactions\/\{txId\} \{\s*allow read: if isAdmin\(\) \|\|/);
   assert.match(rules, /match \/groupChat\/\{docId\} \{\s*allow read: if request\.auth != null;\s*allow create: if request\.auth != null && request\.resource\.data\.uid == request\.auth\.uid;/);
