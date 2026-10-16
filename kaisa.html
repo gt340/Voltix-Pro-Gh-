@@ -1740,7 +1740,7 @@
     $('challengeBtn').onclick = () => $('challengeModal').classList.remove('hidden');
     $('closeChallengeBtn').onclick = closeChallengeModal;
 
-    $('createRoomBtn').onclick = async () => {
+    $('createRoomBtn').onclick = async () => { alert('Online matches are temporarily paused while secure server-side result validation is implemented.'); return;
       if (!currentUser && !(await waitForAuth())) return;
       challengeMsg('');
       const code = makeCode();
@@ -1810,7 +1810,7 @@
       } catch (err) { challengeMsg("Couldn't post: " + err.message); }
     };
 
-    $('joinRoomBtn').onclick = async () => {
+    $('joinRoomBtn').onclick = async () => { alert('Online matches are temporarily paused while secure server-side result validation is implemented.'); return;
       if (!currentUser && !(await waitForAuth())) return;
       challengeMsg('');
       const code = $('joinCode').value.trim().toUpperCase();
