@@ -219,6 +219,7 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.hostId == request.auth.uid
         && request.resource.data.status == 'waiting'
+        && request.resource.data.game in ['foosball', 'ludo', 'damii', 'kaisa']
         && request.resource.data.guestId == null
         && (!('hostScore' in request.resource.data) || request.resource.data.hostScore == 0)
         && (!('guestScore' in request.resource.data) || request.resource.data.guestScore == 0)
