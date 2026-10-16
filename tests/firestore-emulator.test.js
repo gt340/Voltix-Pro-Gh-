@@ -131,6 +131,20 @@ test("match creation and joining are host/guest bound; signaling is participant-
   await assertFails(deleteDoc(doc(bob, "matches/match-1")));
 });
 
+test("Sneaker Sink race score and winner fields cannot be client-written", async () => {
+  const alice = userDb("alice");
+  const bob = userDb("bob");
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "matches/sneaker-race"), {
+      game: "sneaker", hostId: "alice", guestId: "bob", status: "playing",
+      hostScore: 0, guestScore: 0, hostDrops: 0, guestDrops: 0,
+    });
+  });
+  await assertFails(updateDoc(doc(alice, "matches/sneaker-race"), { hostScore: 999, winner: "host" }));
+  await assertFails(updateDoc(doc(bob, "matches/sneaker-race"), { guestScore: 999, guestDrops: 8 }));
+  await assertSucceeds(updateDoc(doc(alice, "matches/sneaker-race"), { status: "cancelled" }));
+});
+
 test("Sneaker Sink protected balances and prize records cannot be client-written", async () => {
   const alice = userDb("alice");
   await assertFails(updateDoc(doc(alice, "users/alice"), { sinkGems: 999 }));
