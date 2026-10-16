@@ -70,3 +70,9 @@ The latest rules revision denies browser writes to all match score/drop/winner/f
 To avoid presenting broken online play as available, the primary repository's Foosball, Ludo, Damii, and Kaisa create/join handlers now show a temporary pause notice. AI/local gameplay remains available, but leaderboard credit and prize submissions remain paused where they depend on unverified client results. This is a deliberate security/availability tradeoff on the isolated branch only.
 
 The newest emulator/static test runs for both repositories are in progress. Do not treat this revision as verified until both finish green. No merge, deployment, Production settings change, or Production Firestore write was performed.
+
+## Client-side game reward writes removed
+
+The Ludo, Damii and Kaisa clients no longer attempt to increment persistent win counters or leaderboard documents after a local win. Their prize-submit handlers now stop locally with a clear paused notice and do not send phone numbers or create prize requests. Foosball's prize-submit handler follows the same behavior in the primary repository. Static regression tests cover these UI paths.
+
+This does not restore win credit or prize claims. Those functions remain unavailable until server-side game outcome validation and idempotent settlement are implemented. Latest CI runs for these newest changes are still pending.
