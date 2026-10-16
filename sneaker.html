@@ -203,17 +203,15 @@ function finish(){
   if(Math.hypot(active.position.x-hard.position.x,active.position.z-hard.position.z)<hard.userData.r*1.12*pb){hit='h';pts=3}
   if(hit){active.position.y=.28;active.rotation.set(0,0,0);tone(660,.2);
     if(online){myScore+=pts;say(hit==='h'?'GOLD! +3':'SINK! +1','win')}
-    else{U.sinkPts+=pts;U.sinkGems+=hit==='h'?2:1;U.sinkTotal+=pts;save({sinkPts:U.sinkPts,sinkGems:U.sinkGems,sinkTotal:U.sinkTotal});lbAdd(pts);
-      if(U.sinkPts>=S.sneakerTarget){say('🏆 PRIZE WON!','hard');setTimeout(()=>{$('winPrize').textContent='Prize: '+(S.sneakerPrize||'');$('winPhone').value=U.phone||'';$('winSt').textContent='';$('winM').classList.add('show')},1200)}
+    else{U.sinkPts+=pts;
+      // Local-only preview: browser physics is not authoritative, so no persistent score, gems, leaderboard or prize claim is awarded.
+      if(U.sinkPts>=S.sneakerTarget){say('Target reached — secure prize validation is pending','hard')}
       else say((hit==='h'?'GOLD! +3':'SINK! +1')+' ('+U.sinkPts+'/'+S.sneakerTarget+')',hit==='h'?'hard':'win')}
   }else{say('So close…','miss');tone(160,.18);active.position.y=.13+Math.random()*.28}
   pile.push(active);if(pile.length>90)scene.remove(pile.shift());active=null;
   if(online)pushScore();
   setTimeout(()=>{busy=false;const l=2.6;tg.set((Math.random()-.5)*2*l,5.5,(Math.random()-.5)*2*l);ring.position.copy(tg);ring.visible=true;ui()},1000)}
-$('winGo').onclick=async()=>{const ph=$('winPhone').value.trim();if(!ph){$('winSt').textContent='Enter a phone number.';return}
-  try{await db.collection('winners').add({uid:me.uid,name:U.name,phone:ph,prize:S.sneakerPrize||'',mode:'ai',game:'sneaker',finalScore:{points:U.sinkPts},createdAt:FV.serverTimestamp()});
-  await save({phone:ph,sinkPts:0});ui();$('winSt').style.color='#86efac';$('winSt').textContent="Submitted! We'll contact you.";setTimeout(()=>$('winM').classList.remove('show'),1500)}
-  catch(e){$('winSt').style.color='#f87171';$('winSt').textContent="Couldn't submit: "+e.message}};
+$('winGo').onclick=()=>{$('winSt').style.color='#f87171';$('winSt').textContent='Secure prize claims are temporarily unavailable while server-side score validation is implemented.'};
 
 // ---------- online race (Firestore match doc) ----------
 let online=false,isHost=false,code=null,unsub=null,started=false,over=false,myScore=0,myDrops=0;
