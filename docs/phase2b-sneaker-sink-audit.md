@@ -78,3 +78,11 @@ The Ludo, Damii and Kaisa clients no longer attempt to increment persistent win 
 This does not restore win credit or prize claims. Those functions remain unavailable until server-side game outcome validation and idempotent settlement are implemented. Latest CI runs for these newest changes are still pending.
 
 The online-match pause has now been applied consistently to the available game clients in both repositories: primary includes Foosball, Ludo, Damii and Kaisa; the duplicate contains Ludo, Damii and Kaisa. Static regression tests now assert the pause notice remains present. This is still a temporary fail-closed state, not a replacement for a server-authoritative game engine.
+
+## Trusted settlement API foundation added (not yet wired to a game simulator)
+
+Added `POST /api/settle-match` plus `lib/match-settlement.js`. The endpoint fails closed unless `FIREBASE_SERVICE_ACCOUNT` and a server-only `GAME_SETTLEMENT_SECRET` are configured. It accepts only HMAC-signed payloads for Foosball, Ludo, Damii, or Kaisa; checks that the match is in the playing state and game/participants match the stored record; records one settlement per match; rejects reused settlement IDs; derives the winner from the signed scores; and updates the winning user's counter and leaderboard atomically.
+
+Unit tests cover valid settlement, invalid signatures, duplicate settlement, settlement-ID replay, invalid match state/game, malformed scores, and draws. These tests are being added to CI now.
+
+Important limitation: this is only a settlement primitive. No trusted server-side simulation currently produces the signed scores, so it must not be called by a browser or fed scores supplied by a client. Do not configure the secret or enable this flow in Production until a trusted game engine is implemented and reviewed.
