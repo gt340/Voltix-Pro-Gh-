@@ -152,8 +152,7 @@ $('lbBtn').onclick=async()=>{$('lbM').classList.add('show');const l=$('lbList');
   try{const s=await db.collection('sinkLeaderboard').orderBy('points','desc').limit(10).get();l.textContent='';if(s.empty){l.textContent='No players yet. Be the first!';return}
   let r=1;s.forEach(d=>{const x=d.data(),row=document.createElement('div');row.className='lb';const a=document.createElement('span'),b=document.createElement('span');a.textContent='#'+r+' '+(x.name||'Player');b.textContent=(x.points||0)+' pts';row.append(a,b);l.appendChild(row);r++})}
   catch(e){l.textContent="Couldn't load: "+e.message}};
-async function lbAdd(pts){try{const r=db.collection('sinkLeaderboard').doc(me.uid),s=await r.get();
-  if(s.exists)await r.update({points:FV.increment(pts),name:U.name});else await r.set({name:U.name,points:pts,uid:me.uid})}catch(e){}}
+async function lbAdd(){console.info('Leaderboard writes are disabled until the server verifies Sneaker Sink scores.');}
 
 // ---------- scene ----------
 let msgT;function say(t,c){const m=$('msg');m.textContent=t;m.className='show '+c;clearTimeout(msgT);msgT=setTimeout(()=>m.className='',1500)}
@@ -216,7 +215,7 @@ $('winGo').onclick=()=>{$('winSt').style.color='#f87171';$('winSt').textContent=
 // ---------- online race (Firestore match doc) ----------
 let online=false,isHost=false,code=null,unsub=null,started=false,over=false,myScore=0,myDrops=0;
 const mk=()=>{const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=c[Math.floor(Math.random()*c.length)];return s};
-function pushScore(){if(!code)return;const p=isHost?'host':'guest',u={};u[p+'Score']=myScore;u[p+'Drops']=myDrops;db.collection('matches').doc(code).update(u).catch(()=>{})}
+function pushScore(){/* Client-submitted Sneaker Sink scores are rejected by Firestore rules. */}
 function watch(){unsub=db.collection('matches').doc(code).onSnapshot(s=>{const d=s.data();if(!d)return;
   if(!started&&d.status==='playing'&&d.guestId){started=true;online=true;myScore=0;myDrops=0;$('shareM').classList.remove('show');$('room').style.display='block';$('roomTxt').textContent=(isHost?'You vs '+(d.guestName||'Friend'):(d.hostName||'Host')+' vs You');say('Race on!','win')}
   if(!started)return;const hs=d.hostScore||0,gs=d.guestScore||0,hd=d.hostDrops||0,gd=d.guestDrops||0;
@@ -228,7 +227,7 @@ function watch(){unsub=db.collection('matches').doc(code).onSnapshot(s=>{const d
   if(w)endRace(w)});ui()}
 function endRace(w){over=true;const mine=isHost?'host':'guest';
   if(w==='draw')say('Draw!','hard');else if(w===mine)say('Race won — reward settlement is disabled','win');else say('Race lost — reward settlement is disabled','miss');
-  if(isHost)db.collection('matches').doc(code).update({status:'finished',winner:w}).catch(()=>{});
+  // Trusted server settlement is required to finalize a match; client writes are disabled.
   setTimeout(leave,3500)}
 function leave(){if(unsub){unsub();unsub=null}if(isHost&&code&&!started)db.collection('matches').doc(code).update({status:'cancelled'}).catch(()=>{});
   code=null;online=false;started=false;over=false;myScore=0;myDrops=0;$('room').style.display='none';ui()}
