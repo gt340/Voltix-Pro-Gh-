@@ -34,6 +34,17 @@ test('operation ID replay does not spend twice', async () => {
   assert.equal(db.read('users/u1').sinkCoins, 2);
 });
 
+test('an idempotency key cannot be reused for a different action', async () => {
+  const db = new FakeFirestore();
+  db.seed('users/u1', { sinkCoins: 2, sinkGems: 20, sinkPower: 1, sinkAim: 0 });
+  const body = req('spendDrop');
+  await handleSneakerAction(deps(db), 'u1', body);
+  const reused = await handleSneakerAction(deps(db), 'u1', { ...body, action: 'upgradePower' });
+  assert.equal(reused.http, 409);
+  assert.equal(db.read('users/u1').sinkCoins, 1);
+  assert.equal(db.read('users/u1').sinkGems, 20);
+});
+
 test('power and aim upgrades use server-calculated costs and enforce caps', async () => {
   const db = new FakeFirestore();
   db.seed('users/u1', { sinkCoins: 0, sinkGems: 20, sinkPower: 1, sinkAim: 0 });
