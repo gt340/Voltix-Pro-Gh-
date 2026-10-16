@@ -133,12 +133,21 @@ function statusClass(status){
    This checks each local order against its real Firestore record and
    updates anything that's changed. ===== */
 async function syncOrderStatusesFromFirestore(){
-  if(!currentUser || !VDB || !VDB.getOrdersByPhone) return;
+  const phone = allOrders.find(o => o.customer && o.customer.phone)?.customer.phone;
+  const references = [...new Set(allOrders.map(o => o.ref).filter(Boolean))].slice(0, 20);
+  if(!phone || !references.length) return;
   try{
-    const realOrders = await VDB.getOrdersByPhone(currentUser.phone);
+    const response = await fetch('/api/order-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ references, phone })
+    });
+    if(!response.ok) throw new Error('Order status lookup failed (' + response.status + ')');
+    const payload = await response.json();
+    const realOrders = Array.isArray(payload.orders) ? payload.orders : [];
     let changed = false;
     allOrders.forEach(local => {
-      const real = realOrders.find(r => r.ref === local.ref);
+      const real = realOrders.find(r => r.reference === local.ref);
       if(real && real.status && real.status !== local.status){
         local.status = real.status;
         changed = true;
