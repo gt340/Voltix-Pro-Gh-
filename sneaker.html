@@ -224,15 +224,15 @@ function watch(){unsub=db.collection('matches').doc(code).onSnapshot(s=>{const d
   if(over)return;let w=null;
   if(hs>=ONLINE_WIN||gs>=ONLINE_WIN)w=hs===gs?'draw':hs>gs?'host':'guest';
   else if(hd>=ONLINE_DROPS&&gd>=ONLINE_DROPS)w=hs===gs?'draw':hs>gs?'host':'guest';
-  else if(d.status==='cancelled'){w=isHost?'host':'guest'}
+  else if(d.status==='cancelled'){say('Race cancelled','miss');leave();return}
   if(w)endRace(w)});ui()}
 function endRace(w){over=true;const mine=isHost?'host':'guest';
-  if(w==='draw')say('Draw!','hard');else if(w===mine){say('You win the race!','win');lbAdd(3)}else{say('You lost −2 coins','miss');save({sinkCoins:Math.max(0,(U.sinkCoins||0)-2)}).then(ui)}
+  if(w==='draw')say('Draw!','hard');else if(w===mine)say('Race won — reward settlement is disabled','win');else say('Race lost — reward settlement is disabled','miss');
   if(isHost)db.collection('matches').doc(code).update({status:'finished',winner:w}).catch(()=>{});
   setTimeout(leave,3500)}
 function leave(){if(unsub){unsub();unsub=null}if(isHost&&code&&!started)db.collection('matches').doc(code).update({status:'cancelled'}).catch(()=>{});
   code=null;online=false;started=false;over=false;myScore=0;myDrops=0;$('room').style.display='none';ui()}
-$('hostBtn').onclick=async()=>{if(code)return;code=mk();isHost=true;
+$('hostBtn').onclick=async()=>{say('Online races are temporarily disabled while secure match scoring is implemented','miss');return;if(code)return;code=mk();isHost=true;
   try{await db.collection('matches').doc(code).set({game:'sneaker',hostId:me.uid,hostName:U.name,guestId:null,status:'waiting',createdAt:FV.serverTimestamp()})}catch(e){say("Couldn't host",'miss');code=null;return}
   $('codeTxt').textContent=code;$('shareMsg').textContent='Waiting for your friend…';$('shareM').classList.add('show');watch()};
 $('cancelRoom').onclick=()=>{$('shareM').classList.remove('show');if(code)db.collection('matches').doc(code).update({status:'cancelled'}).catch(()=>{});if(unsub){unsub();unsub=null}code=null};
@@ -241,7 +241,7 @@ $('shareLink').onclick=async()=>{const url=new URL('sneaker.html?joinCode='+code
   try{await navigator.clipboard.writeText(text);$('shareMsg').textContent='Link copied — paste it to your friend.'}catch(e){prompt('Copy and send:',text)}};
 $('shareGrp').onclick=async()=>{try{await db.collection('groupChat').add({uid:me.uid,name:U.name,text:'',type:'challenge',game:'sneaker',code,url:null,createdAt:FV.serverTimestamp()});$('shareMsg').textContent='Posted to the group chat ✓'}catch(e){$('shareMsg').textContent="Couldn't post: "+e.message}};
 $('joinBtn').onclick=()=>{$('joinMsg').textContent='';$('joinM').classList.add('show')};
-$('joinGo').onclick=async()=>{const c=$('joinCode').value.trim().toUpperCase(),m=$('joinMsg');if(!c||code)return;
+$('joinGo').onclick=async()=>{const m=$('joinMsg');m.textContent='Online races are temporarily disabled while secure match scoring is implemented.';return;const c=$('joinCode').value.trim().toUpperCase();if(!c||code)return;
   if((U.sinkCoins||0)<1){m.textContent='You need 1 coin to join.';return}
   const ref=db.collection('matches').doc(c);
   try{const s=await ref.get();if(!s.exists){m.textContent='Room not found.';return}const d=s.data();
