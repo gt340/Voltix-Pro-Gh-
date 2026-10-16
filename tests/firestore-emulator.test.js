@@ -155,9 +155,11 @@ test("Sneaker Sink protected balances and prize records cannot be client-written
   await assertFails(updateDoc(doc(alice, "users/alice"), { ludoWins: 999 }));
   await assertFails(updateDoc(doc(alice, "users/alice"), { damiiWins: 999 }));
   await assertFails(updateDoc(doc(alice, "users/alice"), { kaisaWins: 999 }));
-  await assertFails(setDoc(doc(alice, "users/new-player"), {
+  const fresh = userDb("new-player");
+  await assertFails(setDoc(doc(fresh, "users/new-player"), {
     balls: 0, sinkCoins: 0, sinkPts: 0, sinkGems: 500, sinkPower: 10, sinkAim: 5, sinkTotal: 9999,
   }));
+  await assertFails(setDoc(doc(fresh, "users/new-player"), { balls: 0, wins: 999 }));
   await assertFails(setDoc(doc(alice, "sinkLeaderboard/alice"), { uid: "alice", points: 999999 }));
   await assertFails(setDoc(doc(alice, "winners/fake-win"), {
     uid: "alice", game: "sneaker", finalScore: { points: 999999 }, prize: "Free earpods",
