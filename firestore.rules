@@ -211,9 +211,10 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.hostId == request.auth.uid && request.resource.data.status == 'waiting';
       allow read: if request.auth != null && (resource.data.hostId == request.auth.uid || resource.data.guestId == request.auth.uid || resource.data.status == 'waiting');
       allow update: if request.auth != null && (
-        (resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hostScore','hostDrops','status','winner','finishedAt'])) ||
+        (resource.data.game != 'sneaker' && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hostScore','hostDrops','status','winner','finishedAt'])) ||
+        (resource.data.game == 'sneaker' && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'cancelled') ||
         (resource.data.status == 'waiting' && resource.data.guestId == null && request.resource.data.guestId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestId','guestName','status'])) ||
-        (resource.data.guestId == request.auth.uid && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestScore','guestDrops']))
+        (resource.data.game != 'sneaker' && resource.data.guestId == request.auth.uid && request.resource.data.guestId == resource.data.guestId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestScore','guestDrops']))
       );
       allow delete: if request.auth != null && resource.data.hostId == request.auth.uid;
       match /signal/{sigId} {
