@@ -1,6 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -77,4 +78,22 @@ test('Paystack webhook remains provider-signature authenticated, not browser-tok
   const block = server.slice(start, end);
   assert.match(block, /handleWebhook/);
   assert.doesNotMatch(block, /requireVerifiedShopper/);
+});
+
+test('shopper phone-auth client and protected Spin calls are syntactically valid', () => {
+  const root = path.join(__dirname, '..', '..');
+  const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.doesNotThrow(() => new vm.Script(appJs), 'app.js must parse');
+  const account = fs.readFileSync(path.join(root, 'account.html'), 'utf8');
+  const spin = fs.readFileSync(path.join(root, 'spin.html'), 'utf8');
+  assert.match(account, /sendShopperPhoneCode/);
+  assert.match(account, /confirmShopperPhoneCode/);
+  assert.match(spin, /getShopperAuthHeaders/);
+  for (const [file, html] of [['account.html', account], ['spin.html', spin]]) {
+    const scripts = [...html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)]
+      .map(match => match[1]).filter(code => code.trim());
+    for (const [index, code] of scripts.entries()) {
+      assert.doesNotThrow(() => new vm.Script(code), file + ' inline script ' + (index + 1) + ' must parse');
+    }
+  }
 });
