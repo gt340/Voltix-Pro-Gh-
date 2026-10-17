@@ -649,7 +649,7 @@ function shareProductCard(id, e){
     },
 
     normalizeShopperPhone(phone){
-      const digits = String(phone || '').replace(/\\D/g, '');
+  const digits = String(phone || '').replace(/\D/g, '');
       if(digits.startsWith('233') && digits.length === 12) return '0' + digits.slice(3);
       if(digits.length === 10 && digits.startsWith('0')) return digits;
       throw new Error('Enter a valid Ghana phone number, e.g. 0241234567.');
