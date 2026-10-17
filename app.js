@@ -657,14 +657,30 @@ function shareProductCard(id, e){
     async sendShopperPhoneCode(phone, recaptchaContainerId){
       const digits = this.normalizeShopperPhone(phone);
       const e164 = '+233' + digits.slice(1);
-      if(window.__voltixRecaptchaVerifier){
-        try{ window.__voltixRecaptchaVerifier.clear(); }catch(e){}
+
+      // Reuse one verifier for this page/container. Clearing it and creating a
+      // new instance on every click can leave Firebase reCAPTCHA state attached
+      // to the same element, triggering "already been rendered".
+      if(window.__voltixPhoneCodeRequest) return window.__voltixPhoneCodeRequest;
+
+      const request = (async()=>{
+        let verifier = window.__voltixRecaptchaVerifier;
+        if(!verifier){
+          verifier = new RecaptchaVerifier(auth, recaptchaContainerId, { size:'invisible' });
+          window.__voltixRecaptchaVerifier = verifier;
+        }
+        window.__voltixPhoneConfirmation = null;
+        const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
+        window.__voltixPhoneConfirmation = confirmation;
+        return { phone: digits };
+      })();
+
+      window.__voltixPhoneCodeRequest = request;
+      try{
+        return await request;
+      }finally{
+        if(window.__voltixPhoneCodeRequest === request) window.__voltixPhoneCodeRequest = null;
       }
-      const verifier = new RecaptchaVerifier(auth, recaptchaContainerId, { size:'invisible' });
-      window.__voltixRecaptchaVerifier = verifier;
-      const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
-      window.__voltixPhoneConfirmation = confirmation;
-      return { phone: digits };
     },
     async confirmShopperPhoneCode(code){
       const confirmation = window.__voltixPhoneConfirmation;
