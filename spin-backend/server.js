@@ -102,18 +102,24 @@ async function requireVerifiedShopper(req, res, requestedPhone){
     res.status(403).json({ error:'Verified phone ownership required for this wallet operation' });
     return null;
   }
-  if(requestedPhone && normalizePhone(decoded.phone_number) !== normalizePhone(requestedPhone)){
+  const canonicalPhone = normalizePhone(decoded.phone_number);
+  if(!/^0\\d{9}$/.test(canonicalPhone)){
+    res.status(403).json({ error:'A verified Ghana phone number is required' });
+    return null;
+  }
+  if(requestedPhone && canonicalPhone !== normalizePhone(requestedPhone)){
     res.status(403).json({ error:'Authenticated phone does not own this wallet' });
     return null;
   }
+  decoded.walletPhone = canonicalPhone;
   return decoded;
 }
 
 // ---------- WALLET LOOKUP ----------
 app.get('/api/wallet', async (req,res)=>{
-  const { phone } = req.query;
-  const shopper = await requireVerifiedShopper(req,res,phone);
+  const shopper = await requireVerifiedShopper(req,res,req.query.phone);
   if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
   const snap = await db.collection('wallets').doc(phone).get();
   if(!snap.exists) return res.json({ coins: 0, network: null, totalSpend: 0 });
@@ -123,9 +129,10 @@ app.get('/api/wallet', async (req,res)=>{
 
 // ---------- FREE STARTER SPIN ----------
 app.post('/api/claim-free-spin', async (req,res)=>{
-  const { phone, name } = req.body || {};
-  const shopper = await requireVerifiedShopper(req,res,phone);
+  const { phone: requestedPhone, name } = req.body || {};
+  const shopper = await requireVerifiedShopper(req,res,requestedPhone);
   if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone || typeof phone !== 'string' || phone.length > 24 || /[\\/]/.test(phone)) return res.status(400).json({ error:'Valid phone required' });
   const walletRef = db.collection('wallets').doc(phone);
   try {
@@ -151,9 +158,9 @@ function generateReferralCode(phone){
   return 'VLX' + phone.replace(/\D/g,'').slice(-4) + Math.random().toString(36).slice(2,5).toUpperCase();
 }
 app.get('/api/spin-referral-code', async (req,res)=>{
-  const { phone } = req.query;
-  const shopper = await requireVerifiedShopper(req,res,phone);
+  const shopper = await requireVerifiedShopper(req,res,req.query.phone);
   if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
   const walletRef = db.collection('wallets').doc(phone);
   const snap = await walletRef.get();
@@ -201,9 +208,10 @@ app.post('/api/mark-winner-fulfilled', async (req,res)=>{
 
 // ---------- SPIN ----------
 app.post('/api/spin', async (req,res)=>{
-  const { phone, network, name } = req.body || {};
-  const shopper = await requireVerifiedShopper(req,res,phone);
+  const { phone: requestedPhone, network, name } = req.body || {};
+  const shopper = await requireVerifiedShopper(req,res,requestedPhone);
   if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
 
   if(typeof phone !== 'string' || phone.length > 24 || /[\\/]/.test(phone)) return res.status(400).json({ error:'Valid phone required' });
@@ -320,7 +328,7 @@ app.post('/api/buy-coins', async (req,res)=>{
   const shopper = await requireVerifiedShopper(req,res,req.body && req.body.phone);
   if(!shopper) return;
   try{
-    const r = await payments.handleBuyCoins(payDeps, req.body || {}, shopper);
+    const r = await payments.handleBuyCoins(payDeps, { ...(req.body || {}), phone: shopper.walletPhone }, shopper);
     res.status(r.http).json(r.json);
   } catch(err){
     console.error('buy-coins failed:', err.message);
