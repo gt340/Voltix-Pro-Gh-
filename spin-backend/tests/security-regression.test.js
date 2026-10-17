@@ -90,7 +90,7 @@ test('shopper phone-auth client and protected Spin calls are syntactically valid
   assert.match(account, /confirmShopperPhoneCode/);
   assert.match(spin, /getShopperAuthHeaders/);
   for (const [file, html] of [['account.html', account], ['spin.html', spin]]) {
-    const scripts = [...html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)]
+    const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
       .map(match => match[1]).filter(code => code.trim());
     for (const [index, code] of scripts.entries()) {
       assert.doesNotThrow(() => new vm.Script(code), file + ' inline script ' + (index + 1) + ' must parse');
