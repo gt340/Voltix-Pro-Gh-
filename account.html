@@ -391,7 +391,7 @@ async function handleAccountLogin(e){
       return;
     }
     const code = document.getElementById('accLoginOtp').value.trim();
-    if(!/^\\d{6}$/.test(code)){
+    if(!/^\d{6}$/.test(code)){
       showToast('Enter the 6-digit verification code.');
       return;
     }
