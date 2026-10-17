@@ -673,7 +673,7 @@ function shareProductCard(id, e){
       window.__voltixPhoneConfirmation = null;
       return { uid: credential.user.uid, phone: this.normalizeShopperPhone(credential.user.phoneNumber) };
     },
-    async getShopperIdToken(){
+    async getVerifiedShopperIdentity(){
       let user = auth.currentUser;
       if(!user){
         user = await new Promise(resolve=>{
@@ -685,6 +685,12 @@ function shareProductCard(id, e){
         });
       }
       if(!user || !user.phoneNumber) return null;
+      return { uid:user.uid, phone:this.normalizeShopperPhone(user.phoneNumber) };
+    },
+    async getShopperIdToken(){
+      const identity = await this.getVerifiedShopperIdentity();
+      const user = auth.currentUser;
+      if(!identity || !user || user.uid !== identity.uid) return null;
       return user.getIdToken();
     },
     async shopperLogout(){
