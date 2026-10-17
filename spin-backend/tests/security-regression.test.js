@@ -98,6 +98,9 @@ test('shopper phone-auth client and protected Spin calls are syntactically valid
   const spin = fs.readFileSync(path.join(root, 'spin.html'), 'utf8');
   assert.match(account, /sendShopperPhoneCode/);
   assert.match(account, /confirmShopperPhoneCode/);
+  assert.match(appJs, /if\(window\.__voltixPhoneCodeRequest\) return window\.__voltixPhoneCodeRequest/);
+  assert.match(appJs, /let verifier = window\.__voltixRecaptchaVerifier/);
+  assert.doesNotMatch(appJs, /window\.__voltixRecaptchaVerifier\.clear\(\)/);
   assert.match(spin, /getShopperAuthHeaders/);
   for (const [file, html] of [['account.html', account], ['spin.html', spin]]) {
     const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
