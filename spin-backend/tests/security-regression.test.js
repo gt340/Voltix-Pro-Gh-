@@ -46,8 +46,8 @@ test('spin record uses the resolved prize after earpod eligibility checks', () =
 
 test('shopper wallet and spin endpoints require verified Firebase phone identity', () => {
   assert.match(server, /async function requireVerifiedShopper/);
-  assert.match(server, /admin\\.auth\\(\\)\\.verifyIdToken\\(match\\[1\\]\\)/);
-  assert.match(server, /decoded\\.phone_number/);
+  assert.ok(server.includes('admin.auth().verifyIdToken(match[1])'));
+  assert.ok(server.includes('decoded.phone_number'));
   for (const route of [
     "app.get('/api/wallet'",
     "app.post('/api/claim-free-spin'",
@@ -59,7 +59,7 @@ test('shopper wallet and spin endpoints require verified Firebase phone identity
     const start = server.indexOf(route);
     assert.notEqual(start, -1, 'route exists: ' + route);
     const block = server.slice(start, start + 650);
-    assert.match(block, /requireVerifiedShopper/ , 'route is guarded: ' + route);
+    assert.match(block, /requireVerifiedShopper/, 'route is guarded: ' + route);
   }
 });
 
