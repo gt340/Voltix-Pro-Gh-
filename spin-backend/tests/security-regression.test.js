@@ -80,6 +80,16 @@ test('Paystack webhook remains provider-signature authenticated, not browser-tok
   assert.doesNotMatch(block, /requireVerifiedShopper/);
 });
 
+test('account UI never treats localStorage alone as a verified shopper session', () => {
+  const root = path.join(__dirname, '..', '..');
+  const account = fs.readFileSync(path.join(root, 'account.html'), 'utf8');
+  assert.match(account, /async function renderAccountPage\(\)/);
+  assert.match(account, /VDB\.getVerifiedShopperIdentity\(\)/);
+  assert.match(account, /currentUser\.uid !== identity\.uid/);
+  assert.match(account, /localStorage\.removeItem\('voltixUser'\)/);
+  assert.match(account, /if\(!shopperPhoneCodeSent\)[\s\S]*?sendShopperPhoneCode[\s\S]*?return;[\s\S]*?confirmShopperPhoneCode/);
+});
+
 test('shopper phone-auth client and protected Spin calls are syntactically valid', () => {
   const root = path.join(__dirname, '..', '..');
   const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
