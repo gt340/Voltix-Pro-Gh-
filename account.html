@@ -351,6 +351,8 @@
 <script src="app.js"></script>
 <script>
 function renderAccountPage(){
+  // Legacy localStorage-only shopper sessions are not authenticated identities.
+  if(currentUser && !currentUser.uid){ currentUser = null; localStorage.removeItem('voltixUser'); }
   if(currentUser){
     document.getElementById('accLoggedOut').style.display = 'none';
     document.getElementById('accLoggedIn').style.display = 'block';
