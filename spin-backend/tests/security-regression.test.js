@@ -43,3 +43,38 @@ test('spin record uses the resolved prize after earpod eligibility checks', () =
   assert.ok(block.indexOf("if(prize.type === 'earpods')") < block.indexOf('tx.set(spinRef'));
   assert.match(block, /tx\.set\(spinRef, \{ phone, prizeId:prize\.id/);
 });
+
+test('shopper wallet and spin endpoints require verified Firebase phone identity', () => {
+  assert.match(server, /async function requireVerifiedShopper/);
+  assert.match(server, /admin\\.auth\\(\\)\\.verifyIdToken\\(match\\[1\\]\\)/);
+  assert.match(server, /decoded\\.phone_number/);
+  for (const route of [
+    "app.get('/api/wallet'",
+    "app.post('/api/claim-free-spin'",
+    "app.get('/api/spin-referral-code'",
+    "app.post('/api/spin'",
+    "app.post('/api/buy-coins'",
+    "app.post('/api/verify-purchase'"
+  ]) {
+    const start = server.indexOf(route);
+    assert.notEqual(start, -1, 'route exists: ' + route);
+    const block = server.slice(start, start + 650);
+    assert.match(block, /requireVerifiedShopper/ , 'route is guarded: ' + route);
+  }
+});
+
+test('purchase creation and browser verification are bound to verified shopper UID', () => {
+  const payments = fs.readFileSync(path.join(__dirname, '..', 'payments.js'), 'utf8');
+  assert.match(payments, /async function handleBuyCoins\\(deps, body, shopper\\)/);
+  assert.match(payments, /shopperUid: shopper\\.uid/);
+  assert.match(payments, /async function handleVerifyPurchase\\(deps, body, shopper\\)/);
+  assert.match(payments, /This purchase does not belong to the authenticated shopper/);
+});
+
+test('Paystack webhook remains provider-signature authenticated, not browser-token authenticated', () => {
+  const start = server.indexOf("app.post('/api/paystack-webhook'");
+  const end = server.indexOf("app.listen(", start);
+  const block = server.slice(start, end);
+  assert.match(block, /handleWebhook/);
+  assert.doesNotMatch(block, /requireVerifiedShopper/);
+});
