@@ -657,22 +657,47 @@ function shareProductCard(id, e){
     async sendShopperPhoneCode(phone, recaptchaContainerId){
       const digits = this.normalizeShopperPhone(phone);
       const e164 = '+233' + digits.slice(1);
+      const container = document.getElementById(recaptchaContainerId);
+      if(!container) throw new Error('Phone verification could not start: reCAPTCHA container is missing.');
 
-      // Reuse one verifier for this page/container. Clearing it and creating a
-      // new instance on every click can leave Firebase reCAPTCHA state attached
-      // to the same element, triggering "already been rendered".
+      // Serialize requests and keep one verifier bound to this exact container.
+      // A verifier from another container, or a verifier whose render failed,
+      // must not be reused on the next attempt.
       if(window.__voltixPhoneCodeRequest) return window.__voltixPhoneCodeRequest;
 
       const request = (async()=>{
         let verifier = window.__voltixRecaptchaVerifier;
+        if(window.__voltixRecaptchaContainerId !== recaptchaContainerId){
+          if(verifier){
+            try{ verifier.clear(); }catch(_){}
+          }
+          verifier = null;
+          window.__voltixRecaptchaVerifier = null;
+          window.__voltixRecaptchaContainerId = null;
+          container.replaceChildren();
+        }
         if(!verifier){
-          verifier = new RecaptchaVerifier(auth, recaptchaContainerId, { size:'invisible' });
+          verifier = new RecaptchaVerifier(auth, container, { size:'invisible' });
           window.__voltixRecaptchaVerifier = verifier;
+          window.__voltixRecaptchaContainerId = recaptchaContainerId;
         }
         window.__voltixPhoneConfirmation = null;
-        const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
-        window.__voltixPhoneConfirmation = confirmation;
-        return { phone: digits };
+        try{
+          const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
+          window.__voltixPhoneConfirmation = confirmation;
+          return { phone: digits };
+        }catch(err){
+          // Firebase may leave a rendered widget attached after a render/send
+          // failure. Clear both the verifier and its host so retry is clean.
+          try{ verifier.clear(); }catch(_){}
+          if(window.__voltixRecaptchaVerifier === verifier){
+            window.__voltixRecaptchaVerifier = null;
+            window.__voltixRecaptchaContainerId = null;
+          }
+          container.replaceChildren();
+          window.__voltixPhoneConfirmation = null;
+          throw err;
+        }
       })();
 
       window.__voltixPhoneCodeRequest = request;
