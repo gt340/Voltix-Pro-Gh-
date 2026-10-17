@@ -103,7 +103,7 @@ async function requireVerifiedShopper(req, res, requestedPhone){
     return null;
   }
   const canonicalPhone = normalizePhone(decoded.phone_number);
-  if(!/^0\\d{9}$/.test(canonicalPhone)){
+  if(!/^0\d{9}$/.test(canonicalPhone)){
     res.status(403).json({ error:'A verified Ghana phone number is required' });
     return null;
   }
