@@ -350,24 +350,35 @@
 
 <script src="app.js"></script>
 <script>
-function renderAccountPage(){
-  // Legacy localStorage-only shopper sessions are not authenticated identities.
-  if(currentUser && !currentUser.uid){ currentUser = null; localStorage.removeItem('voltixUser'); }
-  if(currentUser){
-    document.getElementById('accLoggedOut').style.display = 'none';
-    document.getElementById('accLoggedIn').style.display = 'block';
-    document.getElementById('accProfileName').textContent = currentUser.name;
-    document.getElementById('accProfilePhone').textContent = currentUser.phone;
-    document.getElementById('accAvatarInitial').textContent = currentUser.name.charAt(0).toUpperCase();
+async function renderAccountPage(){
+  const loggedOut = document.getElementById('accLoggedOut');
+  const loggedIn = document.getElementById('accLoggedIn');
+  // Fail closed while Firebase is initializing. A saved browser profile alone
+  // is never sufficient evidence of a verified phone identity.
+  loggedOut.style.display = 'block';
+  loggedIn.style.display = 'none';
+  if(!VDB || !VDB.getVerifiedShopperIdentity) return;
 
-    const orders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
-    document.getElementById('statOrders').textContent = orders.length;
-    document.getElementById('statWishlist').textContent = wishlist.length;
-    document.getElementById('statCart').textContent = cartCount();
-  } else {
-    document.getElementById('accLoggedOut').style.display = 'block';
-    document.getElementById('accLoggedIn').style.display = 'none';
+  let identity = null;
+  try{ identity = await VDB.getVerifiedShopperIdentity(); }
+  catch(err){ console.error('Could not validate shopper Firebase session:', err); }
+  if(!identity || !currentUser || !currentUser.uid ||
+     currentUser.uid !== identity.uid || currentUser.phone !== identity.phone){
+    currentUser = null;
+    localStorage.removeItem('voltixUser');
+    return;
   }
+
+  loggedOut.style.display = 'none';
+  loggedIn.style.display = 'block';
+  document.getElementById('accProfileName').textContent = currentUser.name;
+  document.getElementById('accProfilePhone').textContent = identity.phone;
+  document.getElementById('accAvatarInitial').textContent = (currentUser.name || '?').charAt(0).toUpperCase();
+
+  const orders = JSON.parse(localStorage.getItem('voltixOrders') || '[]');
+  document.getElementById('statOrders').textContent = orders.length;
+  document.getElementById('statWishlist').textContent = wishlist.length;
+  document.getElementById('statCart').textContent = cartCount();
 }
 
 let shopperPhoneCodeSent = false;
