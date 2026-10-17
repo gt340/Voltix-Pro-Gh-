@@ -23,6 +23,10 @@ const REF_RE = /^[A-Za-z0-9_-]{6,64}$/;
 const REFCODE_RE = /^[A-Za-z0-9]{3,32}$/;
 
 const digitsOf = (s) => String(s == null ? '' : s).replace(/\D/g, '');
+const normalizePhone = (s) => {
+  const digits = digitsOf(s);
+  return digits.startsWith('233') && digits.length === 12 ? '0' + digits.slice(3) : digits;
+};
 const isValidReference = (r) => typeof r === 'string' && REF_RE.test(r);
 const isValidPhone = (p) =>
   typeof p === 'string' && p.length <= 24 && !/[\/\\]/.test(p) && digitsOf(p).length >= 7;
@@ -179,9 +183,13 @@ async function creditSpinPurchase(deps, reference) {
 }
 
 // ---------- endpoint handlers (thin wrappers in server.js call these) ----------
-async function handleBuyCoins(deps, body) {
+async function handleBuyCoins(deps, body, shopper) {
   const { db } = deps;
   const { phone, ref, spinRefCode, name, packageId, coins, priceGHC } = body || {};
+  if (!shopper || typeof shopper.uid !== 'string' || !shopper.uid ||
+      !shopper.phone_number || normalizePhone(shopper.phone_number) !== normalizePhone(phone)) {
+    return { http: 403, json: { error: 'Verified shopper identity does not match this phone' } };
+  }
   if (!isValidReference(ref)) return { http: 400, json: { error: 'Invalid reference' } };
   if (!isValidPhone(phone)) return { http: 400, json: { error: 'Valid phone required' } };
   let requested = null;
@@ -194,6 +202,7 @@ async function handleBuyCoins(deps, body) {
   const purchaseRef = db.collection('coinPurchases').doc(ref);
   const record = {
     phone,
+    shopperUid: shopper.uid,
     name: typeof name === 'string' ? name.slice(0, 80) : null,
     spinRefCode: typeof spinRefCode === 'string' && REFCODE_RE.test(spinRefCode) ? spinRefCode : null,
     requestedPackageId: requested,
@@ -207,15 +216,35 @@ async function handleBuyCoins(deps, body) {
   } catch (e) {
     if (!isAlreadyExists(e)) throw e;
     const existing = (await purchaseRef.get()).data() || {};
-    if (existing.phone !== phone) return { http: 409, json: { error: 'Reference already used' } };
+    if (existing.phone !== phone || (existing.shopperUid && existing.shopperUid !== shopper.uid)) {
+      return { http: 409, json: { error: 'Reference already used' } };
+    }
+    if (!existing.shopperUid && existing.status !== 'confirmed') {
+      await purchaseRef.update({ shopperUid: shopper.uid, identityLinkedAt: new Date((deps.now || Date.now)()).toISOString() });
+    }
     return { http: 200, json: { status: existing.status === 'confirmed' ? 'confirmed' : 'pending' } };
   }
   return { http: 200, json: { status: 'pending' } };
 }
 
-async function handleVerifyPurchase(deps, body) {
+async function handleVerifyPurchase(deps, body, shopper) {
   const sleep = deps.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
   const reference = body && body.reference;
+  if (!shopper || typeof shopper.uid !== 'string' || !shopper.uid || !shopper.phone_number) {
+    return { http: 403, json: { error: 'Verified shopper identity required' } };
+  }
+  if (!isValidReference(reference)) return { http: 400, json: { error: 'Invalid reference' } };
+  const purchaseRef = deps.db.collection('coinPurchases').doc(reference);
+  const purchaseSnap = await purchaseRef.get();
+  if (!purchaseSnap.exists) return { http: 404, json: { error: 'Purchase record not found' } };
+  const purchase = purchaseSnap.data() || {};
+  if (normalizePhone(purchase.phone) !== normalizePhone(shopper.phone_number) ||
+      (purchase.shopperUid && purchase.shopperUid !== shopper.uid)) {
+    return { http: 403, json: { error: 'This purchase does not belong to the authenticated shopper' } };
+  }
+  if (!purchase.shopperUid && purchase.status !== 'confirmed') {
+    await purchaseRef.update({ shopperUid: shopper.uid, identityLinkedAt: new Date((deps.now || Date.now)()).toISOString() });
+  }
   let result;
   for (let i = 0; i < 6; i++) {
     result = await creditSpinPurchase(deps, reference);
