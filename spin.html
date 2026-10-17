@@ -203,6 +203,13 @@ const CLAIM_FREE_SPIN_URL = BACKEND + '/api/claim-free-spin';
 const BUY_COINS_URL = BACKEND + '/api/buy-coins';
 const VERIFY_PURCHASE_URL = BACKEND + '/api/verify-purchase';
 
+async function getShopperAuthHeaders(){
+  if(!VDB || !VDB.getShopperIdToken) throw new Error('Secure shopper sign-in is unavailable. Please reload and try again.');
+  const token = await VDB.getShopperIdToken();
+  if(!token) throw new Error('Verify your phone in My Account before using Spin & Win.');
+  return { Authorization: 'Bearer ' + token };
+}
+
 const EARPOD_TIERS = [
   { name:'Single Earpod',   value:40,  unlockSpend:80,  freeShipSpend:120 },
   { name:'Ultrapods',       value:120, unlockSpend:150, freeShipSpend:180 },
@@ -225,7 +232,7 @@ let currentWheelRotation = 0;
 async function loadMySpinReferralCode(){
   if(!currentUser) return;
   try{
-    const res = await fetch(`${REF_CODE_API_URL}?phone=${encodeURIComponent(currentUser.phone)}`);
+    const res = await fetch(`${REF_CODE_API_URL}?phone=${encodeURIComponent(currentUser.phone)}`, { headers: await getShopperAuthHeaders() });
     const data = await res.json();
     mySpinReferralCode = data.code;
   } catch(e){}
@@ -261,7 +268,7 @@ async function claimFreeSpinIfEligible(){
   if(!currentUser) return;
   try{
     const res = await fetch(CLAIM_FREE_SPIN_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json', ...(await getShopperAuthHeaders())},
       body: JSON.stringify({ phone: currentUser.phone, name: currentUser.name })
     });
     const data = await res.json();
@@ -317,15 +324,18 @@ document.getElementById('networkOverrideSelect').addEventListener('change', func
 });
 
 /* ---------- COIN BALANCE ---------- */
-function loadCoinBalance(){
+async function loadCoinBalance(){
   if(!currentUser){ document.getElementById('coinBalanceDisplay').textContent = '0'; return; }
-  fetch(`${WALLET_API_URL}?phone=${encodeURIComponent(currentUser.phone)}`)
-    .then(r=>r.json())
-    .then(data=>{
-      document.getElementById('coinBalanceDisplay').textContent = data.coins ?? 0;
-      renderSpendProgress(data.totalSpend || 0);
-    })
-    .catch(()=>{ document.getElementById('coinBalanceDisplay').textContent = '—'; });
+  try{
+    const res = await fetch(`${WALLET_API_URL}?phone=${encodeURIComponent(currentUser.phone)}`, { headers: await getShopperAuthHeaders() });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'Could not load wallet');
+    document.getElementById('coinBalanceDisplay').textContent = data.coins ?? 0;
+    renderSpendProgress(data.totalSpend || 0);
+  } catch(err){
+    document.getElementById('coinBalanceDisplay').textContent = '—';
+    if(/verify your phone/i.test(err.message || '')) showToast(err.message);
+  }
 }
 
 /* ---------- BUY COINS ---------- */
@@ -397,16 +407,19 @@ document.getElementById('payNowBtn').addEventListener('click', function(){
 // recovery check below (when Paystack's mobile flow reloaded the page).
 async function completeCoinPurchase(reference, coins, priceGHC){
   try{
-    await fetch(BUY_COINS_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+    const authHeaders = await getShopperAuthHeaders();
+    const createRes = await fetch(BUY_COINS_URL, {
+      method:'POST', headers:{'Content-Type':'application/json', ...authHeaders},
       body: JSON.stringify({
         phone: currentUser.phone, coins, priceGHC,
         ref: reference, spinRefCode: localStorage.getItem('voltixSpinRefCode'),
         name: currentUser.name
       })
     });
+    const createData = await createRes.json();
+    if(!createRes.ok) throw new Error(createData.error || 'Could not record purchase');
     const verifyRes = await fetch(VERIFY_PURCHASE_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json', ...authHeaders},
       body: JSON.stringify({ reference })
     });
     const verifyData = await verifyRes.json();
@@ -437,7 +450,7 @@ async function spinAndFetch(){
   document.getElementById('spinBtn').disabled = true;
   try{
     const res = await fetch(SPIN_API_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json', ...(await getShopperAuthHeaders())},
       body: JSON.stringify({ phone: currentUser.phone, network: selectedNetwork, name: currentUser.name })
     });
     const data = await res.json();
