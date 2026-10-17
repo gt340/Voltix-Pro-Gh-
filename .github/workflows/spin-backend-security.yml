@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - phase2b2/spin-backend-hardening
+      - phase2b4a/shopper-identity-foundation
   pull_request:
     paths:
       - 'spin-backend/**'
