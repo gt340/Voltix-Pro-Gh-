@@ -222,8 +222,11 @@
     <p>Login to track orders, save your wishlist, and checkout faster</p>
     <form onsubmit="handleAccountLogin(event)">
       <div class="acc-form-group"><label>Full Name</label><input type="text" id="accLoginName" placeholder="Enter your full name" required></div>
-      <div class="acc-form-group"><label>Phone Number</label><input type="tel" id="accLoginPhone" placeholder="0536 193 862" required></div>
-      <button type="submit" class="acc-login-btn ripple">✅ Login / Sign Up</button>
+      <div class="acc-form-group"><label>Phone Number</label><input type="tel" id="accLoginPhone" placeholder="0241234567" autocomplete="tel" required></div>
+      <div id="accLoginOtpGroup" class="acc-form-group" style="display:none;"><label>SMS Verification Code</label><input type="text" id="accLoginOtp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Enter 6-digit code"></div>
+      <div id="shopperRecaptcha"></div>
+      <p id="accPhoneAuthNote" style="font-size:.78rem;color:#b8b8b8;line-height:1.5;margin:.5rem 0;">Your phone must be verified to protect your wallet and Spin &amp; Win balance.</p>
+      <button type="submit" id="accLoginSubmit" class="acc-login-btn ripple">📩 Send verification code</button>
     </form>
   </div>
 </div>
@@ -365,14 +368,48 @@ function renderAccountPage(){
   }
 }
 
-function handleAccountLogin(e){
+let shopperPhoneCodeSent = false;
+async function handleAccountLogin(e){
   e.preventDefault();
-  const name = document.getElementById('accLoginName').value;
-  const phone = document.getElementById('accLoginPhone').value;
-  currentUser = { name, phone };
-  localStorage.setItem('voltixUser', JSON.stringify(currentUser));
-  showToast('Welcome, ' + name.split(' ')[0] + '!');
-  renderAccountPage();
+  const name = document.getElementById('accLoginName').value.trim();
+  const phoneInput = document.getElementById('accLoginPhone').value.trim();
+  const submit = document.getElementById('accLoginSubmit');
+  try{
+    if(!VDB || !VDB.sendShopperPhoneCode || !VDB.confirmShopperPhoneCode){
+      showToast('Secure sign-in is still loading. Please try again.');
+      return;
+    }
+    submit.disabled = true;
+    if(!shopperPhoneCodeSent){
+      const result = await VDB.sendShopperPhoneCode(phoneInput, 'shopperRecaptcha');
+      document.getElementById('accLoginPhone').value = result.phone;
+      document.getElementById('accLoginOtpGroup').style.display = 'block';
+      document.getElementById('accLoginOtp').required = true;
+      shopperPhoneCodeSent = true;
+      submit.textContent = 'Verify code and sign in';
+      showToast('Verification code requested. Enter the SMS code to continue.');
+      return;
+    }
+    const code = document.getElementById('accLoginOtp').value.trim();
+    if(!/^\\d{6}$/.test(code)){
+      showToast('Enter the 6-digit verification code.');
+      return;
+    }
+    const identity = await VDB.confirmShopperPhoneCode(code);
+    currentUser = { name, phone: identity.phone, uid: identity.uid };
+    localStorage.setItem('voltixUser', JSON.stringify(currentUser));
+    shopperPhoneCodeSent = false;
+    showToast('Phone verified. Welcome, ' + name.split(' ')[0] + '!');
+    renderAccountPage();
+  } catch(err){
+    console.error('Shopper phone verification failed:', err);
+    const msg = /operation-not-allowed|provider.*disabled/i.test(String(err.code || '') + ' ' + String(err.message || ''))
+      ? 'Phone sign-in is disabled in Firebase Authentication. Enable it before using verified shopper sign-in.'
+      : (err.message || 'Phone verification failed. Please try again.');
+    showToast(msg);
+  } finally {
+    submit.disabled = false;
+  }
 }
 
 function handleAccountLogout(){
