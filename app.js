@@ -221,7 +221,8 @@ function shareProductCard(id, e){
     getFirestore, collection, doc, setDoc, addDoc, deleteDoc, getDoc, onSnapshot, getDocs, query, where, runTransaction
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const {
-    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
+    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail,
+    signInWithPhoneNumber, RecaptchaVerifier
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   const {
     getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
@@ -647,6 +648,36 @@ function shareProductCard(id, e){
       catch(err){ throw new Error(`Failed to upload review photo: ${err.message}`); }
     },
 
+    normalizeShopperPhone(phone){
+      const digits = String(phone || '').replace(/\\D/g, '');
+      if(digits.startsWith('233') && digits.length === 12) return '0' + digits.slice(3);
+      if(digits.length === 10 && digits.startsWith('0')) return digits;
+      throw new Error('Enter a valid Ghana phone number, e.g. 0241234567.');
+    },
+    async sendShopperPhoneCode(phone, recaptchaContainerId){
+      const digits = this.normalizeShopperPhone(phone);
+      const e164 = '+233' + digits.slice(1);
+      if(window.__voltixRecaptchaVerifier){
+        try{ window.__voltixRecaptchaVerifier.clear(); }catch(e){}
+      }
+      const verifier = new RecaptchaVerifier(auth, recaptchaContainerId, { size:'invisible' });
+      window.__voltixRecaptchaVerifier = verifier;
+      const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
+      window.__voltixPhoneConfirmation = confirmation;
+      return { phone: digits };
+    },
+    async confirmShopperPhoneCode(code){
+      const confirmation = window.__voltixPhoneConfirmation;
+      if(!confirmation) throw new Error('Request an SMS verification code first.');
+      const credential = await confirmation.confirm(String(code || '').trim());
+      window.__voltixPhoneConfirmation = null;
+      return { uid: credential.user.uid, phone: this.normalizeShopperPhone(credential.user.phoneNumber) };
+    },
+    async getShopperIdToken(){
+      const user = auth.currentUser;
+      if(!user) return null;
+      return user.getIdToken();
+    },
     adminLogin(email,pw){ return signInWithEmailAndPassword(auth,email,pw); },
     adminLogout(){ return signOut(auth); },
     watchAdminAuth(cb){ onAuthStateChanged(auth,u=>cb(u)); },
