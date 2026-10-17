@@ -674,7 +674,16 @@ function shareProductCard(id, e){
       return { uid: credential.user.uid, phone: this.normalizeShopperPhone(credential.user.phoneNumber) };
     },
     async getShopperIdToken(){
-      const user = auth.currentUser;
+      let user = auth.currentUser;
+      if(!user){
+        user = await new Promise(resolve=>{
+          let unsubscribe = null;
+          unsubscribe = onAuthStateChanged(auth, nextUser=>{
+            if(unsubscribe) unsubscribe();
+            resolve(nextUser);
+          });
+        });
+      }
       if(!user || !user.phoneNumber) return null;
       return user.getIdToken();
     },
