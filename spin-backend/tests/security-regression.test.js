@@ -65,9 +65,9 @@ test('shopper wallet and spin endpoints require verified Firebase phone identity
 
 test('purchase creation and browser verification are bound to verified shopper UID', () => {
   const payments = fs.readFileSync(path.join(__dirname, '..', 'payments.js'), 'utf8');
-  assert.match(payments, /async function handleBuyCoins\\(deps, body, shopper\\)/);
-  assert.match(payments, /shopperUid: shopper\\.uid/);
-  assert.match(payments, /async function handleVerifyPurchase\\(deps, body, shopper\\)/);
+  assert.ok(payments.includes('async function handleBuyCoins(deps, body, shopper)'));
+  assert.ok(payments.includes('shopperUid: shopper.uid'));
+  assert.ok(payments.includes('async function handleVerifyPurchase(deps, body, shopper)'));
   assert.match(payments, /This purchase does not belong to the authenticated shopper/);
 });
 
