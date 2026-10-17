@@ -675,8 +675,12 @@ function shareProductCard(id, e){
     },
     async getShopperIdToken(){
       const user = auth.currentUser;
-      if(!user) return null;
+      if(!user || !user.phoneNumber) return null;
       return user.getIdToken();
+    },
+    async shopperLogout(){
+      const user = auth.currentUser;
+      if(user && user.phoneNumber) await signOut(auth);
     },
     adminLogin(email,pw){ return signInWithEmailAndPassword(auth,email,pw); },
     adminLogout(){ return signOut(auth); },
