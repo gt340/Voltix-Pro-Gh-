@@ -88,7 +88,7 @@ const prizeLabelMap = {
 // the caller controls the same phone number. This intentionally fails closed
 // until the frontend phone-auth/linking flow is implemented and configured.
 function normalizePhone(value){
-  const digits = String(value || '').replace(/\\D/g, '');
+  const digits = String(value || '').replace(/\D/g, '');
   return digits.startsWith('233') && digits.length === 12 ? '0' + digits.slice(3) : digits;
 }
 async function requireVerifiedShopper(req, res, requestedPhone){
