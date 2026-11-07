@@ -83,9 +83,43 @@ const prizeLabelMap = {
   freeshipping:'Free Shipping Voucher'
 };
 
+// ---------- SHOPPER IDENTITY ----------
+// Legacy phone-keyed wallets are accessible only when Firebase verifies that
+// the caller controls the same phone number. This intentionally fails closed
+// until the frontend phone-auth/linking flow is implemented and configured.
+function normalizePhone(value){
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.startsWith('233') && digits.length === 12 ? '0' + digits.slice(3) : digits;
+}
+async function requireVerifiedShopper(req, res, requestedPhone){
+  const header = req.headers.authorization || '';
+  const match = header.match(/^Bearer (.+)$/i);
+  if(!match){ res.status(401).json({ error:'Shopper authentication required' }); return null; }
+  let decoded;
+  try { decoded = await admin.auth().verifyIdToken(match[1]); }
+  catch (_) { res.status(401).json({ error:'Invalid or expired shopper token' }); return null; }
+  if(typeof decoded.phone_number !== 'string' || !decoded.phone_number){
+    res.status(403).json({ error:'Verified phone ownership required for this wallet operation' });
+    return null;
+  }
+  const canonicalPhone = normalizePhone(decoded.phone_number);
+  if(!/^0\d{9}$/.test(canonicalPhone)){
+    res.status(403).json({ error:'A verified Ghana phone number is required' });
+    return null;
+  }
+  if(requestedPhone && canonicalPhone !== normalizePhone(requestedPhone)){
+    res.status(403).json({ error:'Authenticated phone does not own this wallet' });
+    return null;
+  }
+  decoded.walletPhone = canonicalPhone;
+  return decoded;
+}
+
 // ---------- WALLET LOOKUP ----------
 app.get('/api/wallet', async (req,res)=>{
-  const { phone } = req.query;
+  const shopper = await requireVerifiedShopper(req,res,req.query.phone);
+  if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
   const snap = await db.collection('wallets').doc(phone).get();
   if(!snap.exists) return res.json({ coins: 0, network: null, totalSpend: 0 });
@@ -95,7 +129,10 @@ app.get('/api/wallet', async (req,res)=>{
 
 // ---------- FREE STARTER SPIN ----------
 app.post('/api/claim-free-spin', async (req,res)=>{
-  const { phone, name } = req.body || {};
+  const { phone: requestedPhone, name } = req.body || {};
+  const shopper = await requireVerifiedShopper(req,res,requestedPhone);
+  if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone || typeof phone !== 'string' || phone.length > 24 || /[\\/]/.test(phone)) return res.status(400).json({ error:'Valid phone required' });
   const walletRef = db.collection('wallets').doc(phone);
   try {
@@ -121,7 +158,9 @@ function generateReferralCode(phone){
   return 'VLX' + phone.replace(/\D/g,'').slice(-4) + Math.random().toString(36).slice(2,5).toUpperCase();
 }
 app.get('/api/spin-referral-code', async (req,res)=>{
-  const { phone } = req.query;
+  const shopper = await requireVerifiedShopper(req,res,req.query.phone);
+  if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
   const walletRef = db.collection('wallets').doc(phone);
   const snap = await walletRef.get();
@@ -169,7 +208,10 @@ app.post('/api/mark-winner-fulfilled', async (req,res)=>{
 
 // ---------- SPIN ----------
 app.post('/api/spin', async (req,res)=>{
-  const { phone, network, name } = req.body;
+  const { phone: requestedPhone, network, name } = req.body || {};
+  const shopper = await requireVerifiedShopper(req,res,requestedPhone);
+  if(!shopper) return;
+  const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
 
   if(typeof phone !== 'string' || phone.length > 24 || /[\\/]/.test(phone)) return res.status(400).json({ error:'Valid phone required' });
@@ -283,8 +325,10 @@ async function sendReloadlyData(phone, network, amountMB){
 // server (payments.js); `coins` / `priceGHC` from the browser are kept for audit and
 // never used to decide what a payment is worth.
 app.post('/api/buy-coins', async (req,res)=>{
+  const shopper = await requireVerifiedShopper(req,res,req.body && req.body.phone);
+  if(!shopper) return;
   try{
-    const r = await payments.handleBuyCoins(payDeps, req.body || {});
+    const r = await payments.handleBuyCoins(payDeps, { ...(req.body || {}), phone: shopper.walletPhone }, shopper);
     res.status(r.http).json(r.json);
   } catch(err){
     console.error('buy-coins failed:', err.message);
@@ -295,8 +339,10 @@ app.post('/api/buy-coins', async (req,res)=>{
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
 // function with the webhook, so a purchase can only ever be credited once. ----------
 app.post('/api/verify-purchase', async (req,res)=>{
+  const shopper = await requireVerifiedShopper(req,res,null);
+  if(!shopper) return;
   try{
-    const r = await payments.handleVerifyPurchase(payDeps, req.body || {});
+    const r = await payments.handleVerifyPurchase(payDeps, req.body || {}, shopper);
     res.status(r.http).json(r.json);
   } catch(err){
     console.error('Verify purchase failed:', err.message);
