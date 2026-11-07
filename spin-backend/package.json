@@ -4,7 +4,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test tests/security-regression.test.js"
+    "test": "node --test tests/security-regression.test.js tests/phone-auth-diagnostics.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",

@@ -349,6 +349,7 @@
 </nav>
 
 <script src="app.js"></script>
+<script src="shopper-auth-diagnostics.js"></script>
 <script>
 async function renderAccountPage(){
   const loggedOut = document.getElementById('accLoggedOut');
@@ -415,10 +416,26 @@ async function handleAccountLogin(e){
     showToast('Phone verified. Welcome, ' + name.split(' ')[0] + '!');
     renderAccountPage();
   } catch(err){
-    console.error('Shopper phone verification failed:', err);
-    const msg = /operation-not-allowed|provider.*disabled/i.test(String(err.code || '') + ' ' + String(err.message || ''))
-      ? 'Phone sign-in is disabled in Firebase Authentication. Enable it before using verified shopper sign-in.'
-      : (err.message || 'Phone verification failed. Please try again.');
+    if(window.recordShopperAuthDiagnostic){
+      window.recordShopperAuthDiagnostic(err);
+    }
+
+    const code = String(err && err.code || '');
+
+    let msg = 'Phone verification failed. Please try again.';
+
+    if(code === 'auth/operation-not-allowed'){
+      msg = 'Firebase rejected this phone sign-in operation. Check the Phone provider and SMS region policy.';
+    } else if(code === 'auth/too-many-requests'){
+      msg = 'Firebase temporarily blocked further verification attempts. Try again later.';
+    } else if(code === 'auth/quota-exceeded'){
+      msg = 'The Firebase SMS quota has been exceeded.';
+    } else if(code === 'auth/invalid-phone-number'){
+      msg = 'The phone number was rejected. Check the number and country code.';
+    } else if(code === 'auth/captcha-check-failed'){
+      msg = 'The reCAPTCHA verification failed. Refresh the page and try again.';
+    }
+
     showToast(msg);
   } finally {
     submit.disabled = false;
