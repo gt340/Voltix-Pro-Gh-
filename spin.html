@@ -252,7 +252,7 @@ function buildPrizeWheel(){
       'paint-order': 'stroke',
       stroke: 'rgba(0,0,0,.4)',
       'stroke-width': '.8',
-      transform: `rotate(${mid} 200 200)${mid > 90 && mid < 270 ? ' rotate(180 200 75)' : ''}`
+      transform: `rotate(${mid + 90} 200 200)${mid + 90 > 90 && mid + 90 < 270 ? ' rotate(180 200 75)' : ''}`
     });
     text.textContent = labels[index] || segment.label.toUpperCase();
     svg.appendChild(text);
