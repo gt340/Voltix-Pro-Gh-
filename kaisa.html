@@ -116,8 +116,21 @@
     .progress-wrap .fill.you { background: linear-gradient(90deg, #16a34a, #4ade80); }
     .progress-wrap .fill.ai { background: linear-gradient(90deg, #b91c1c, #f87171); }
     #status { text-align: center; font-size: 1rem; min-height: 24px; font-weight: 500; }
-    .power-bar-container { width: 100%; height: 14px; background: #333; border-radius: 7px; overflow: hidden; display: none; }
-    .power-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); transition: width 0.05s linear; }
+    .shot-panel {
+      display: grid; gap: 10px; padding: 14px; border-radius: 14px;
+      background: linear-gradient(145deg, #10251d, #07140f);
+      border: 1px solid rgba(74, 222, 128, .28);
+      box-shadow: 0 10px 28px rgba(0,0,0,.28);
+    }
+    .shot-panel-top { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .shot-panel-top strong { color:#bbf7d0; font-size:.78rem; letter-spacing:.08em; }
+    #shotPowerText { color:#fbbf24; font-size:.78rem; font-weight:900; }
+    .shot-power-label { display:flex; justify-content:space-between; color:#cbd5e1; font-size:.78rem; }
+    #shotPowerSlider { width:100%; margin:0; accent-color:#fbbf24; min-height:30px; background:transparent; }
+    .shot-actions { display:grid; grid-template-columns:1fr; }
+    #shootBtn { min-height:54px; border:1px solid #f8d879; border-radius:12px; background:linear-gradient(135deg,#f8df8a,#b7791f); color:#1c1405; font-size:1rem; font-weight:1000; letter-spacing:.12em; box-shadow:0 7px 18px rgba(183,121,31,.22); touch-action:manipulation; }
+    #shootBtn:disabled { opacity:.42; filter:grayscale(.7); box-shadow:none; }
+    .instructions { padding:10px 12px; border:1px solid #244b39; border-radius:10px; background:rgba(16,55,37,.35); }
     .controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
     .controls button {
       background: #0f3460; color: white; border: none; padding: 10px 14px; border-radius: 10px;
@@ -264,10 +277,18 @@
         <span id="aiPct">0%</span>
       </div>
 
-      <div id="status">Your turn – drag to aim &amp; set power</div>
+      <div id="status">Tap the table to aim, adjust power, then shoot.</div>
 
-      <div class="power-bar-container" id="powerContainer">
-        <div class="power-bar" id="powerBar"></div>
+      <div class="shot-panel" id="shotPanel">
+        <div class="shot-panel-top">
+          <strong>1 · TAP THE TABLE TO AIM</strong>
+          <span id="shotPowerText">POWER 10 / 22</span>
+        </div>
+        <label class="shot-power-label" for="shotPowerSlider"><span>Shot power</span><span>Controlled release</span></label>
+        <input id="shotPowerSlider" type="range" min="2" max="22" step="0.5" value="10" aria-label="Shot power">
+        <div class="shot-actions">
+          <button type="button" id="shootBtn" disabled>SHOOT</button>
+        </div>
       </div>
 
       <div id="emojiBar">
@@ -296,7 +317,7 @@
       </div>
 
       <div class="instructions">
-        Drag from your cue ball to aim. Longer drag = more power.<br>
+        Tap or drag on the table to set your shot direction. Adjust power separately, then press SHOOT.<br>
         Score to keep your turn • Scratch = +2 to your opponent
       </div>
     </div>
@@ -401,8 +422,9 @@
     const playerScoreEl = $('playerScore');
     const aiScoreEl = $('aiScore');
     const statusEl = $('status');
-    const powerContainer = $('powerContainer');
-    const powerBar = $('powerBar');
+    const shootBtn = $('shootBtn');
+    const shotPowerSlider = $('shotPowerSlider');
+    const shotPowerText = $('shotPowerText');
     const newGameBtn = $('newGameBtn');
     const hintBtn = $('hintBtn');
     const muteBtn = $('muteBtn');
@@ -511,7 +533,7 @@
     let playerScore = 0, aiScore = 0;
     let currentPlayer = 'player';
     let isMoving = false, gameOver = false;
-    let aimStart = null, aimCurrent = null, power = 0, isAiming = false;
+    let aimAngle = 0, shotPower = 10, isAiming = false;
     let lastPotted = [], turnPoints = 0, scratched = false;
     let note = null;          // last thing that happened: {k:'score'|'scratch', who, n}
     let winner = null;        // 'player' | 'ai'
@@ -761,12 +783,13 @@
       return '';
     }
     function refreshStatus() {
+      if (shootBtn) shootBtn.disabled = !mode || gameOver || isMoving || !myTurn();
       if (gameOver) return;
       let s;
       if (isMoving) s = 'Balls moving…';
-      else if (mode === 'ai') s = currentPlayer === 'player' ? 'Your turn – drag from your cue ball' : `AI (${difficulty}) is thinking…`;
-      else if (mode === 'local') s = (currentPlayer === 'player' ? 'P1' : 'P2') + ' turn – drag from your cue ball';
-      else s = myTurn() ? 'Your turn – drag from your cue ball' : `${oppName()}'s turn…`;
+      else if (mode === 'ai') s = currentPlayer === 'player' ? 'Your turn – tap the table to aim' : `AI (${difficulty}) is thinking…`;
+      else if (mode === 'local') s = (currentPlayer === 'player' ? 'P1' : 'P2') + ' turn – tap the table to aim';
+      else s = myTurn() ? 'Your turn – tap the table to aim' : `${oppName()}'s turn…`;
       const n = noteText();
       statusEl.textContent = n ? `${n} — ${s}` : s;
     }
@@ -883,65 +906,80 @@
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = TABLE_W / rect.width, scaleY = TABLE_H / rect.height;
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
     }
 
-    function onPointerDown(e) {
-      if (!mode || gameOver || isMoving || !myTurn()) return;
-      e.preventDefault();
-      ensureAudio();
-      const pos = getPos(e);
+    function canControlShot() {
+      return !!mode && !gameOver && !isMoving && myTurn();
+    }
+
+    function setAimFromPointer(e) {
       const cue = activeCue();
-      if (cue.pocketed) return;
-      if (dist(pos, cue) < BALL_R * 2.5) {
-        isAiming = true;
-        aimStart = { x: cue.x, y: cue.y };
-        aimCurrent = pos;
-        powerContainer.style.display = 'block';
+      if (!cue || cue.pocketed) return;
+      const pos = getPos(e);
+      const dx = pos.x - cue.x, dy = pos.y - cue.y;
+      if (Math.hypot(dx, dy) > BALL_R * 1.2) {
+        aimAngle = Math.atan2(dy, dx);
       }
     }
-    function onPointerMove(e) {
-      if (!isAiming) return;
+
+    function updateShotPowerLabel() {
+      shotPower = Math.max(2, Math.min(MAX_POWER, Number(shotPowerSlider.value) || 10));
+      shotPowerText.textContent = `POWER ${shotPower.toFixed(shotPower % 1 ? 1 : 0)} / ${MAX_POWER}`;
+    }
+    shotPowerSlider.addEventListener('input', updateShotPowerLabel);
+    updateShotPowerLabel();
+
+    function onPointerDown(e) {
+      if (!canControlShot()) return;
       e.preventDefault();
-      aimCurrent = getPos(e);
-      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
-      power = Math.min(Math.hypot(dx, dy) / 8, MAX_POWER);
-      powerBar.style.width = (power / MAX_POWER * 100) + '%';
+      ensureAudio();
+      isAiming = true;
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      setAimFromPointer(e);
+    }
+    function onPointerMove(e) {
+      if (!isAiming || !canControlShot()) return;
+      e.preventDefault();
+      setAimFromPointer(e);
     }
     function onPointerUp(e) {
       if (!isAiming) return;
       e.preventDefault();
+      setAimFromPointer(e);
       isAiming = false;
-      powerContainer.style.display = 'none';
-      powerBar.style.width = '0%';
-      if (power < 1.5) { aimStart = null; aimCurrent = null; return; }
-      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const vx = (dx / d) * power, vy = (dy / d) * power;
-      aimStart = null; aimCurrent = null;
+      refreshStatus();
+    }
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
+
+    function shootCurrentTurn() {
+      if (!canControlShot()) return;
+      updateShotPowerLabel();
+      const powerNow = shotPower;
+      const vx = Math.cos(aimAngle) * powerNow;
+      const vy = Math.sin(aimAngle) * powerNow;
       if (mode === 'online' && !isHost) {
-        // Guest: the host runs the physics — just send the shot.
+        // Guest: the host runs the physics — send the chosen direction and power.
         sendShot(vx, vy);
         isMoving = true;
         statusEl.textContent = 'Balls moving…';
+        refreshStatus();
         return;
       }
       const cue = activeCue();
-      cue.vx = vx; cue.vy = vy;
+      if (!cue || cue.pocketed) return;
+      cue.vx = vx;
+      cue.vy = vy;
       SFX.shoot();
       isMoving = true;
       statusEl.textContent = 'Balls moving…';
+      refreshStatus();
       sendState(true);
     }
-    canvas.addEventListener('mousedown', onPointerDown);
-    canvas.addEventListener('mousemove', onPointerMove);
-    canvas.addEventListener('mouseup', onPointerUp);
-    canvas.addEventListener('mouseleave', onPointerUp);
-    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-    canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-    canvas.addEventListener('touchend', onPointerUp, { passive: false });
+    shootBtn.addEventListener('click', shootCurrentTurn);
 
 
     // ---------- Pseudo-3D render ----------
@@ -1147,57 +1185,56 @@
     }
 
     function drawCueStick() {
-      if (!isAiming || !aimStart || !aimCurrent) return;
+      if (!canControlShot()) return;
       const cue = activeCue();
       if (!cue || cue.pocketed) return;
-      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
-      const d = Math.hypot(dx, dy);
-      if (d < 5) return;
-      const nx = dx / d, ny = dy / d;
-      const tipGap = BALL_R + 4 + power * 0.6;
-      const stickLen = 140 + power * 2;
+      const nx = Math.cos(aimAngle), ny = Math.sin(aimAngle);
+      const tipGap = BALL_R + 5 + shotPower * 0.12;
+      const stickLen = 142 + shotPower * 1.4;
       const tipX = cue.x - nx * tipGap, tipY = cue.y - ny * tipGap;
       const buttX = tipX - nx * stickLen, buttY = tipY - ny * stickLen;
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-      ctx.lineWidth = 7;
+      ctx.strokeStyle = 'rgba(0,0,0,0.38)';
+      ctx.lineWidth = 8;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(tipX + 3, tipY + 4);
       ctx.lineTo(buttX + 3, buttY + 4);
       ctx.stroke();
       const sg = ctx.createLinearGradient(tipX, tipY, buttX, buttY);
-      sg.addColorStop(0, '#f5e6c8');
-      sg.addColorStop(0.2, '#d4a574');
-      sg.addColorStop(0.7, '#6b4423');
-      sg.addColorStop(1, '#3d2817');
+      sg.addColorStop(0, '#fff0d0');
+      sg.addColorStop(0.18, '#d4a574');
+      sg.addColorStop(0.72, '#76502b');
+      sg.addColorStop(1, '#352315');
       ctx.strokeStyle = sg;
-      ctx.lineWidth = 5.5;
+      ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.moveTo(tipX, tipY);
       ctx.lineTo(buttX, buttY);
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(tipX, tipY, 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#3b82f6';
+      ctx.fillStyle = '#fbbf24';
       ctx.fill();
     }
 
     function drawAim() {
-      if (!isAiming || !aimStart || !aimCurrent) return;
+      if (!canControlShot()) return;
       const cue = activeCue();
-      if (cue.pocketed) return;
-      const dx = aimStart.x - aimCurrent.x, dy = aimStart.y - aimCurrent.y;
-      const d = Math.hypot(dx, dy);
-      if (d < 5) return;
-      const nx = dx / d, ny = dy / d;
+      if (!cue || cue.pocketed) return;
+      const nx = Math.cos(aimAngle), ny = Math.sin(aimAngle);
       ctx.beginPath();
-      ctx.moveTo(cue.x + nx * (BALL_R + 2), cue.y + ny * (BALL_R + 2));
-      ctx.lineTo(cue.x + nx * Math.min(d * 1.8, 200), cue.y + ny * Math.min(d * 1.8, 200));
-      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([5, 5]);
+      ctx.moveTo(cue.x + nx * (BALL_R + 3), cue.y + ny * (BALL_R + 3));
+      ctx.lineTo(cue.x + nx * 230, cue.y + ny * 230);
+      ctx.strokeStyle = isAiming ? 'rgba(255,248,220,0.82)' : 'rgba(255,255,255,0.48)';
+      ctx.lineWidth = isAiming ? 2.2 : 1.5;
+      ctx.setLineDash([7, 6]);
       ctx.stroke();
       ctx.setLineDash([]);
+      const markerX = cue.x + nx * 230, markerY = cue.y + ny * 230;
+      ctx.beginPath();
+      ctx.arc(markerX, markerY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,248,220,.8)';
+      ctx.fill();
     }
 
     function render() {
@@ -1407,14 +1444,14 @@
       mode = m;
       gameToken++; clearTimeout(aiTimer);
       playerScore = 0; aiScore = 0; currentPlayer = 'player';
-      gameOver = false; isMoving = false; isAiming = false;
+      gameOver = false; isMoving = false; isAiming = false; aimAngle = 0;
+      shotPowerSlider.value = '10'; updateShotPowerLabel();
       turnPoints = 0; lastPotted = []; scratched = false; note = null; winner = null;
       recorded = false; prizeClaimed = false; pendingSfx = [];
       resetBalls();
       setLabels();
       updateScoreUI();
       winOverlay.classList.remove('show');
-      powerContainer.style.display = 'none';
       menuScreen.style.display = 'none';
       gameScreen.style.display = 'block';
       $('targetVal').textContent = WIN_SCORE;
