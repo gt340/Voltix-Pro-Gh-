@@ -1,0 +1,51 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.join(__dirname, '..', '..');
+const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const spin = fs.readFileSync(path.join(root, 'spin.html'), 'utf8');
+
+test('backend prize weights total exactly 100 and include both non-reward outcomes', () => {
+  const block = server.match(/const PRIZES = \[([\s\S]*?)\n\];/);
+  assert.ok(block, 'PRIZES table exists');
+  const rows = [...block[1].matchAll(/\{\s*id:'([^']+)'\s*,\s*weight:([\d.]+)/g)];
+  const total = rows.reduce((sum, row) => sum + Number(row[2]), 0);
+  assert.equal(total, 100);
+  assert.ok(rows.some(row => row[1] === 'tryAgain'));
+  assert.ok(rows.some(row => row[1] === 'zeroCoin'));
+});
+
+test('frontend wheel segments exactly match the backend prize IDs', () => {
+  const frontBlock = spin.match(/const WHEEL_SEGMENTS = \[([\s\S]*?)\n\];/);
+  const backendBlock = server.match(/const PRIZES = \[([\s\S]*?)\n\];/);
+  assert.ok(frontBlock && backendBlock);
+  const frontIds = [...frontBlock[1].matchAll(/id:'([^']+)'/g)].map(x => x[1]).sort();
+  const backendIds = [...backendBlock[1].matchAll(/\{\s*id:'([^']+)'/g)].map(x => x[1]).sort();
+  assert.deepEqual(frontIds, backendIds);
+  assert.match(frontBlock[1], /label:'TRY AGAIN'/);
+  assert.match(frontBlock[1], /label:'0 COIN'/);
+});
+
+test('spin animation has a long eased deceleration and waits for transition completion', () => {
+  assert.match(spin, /transition:transform 8\.2s cubic-bezier\(\.12,\.78,\.08,1\)/);
+  assert.match(spin, /transitionend/);
+  assert.match(spin, /fallbackTimer = setTimeout\(finishSpin, 8700\)/);
+});
+
+test('ineligible earpod outcome becomes a genuine no-prize result, not hidden coins', () => {
+  assert.match(server, /if\(!earpodTier\) prize = \{ id:'tryAgain', type:'none' \}/);
+  assert.doesNotMatch(server, /if\(!earpodTier\) prize = \{ id:'coins10'/);
+});
+
+test('wheel and backend source remain syntactically valid', () => {
+  const vm = require('node:vm');
+  const scripts = [...spin.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+    .map(match => match[1]).filter(code => code.trim());
+  for (const [index, code] of scripts.entries()) {
+    assert.doesNotThrow(() => new vm.Script(code), 'spin inline script ' + (index + 1));
+  }
+  assert.doesNotThrow(() => new vm.Script(server));
+});
