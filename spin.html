@@ -42,9 +42,11 @@ body{background:#0a0a0a;}
 .network-confirm-chip .nc-left b{color:var(--gold);font-weight:800;}
 .network-pill-select{background:#161616;border:1px solid rgba(255,255,255,.15);color:#fff;padding:.5rem 1rem;border-radius:999px;font-size:.8rem;font-weight:700;}
 
-.wheel-wrap{position:relative;width:min(90vw,340px);height:min(90vw,340px);margin:0 auto 1.8rem;}
-.wheel-pointer{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:26px solid var(--gold);z-index:5;filter:drop-shadow(0 3px 8px rgba(0,0,0,.6));}
-.wheel-disc{width:100%;height:100%;border-radius:50%;object-fit:cover;transition:transform 4.5s cubic-bezier(.17,.67,.12,.99);box-shadow:0 0 0 2px rgba(250,204,21,.25),0 0 50px rgba(250,204,21,.25);}
+.wheel-wrap{position:relative;width:min(88vw,360px);height:min(88vw,360px);margin:0 auto 1.8rem;perspective:1100px;}
+.wheel-rim{position:relative;width:100%;height:100%;padding:8px;border-radius:50%;background:linear-gradient(135deg,#fff2b5 0%,#9c6d16 18%,#f8d66d 38%,#5b3909 58%,#f3cf65 78%,#8c6011 100%);box-shadow:0 22px 42px rgba(0,0,0,.65),0 0 0 2px rgba(255,232,157,.35),0 0 38px rgba(212,165,58,.3);transform:rotateX(5deg);}
+.wheel-disc{display:block;width:100%;height:100%;border-radius:50%;overflow:visible;transform-origin:50% 50%;transition:transform 5.2s cubic-bezier(.12,.72,.08,1);box-shadow:inset 0 0 0 3px rgba(255,236,177,.75),inset 0 0 28px rgba(0,0,0,.45);}
+.wheel-pointer{position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:17px solid transparent;border-right:17px solid transparent;border-top:31px solid #fff0a6;z-index:8;filter:drop-shadow(0 4px 5px rgba(0,0,0,.85));}
+.wheel-pointer:after{content:'';position:absolute;left:-7px;top:-29px;width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#fff8d8,#b88724);box-shadow:0 0 10px rgba(255,220,120,.7);}
 
 .spin-btn-row{padding:0 1.1rem 1.5rem;text-align:center;}
 .spin-cta-btn{width:100%;max-width:300px;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:900;font-size:1rem;padding:1.1rem;border-radius:1rem;border:2px solid rgba(250,204,21,.4);box-shadow:0 10px 30px rgba(14,165,233,.35);}
@@ -120,9 +122,13 @@ body{background:#0a0a0a;}
   </select>
 </div>
 
-<div class="wheel-wrap">
-  <div class="wheel-pointer"></div>
-  <img class="wheel-disc" id="wheelDisc" src="https://res.cloudinary.com/gi28yswe/image/upload/f_auto,q_auto,w_600/v1787315750/grok_1787314566690_u3wtyd.jpg" alt="Spin wheel" loading="eager" decoding="async" fetchpriority="high">
+<div class="wheel-wrap" aria-label="Voltix prize wheel">
+  <div class="wheel-pointer" aria-hidden="true"></div>
+  <div class="wheel-rim">
+    <svg class="wheel-disc" id="wheelDisc" viewBox="0 0 400 400" role="img" aria-label="Ten-segment prize wheel">
+      <circle cx="200" cy="200" r="190" fill="#111827" stroke="#f4d47a" stroke-width="5"></circle>
+    </svg>
+  </div>
 </div>
 
 <div class="spin-btn-row">
@@ -194,6 +200,74 @@ const WHEEL_SEGMENTS = [
   { id:'airtime2',    label:'Ghc2 Airtime' },
 ];
 const SEG_ANGLE = 360 / WHEEL_SEGMENTS.length;
+
+function buildPrizeWheel(){
+  const svg = document.getElementById('wheelDisc');
+  const ns = 'http://www.w3.org/2000/svg';
+  const make = (tag, attrs) => {
+    const node = document.createElementNS(ns, tag);
+    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+    return node;
+  };
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const defs = make('defs', {});
+  const hubGradient = make('radialGradient', {id:'wheelHubGradient', cx:'32%', cy:'25%', r:'75%'});
+  hubGradient.appendChild(make('stop', {offset:'0%', 'stop-color':'#fff2bd'}));
+  hubGradient.appendChild(make('stop', {offset:'42%', 'stop-color':'#d6a83d'}));
+  hubGradient.appendChild(make('stop', {offset:'100%', 'stop-color':'#6f480b'}));
+  defs.appendChild(hubGradient);
+  svg.appendChild(defs);
+
+  const colors = ['#102b4e','#b77b18','#123d48','#8f2525','#15345b','#9b6815','#173f35','#8d3a1d','#142b50','#956018'];
+  const labels = ['500MB DATA','GH₵5 AIRTIME','1GB DATA','10% OFF','FREE EARPODS','FREE SHIPPING','5 COINS','10 COINS','GH₵1 AIRTIME','GH₵2 AIRTIME'];
+  const point = (radius, angle) => {
+    const rad = angle * Math.PI / 180;
+    return {x:200 + Math.cos(rad) * radius, y:200 + Math.sin(rad) * radius};
+  };
+
+  WHEEL_SEGMENTS.forEach((segment, index) => {
+    const start = -90 + index * SEG_ANGLE;
+    const end = start + SEG_ANGLE;
+    const a = point(178, start);
+    const b = point(178, end);
+    const path = make('path', {
+      d: `M 200 200 L ${a.x.toFixed(2)} ${a.y.toFixed(2)} A 178 178 0 0 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)} Z`,
+      fill: colors[index % colors.length],
+      stroke: '#f4d47a',
+      'stroke-width': '2'
+    });
+    svg.appendChild(path);
+
+    const mid = start + SEG_ANGLE / 2;
+    const text = make('text', {
+      x: '200',
+      y: '75',
+      fill: '#fff8df',
+      'font-size': index === 4 || index === 5 ? '10' : '11.5',
+      'font-family': 'Outfit, Arial, sans-serif',
+      'font-weight': '900',
+      'letter-spacing': '.25',
+      'text-anchor': 'middle',
+      'dominant-baseline': 'middle',
+      'paint-order': 'stroke',
+      stroke: 'rgba(0,0,0,.4)',
+      'stroke-width': '.8',
+      transform: `rotate(${mid} 200 200)${mid > 90 && mid < 270 ? ' rotate(180 200 75)' : ''}`
+    });
+    text.textContent = labels[index] || segment.label.toUpperCase();
+    svg.appendChild(text);
+
+    const dot = point(177, end);
+    svg.appendChild(make('circle', {cx:dot.x.toFixed(2), cy:dot.y.toFixed(2), r:'3.5', fill:'#fff0b2', stroke:'#6b4b12', 'stroke-width':'1'}));
+  });
+
+  svg.appendChild(make('circle', {cx:'200', cy:'200', r:'43', fill:'url(#wheelHubGradient)', stroke:'#fff0b2', 'stroke-width':'5'}));
+  svg.appendChild(make('circle', {cx:'200', cy:'200', r:'33', fill:'#101827', stroke:'#6e4d13', 'stroke-width':'2'}));
+  const hubText = make('text', {x:'200', y:'205', fill:'#f9df91', 'font-family':'Outfit, Arial, sans-serif', 'font-size':'27', 'font-weight':'900', 'text-anchor':'middle'});
+  hubText.textContent = 'V';
+  svg.appendChild(hubText);
+}
+buildPrizeWheel();
 
 const BACKEND = 'https://spin-backend-delta.vercel.app';
 const SPIN_API_URL = BACKEND + '/api/spin';
@@ -484,7 +558,7 @@ function animateWheelToPrize(data){
     } catch(e){
       console.error('showPrizeResult failed:', e);
     }
-  }, 4600);
+  }, 5300);
 }
 
 function announceResult(text){
