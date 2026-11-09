@@ -45,7 +45,12 @@ body{background:#0a0a0a;}
 .wheel-wrap{position:relative;width:min(90vw,340px);height:min(90vw,340px);margin:0 auto 1.8rem;}
 .wheel-pointer{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:26px solid var(--gold);z-index:5;filter:drop-shadow(0 3px 8px rgba(0,0,0,.6));}
 .wheel-disc{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;transition:transform 8.2s cubic-bezier(.12,.78,.08,1);box-shadow:0 0 0 3px rgba(250,204,21,.55),0 0 50px rgba(250,204,21,.25);border:5px solid #d4a72c;background:#17120a;}
-.wheel-segment-label{position:absolute;left:50%;top:50%;width:62px;margin-left:-31px;margin-top:-11px;color:#fff;font-size:8.5px;line-height:1.05;font-weight:900;text-align:center;text-transform:uppercase;text-shadow:0 1px 3px #000,0 1px 7px #000;pointer-events:none;}
+.wheel-segment-label{position:absolute;width:76px;color:#fff;font-size:8.5px;line-height:1.05;font-weight:900;text-align:center;text-transform:uppercase;text-shadow:0 1px 3px #000,0 1px 7px #000;pointer-events:none;transform:translate(-50%,-50%);}
+.prize-odds{margin:-.7rem 1.1rem 1.4rem;color:rgba(255,255,255,.72);font-size:.76rem;}
+.prize-odds summary{cursor:pointer;color:var(--gold);font-weight:800;text-align:center;padding:.35rem;}
+.prize-odds-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem .8rem;padding:.7rem .3rem;}
+.prize-odds-item{display:flex;justify-content:space-between;gap:.5rem;border-bottom:1px solid rgba(255,255,255,.08);padding:.25rem 0;}
+.prize-odds-item b{color:#fff;white-space:nowrap;}
 
 .spin-btn-row{padding:0 1.1rem 1.5rem;text-align:center;}
 .spin-cta-btn{width:100%;max-width:300px;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:900;font-size:1rem;padding:1.1rem;border-radius:1rem;border:2px solid rgba(250,204,21,.4);box-shadow:0 10px 30px rgba(14,165,233,.35);}
@@ -123,11 +128,14 @@ body{background:#0a0a0a;}
 
 <div class="wheel-wrap">
   <div class="wheel-pointer"></div>
-  <div class="wheel-disc" id="wheelDisc" role="img" aria-label="Prize wheel"></div>
+  <div class="wheel-disc" id="wheelDisc" role="img" aria-label="Weighted prize wheel. Open prize odds for each outcome probability."></div>
 </div>
-
+<details class="prize-odds">
+  <summary>View prize odds</summary>
+  <div class="prize-odds-list" id="prizeOddsList"></div>
+</details>
 <div class="spin-btn-row">
-  <button type="button" class="spin-cta-btn ripple" id="spinBtn">🎡 SPIN — 20 Coins</button>
+  <button type="button" class="spin-cta-btn ripple" id="spinBtn" aria-disabled="false">🎡 SPIN — 20 Coins</button>
   <div class="spin-cost-note">20 coins per spin · 100 coins = GHc10</div>
 </div>
 
@@ -183,35 +191,55 @@ body{background:#0a0a0a;}
 <script src="app.js"></script>
 <script>
 const WHEEL_SEGMENTS = [
-  { id:'data500mb',   label:'500MB Data', color:'#176b87' },
-  { id:'airtime5',    label:'GHc5 Airtime', color:'#9b3d32' },
-  { id:'data1gb',     label:'1GB Data', color:'#315c9b' },
-  { id:'coupon10',    label:'10% Off', color:'#76509a' },
-  { id:'earpods',     label:'FREE Earpods', color:'#a97819' },
-  { id:'freeshipping',label:'Free Shipping', color:'#26734b' },
-  { id:'coins5',      label:'5 Coins', color:'#8b6b22' },
-  { id:'coins10',     label:'10 Coins', color:'#a34c68' },
-  { id:'airtime1',    label:'GHc1 Airtime', color:'#286b72' },
-  { id:'airtime2',    label:'GHc2 Airtime', color:'#79522d' },
-  { id:'tryAgain',    label:'TRY AGAIN', color:'#4b4b4b' },
-  { id:'zeroCoin',    label:'0 COIN', color:'#252525' },
+  { id:'data500mb', label:'500MB Data', color:'#176b87', weight:2 },
+  { id:'airtime5', label:'GHc5 Airtime', color:'#9b3d32', weight:1 },
+  { id:'data1gb', label:'1GB Data', color:'#315c9b', weight:0.5 },
+  { id:'coupon10', label:'10% Off', color:'#76509a', weight:0.3 },
+  { id:'earpods', label:'FREE Earpods', color:'#a97819', weight:1 },
+  { id:'freeshipping', label:'Free Shipping', color:'#26734b', weight:1.2 },
+  { id:'coins5', label:'5 Coins', color:'#8b6b22', weight:15 },
+  { id:'coins10', label:'10 Coins', color:'#a34c68', weight:10 },
+  { id:'airtime1', label:'GHc1 Airtime', color:'#286b72', weight:7 },
+  { id:'airtime2', label:'GHc2 Airtime', color:'#79522d', weight:4 },
+  { id:'tryAgain', label:'TRY AGAIN', color:'#4b4b4b', weight:38 },
+  { id:'zeroCoin', label:'0 COIN', color:'#252525', weight:20 },
 ];
-const SEG_ANGLE = 360 / WHEEL_SEGMENTS.length;
+const WHEEL_TOTAL_WEIGHT = WHEEL_SEGMENTS.reduce((sum, segment) => sum + segment.weight, 0);
+const SPIN_COST_COINS = 20;
 
 function renderPrizeWheel(){
   const disc = document.getElementById('wheelDisc');
   if(!disc) return;
   const stops = [];
-  WHEEL_SEGMENTS.forEach((segment, index) => {
-    const start = index * SEG_ANGLE;
-    const end = (index + 1) * SEG_ANGLE;
+  const oddsList = document.getElementById('prizeOddsList');
+  if(oddsList) oddsList.replaceChildren();
+  let cumulativeWeight = 0;
+  const radius = disc.clientWidth * 0.34;
+  WHEEL_SEGMENTS.forEach(segment => {
+    const start = cumulativeWeight / WHEEL_TOTAL_WEIGHT * 360;
+    cumulativeWeight += segment.weight;
+    const end = cumulativeWeight / WHEEL_TOTAL_WEIGHT * 360;
+    const mid = (start + end) / 2;
     stops.push(`${segment.color} ${start}deg ${end}deg`);
-    const label = document.createElement('span');
-    label.className = 'wheel-segment-label';
-    label.textContent = segment.label;
-    const mid = start + SEG_ANGLE / 2;
-    label.style.transform = `rotate(${mid}deg) translateY(-116px) rotate(${-mid}deg)`;
-    disc.appendChild(label);
+    if(end - start >= 9){
+      const label = document.createElement('span');
+      label.className = 'wheel-segment-label';
+      label.textContent = segment.label;
+      const radians = mid * Math.PI / 180;
+      label.style.left = (50 + Math.sin(radians) * radius / disc.clientWidth * 100) + '%';
+      label.style.top = (50 - Math.cos(radians) * radius / disc.clientHeight * 100) + '%';
+      disc.appendChild(label);
+    }
+    if(oddsList){
+      const item = document.createElement('div');
+      item.className = 'prize-odds-item';
+      const name = document.createElement('span');
+      name.textContent = segment.label;
+      const odds = document.createElement('b');
+      odds.textContent = segment.weight + '%';
+      item.append(name, odds);
+      oddsList.appendChild(item);
+    }
   });
   disc.style.background = `conic-gradient(from 0deg, ${stops.join(',')})`;
 }
@@ -241,6 +269,7 @@ const EARPOD_TIERS = [
 
 let selectedNetwork = null;
 let spinning = false;
+let currentCoinBalance = null;
 let mySpinReferralCode = null;
 let currentWheelRotation = 0;
 
@@ -346,16 +375,30 @@ document.getElementById('networkOverrideSelect').addEventListener('change', func
 });
 
 /* ---------- COIN BALANCE ---------- */
+function updateSpinButtonState(){
+  const button = document.getElementById('spinBtn');
+  if(!button) return;
+  const balanceUnavailable = Boolean(currentUser) && currentCoinBalance === null;
+  const insufficientBalance = Boolean(currentUser) && currentCoinBalance !== null && currentCoinBalance < SPIN_COST_COINS;
+  button.disabled = spinning || balanceUnavailable || insufficientBalance;
+  button.setAttribute('aria-disabled', String(button.disabled));
+}
+
 async function loadCoinBalance(){
-  if(!currentUser){ document.getElementById('coinBalanceDisplay').textContent = '0'; return; }
+  if(!currentUser){ currentCoinBalance = null; document.getElementById('coinBalanceDisplay').textContent = '0'; updateSpinButtonState(); return; }
   try{
     const res = await fetch(`${WALLET_API_URL}?phone=${encodeURIComponent(currentUser.phone)}`, { headers: await getShopperAuthHeaders() });
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || 'Could not load wallet');
-    document.getElementById('coinBalanceDisplay').textContent = data.coins ?? 0;
+    const balance = Number(data.coins);
+    currentCoinBalance = Number.isFinite(balance) && balance >= 0 ? balance : null;
+    document.getElementById('coinBalanceDisplay').textContent = currentCoinBalance ?? '—';
     renderSpendProgress(data.totalSpend || 0);
+    updateSpinButtonState();
   } catch(err){
+    currentCoinBalance = null;
     document.getElementById('coinBalanceDisplay').textContent = '—';
+    updateSpinButtonState();
     if(/verify your phone/i.test(err.message || '')) showToast(err.message);
   }
 }
@@ -469,19 +512,19 @@ document.getElementById('spinBtn').addEventListener('click', function(){
 
 async function spinAndFetch(){
   spinning = true;
-  document.getElementById('spinBtn').disabled = true;
+  updateSpinButtonState();
   try{
     const res = await fetch(SPIN_API_URL, {
       method:'POST', headers:{'Content-Type':'application/json', ...(await getShopperAuthHeaders())},
       body: JSON.stringify({ phone: currentUser.phone, network: selectedNetwork, name: currentUser.name })
     });
     const data = await res.json();
-    if(!res.ok){ showToast(data.error || 'Spin failed'); spinning=false; document.getElementById('spinBtn').disabled=false; return; }
+    if(!res.ok){ showToast(data.error || 'Spin failed'); spinning=false; updateSpinButtonState(); return; }
     animateWheelToPrize(data);
   } catch(err){
     showToast('Network error — try again');
     spinning = false;
-    document.getElementById('spinBtn').disabled = false;
+    updateSpinButtonState();
   }
 }
 
@@ -489,12 +532,13 @@ function animateWheelToPrize(data){
   const idx = WHEEL_SEGMENTS.findIndex(s=>s.id===data.prize);
   if(idx < 0){
     spinning = false;
-    document.getElementById('spinBtn').disabled = false;
+    updateSpinButtonState();
     showToast('The spin result was not recognised. Your wallet has not been changed again.');
     loadCoinBalance();
     return;
   }
-  const targetSegmentAngle = 360 - (idx * SEG_ANGLE + SEG_ANGLE / 2);
+  const precedingWeight = WHEEL_SEGMENTS.slice(0, idx).reduce((sum, segment) => sum + segment.weight, 0);
+  const targetSegmentAngle = 360 - ((precedingWeight + WHEEL_SEGMENTS[idx].weight / 2) / WHEEL_TOTAL_WEIGHT * 360);
   const currentMod = ((currentWheelRotation % 360) + 360) % 360;
   let delta = targetSegmentAngle - currentMod;
   if(delta <= 0) delta += 360;
@@ -508,7 +552,7 @@ function animateWheelToPrize(data){
     finished = true;
     clearTimeout(fallbackTimer);
     spinning = false;
-    document.getElementById('spinBtn').disabled = false;
+    updateSpinButtonState();
     loadCoinBalance();
     try { showPrizeResult(data); }
     catch(e) { console.error('showPrizeResult failed:', e); }
