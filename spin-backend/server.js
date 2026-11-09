@@ -4,6 +4,8 @@ const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
+const { createArkeselOtpClient } = require('./arkesel-otp');
+const { createOtpAuthService } = require('./otp-auth');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -14,6 +16,23 @@ const app = express();
 app.use(cors());
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
+
+const otpAuthEnabled = process.env.OTP_AUTH_ENABLED === 'true';
+let otpAuthService = null;
+if (otpAuthEnabled) {
+  const otpClient = createArkeselOtpClient({
+    http: axios,
+    apiKey: process.env.ARKESEL_API_KEY,
+    senderId: process.env.ARKESEL_SENDER_ID,
+    expiryMinutes: 5
+  });
+  otpAuthService = createOtpAuthService({
+    db,
+    auth: admin.auth(),
+    otpClient,
+    hashSecret: process.env.OTP_RATE_LIMIT_SECRET
+  });
+}
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const RELOADLY_CLIENT_ID = process.env.RELOADLY_CLIENT_ID;
@@ -82,6 +101,52 @@ const prizeLabelMap = {
   airtime5:'Ghc5 Airtime', data500mb:'500MB Data', data1gb:'1GB Data', coupon10:'10% Off Coupon',
   freeshipping:'Free Shipping Voucher'
 };
+
+// ---------- ARKESEL SHOPPER OTP AUTH ----------
+// Disabled by default. Enabling this flag can send billable SMS messages.
+app.post('/api/auth/otp/request', async (req, res) => {
+  if (!otpAuthEnabled || !otpAuthService) {
+    return res.status(503).json({ error: 'Phone verification is temporarily unavailable' });
+  }
+  const phone = req.body && req.body.phone;
+  if (typeof phone !== 'string' || phone.length > 32) {
+    return res.status(400).json({ error: 'Enter a valid Ghana phone number' });
+  }
+  try {
+    const result = await otpAuthService.requestOtp(phone, req.ip || '');
+    return res.status(202).json({ ok: true, ...result });
+  } catch (error) {
+    if (error.code === 'OTP_RESEND_COOLDOWN' || error.code === 'OTP_RATE_LIMITED') {
+      return res.status(429).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof TypeError) {
+      return res.status(400).json({ error: 'Enter a valid Ghana phone number' });
+    }
+    console.error('OTP request failed:', error && error.name);
+    return res.status(502).json({ error: 'Could not send a verification code. Try again later.' });
+  }
+});
+
+app.post('/api/auth/otp/verify', async (req, res) => {
+  if (!otpAuthEnabled || !otpAuthService) {
+    return res.status(503).json({ error: 'Phone verification is temporarily unavailable' });
+  }
+  const body = req.body || {};
+  try {
+    const result = await otpAuthService.verifyOtp(body.challengeId, body.code);
+    return res.json({ customToken: result.customToken });
+  } catch (error) {
+    const status = error.code === 'OTP_RATE_LIMITED' || error.code === 'OTP_ATTEMPTS_EXCEEDED' ? 429 :
+      (error.code === 'OTP_CHALLENGE_INVALID' || error.code === 'OTP_EXPIRED' ? 410 :
+        (error.code === 'OTP_CODE_INVALID' || error.code === 'OTP_CODE_INCORRECT' ? 400 :
+          (error.code === 'OTP_VERIFY_IN_PROGRESS' ? 409 : 502)));
+    if (status === 502) console.error('OTP verification failed:', error && error.name);
+    return res.status(status).json({
+      error: status === 502 ? 'Could not verify the code. Try again later.' : error.message,
+      code: error.code || 'OTP_VERIFICATION_FAILED'
+    });
+  }
+});
 
 // ---------- SHOPPER IDENTITY ----------
 // Legacy phone-keyed wallets are accessible only when Firebase verifies that
