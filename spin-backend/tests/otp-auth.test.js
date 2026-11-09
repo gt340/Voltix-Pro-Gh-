@@ -53,6 +53,7 @@ function makeService(overrides = {}) {
   const db = fakeFirestore();
   const calls = { generated: [], verified: [], tokens: [] };
   const users = new Map();
+  let tokenFailed = false;
   const auth = {
     async getUserByPhoneNumber(phone) {
       const user = users.get(phone);
@@ -70,6 +71,7 @@ function makeService(overrides = {}) {
     },
     async createCustomToken(uid, claims) {
       calls.tokens.push({ uid, claims });
+      if (overrides.tokenFailOnce && !tokenFailed) { tokenFailed = true; throw new Error('temporary token error'); }
       return 'custom-token-' + uid;
     }
   };
@@ -141,6 +143,41 @@ test('incorrect provider code does not issue a Firebase token', async () => {
   );
   assert.equal(ctx.calls.tokens.length, 0);
   assert.equal(ctx.db.records.get('otpChallenges/' + requested.challengeId).status, 'pending');
+});
+
+test('existing Firebase user UID is preserved when phone is verified', async () => {
+  const ctx = makeService();
+  ctx.users.set('+233241234567', {
+    uid: 'existing-shopper-uid',
+    phoneNumber: '+233241234567',
+    disabled: false
+  });
+  const requested = await ctx.service.requestOtp('0241234567', '203.0.113.8');
+  const verified = await ctx.service.verifyOtp(requested.challengeId, '123456');
+  assert.equal(verified.uid, 'existing-shopper-uid');
+  assert.equal(ctx.users.size, 1);
+  assert.equal(ctx.calls.tokens[0].uid, 'existing-shopper-uid');
+});
+
+test('Firebase token issuance can retry after Arkesel has already verified the OTP', async () => {
+  const ctx = makeService({ tokenFailOnce: true });
+  const requested = await ctx.service.requestOtp('0241234567', '203.0.113.8');
+  await assert.rejects(ctx.service.verifyOtp(requested.challengeId, '123456'));
+  assert.equal(ctx.db.records.get('otpChallenges/' + requested.challengeId).status, 'provider_verified');
+  const verified = await ctx.service.verifyOtp(requested.challengeId, '123456');
+  assert.equal(verified.customToken, 'custom-token-uid-+233241234567');
+  assert.equal(ctx.calls.verified.length, 1);
+});
+
+test('expired challenge does not call Arkesel verification', async () => {
+  const ctx = makeService();
+  const requested = await ctx.service.requestOtp('0241234567', '203.0.113.8');
+  ctx.advance(5 * 60 * 1000 + 1);
+  await assert.rejects(
+    ctx.service.verifyOtp(requested.challengeId, '123456'),
+    error => error.code === 'OTP_EXPIRED'
+  );
+  assert.equal(ctx.calls.verified.length, 0);
 });
 
 test('consumed challenge cannot be replayed', async () => {
