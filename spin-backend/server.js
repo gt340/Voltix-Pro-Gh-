@@ -185,9 +185,9 @@ app.get('/api/spin-referral-code', async (req,res)=>{
 });
 
 // ---------- SPIN WINNERS LOG ----------
-async function logSpinWinner(phone, name, prizeLabel, prizeId){
+async function logSpinWinner(phone, name, prizeLabel, prizeId, shopperUid){
   await db.collection('spinWinners').add({
-    phone, name: name || 'Unknown', prizeLabel, prizeId,
+    phone, shopperUid, name: name || 'Unknown', prizeLabel, prizeId,
     status: 'pending', createdAt: new Date().toISOString()
   });
 }
@@ -263,7 +263,7 @@ app.post('/api/spin', async (req,res)=>{
       };
       if(typeof name === 'string') updateData.name = name.slice(0,80);
       tx.set(walletRef, updateData, { merge:true });
-      tx.set(spinRef, { phone, prizeId:prize.id, network:finalNetwork, createdAt:nowDate.toISOString(), dayKey }, { merge:false });
+      tx.set(spinRef, { phone, shopperUid:shopper.uid, prizeId:prize.id, network:finalNetwork, createdAt:nowDate.toISOString(), dayKey }, { merge:false });
       return { ok:true };
     });
     if(result.error) return res.status(result.status).json({ error:result.error, code:result.code || 'SPIN_REJECTED' });
@@ -274,7 +274,7 @@ app.post('/api/spin', async (req,res)=>{
   try{
     if(prize.type === 'coins'){
       await walletRef.update({ coins: admin.firestore.FieldValue.increment(prize.value) });
-      await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
+      await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id, shopper.uid);
     } else if(prize.type === 'airtime'){
       await sendReloadlyAirtime(phone, finalNetwork, prize.value);
       await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
@@ -282,20 +282,20 @@ app.post('/api/spin', async (req,res)=>{
       await sendReloadlyData(phone, finalNetwork, prize.value);
       await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
     } else if(prize.type === 'freeship'){
-      await db.collection('fulfillmentQueue').add({ phone, type:'freeship_voucher', status:'pending', createdAt: new Date().toISOString() });
-      await logSpinWinner(phone, name, 'Free Shipping Voucher', prize.id);
+      await db.collection('fulfillmentQueue').add({ phone, shopperUid:shopper.uid, type:'freeship_voucher', status:'pending', createdAt: new Date().toISOString() });
+      await logSpinWinner(phone, name, 'Free Shipping Voucher', prize.id, shopper.uid);
     } else if(prize.type === 'earpods' && earpodTier){
       await db.collection('fulfillmentQueue').add({
-        phone, type:'earpods', earpodName: earpodTier.name, earpodValue: earpodTier.value,
+        phone, shopperUid:shopper.uid, type:'earpods', earpodName: earpodTier.name, earpodValue: earpodTier.value,
         freeShipping, status:'pending', createdAt: new Date().toISOString()
       });
-      await logSpinWinner(phone, name, `${earpodTier.name}${freeShipping?' (Free Shipping)':''}`, prize.id);
+      await logSpinWinner(phone, name, `${earpodTier.name}${freeShipping?' (Free Shipping)':''}`, prize.id, shopper.uid);
     } else if(prize.type === 'coupon'){
-      await db.collection('fulfillmentQueue').add({ phone, type:'coupon', status:'pending', createdAt: new Date().toISOString() });
-      await logSpinWinner(phone, name, '10% Off Coupon', prize.id);
+      await db.collection('fulfillmentQueue').add({ phone, shopperUid:shopper.uid, type:'coupon', status:'pending', createdAt: new Date().toISOString() });
+      await logSpinWinner(phone, name, '10% Off Coupon', prize.id, shopper.uid);
     }
   } catch(err){
-    await db.collection('fulfillmentQueue').add({ phone, type: prize.type, value: prize.value, status:'failed', error: err.message, createdAt: new Date().toISOString() });
+    await db.collection('fulfillmentQueue').add({ phone, shopperUid:shopper.uid, type: prize.type, value: prize.value, status:'failed', error: err.message, createdAt: new Date().toISOString() });
   }
 
   res.json({ prize: prize.id, earpodName: earpodTier ? earpodTier.name : null, freeShipping });
