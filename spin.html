@@ -383,7 +383,6 @@ function updateSpinButtonState(){
   const button = document.getElementById('spinBtn');
   if(!button) return;
   const balanceUnavailable = Boolean(currentUser) && currentCoinBalance === null;
-  const previewReadOnly = IS_PREVIEW_DEPLOYMENT;
   const insufficientBalance = Boolean(currentUser) && currentCoinBalance !== null && currentCoinBalance < SPIN_COST_COINS;
   button.disabled = IS_PREVIEW_DEPLOYMENT || spinning || balanceUnavailable || insufficientBalance;
   button.setAttribute('aria-disabled', String(button.disabled));
