@@ -49,3 +49,28 @@ test('wheel and backend source remain syntactically valid', () => {
   }
   assert.doesNotThrow(() => new vm.Script(server));
 });
+
+test('frontend wheel weights exactly match backend prize weights and produce proportional sectors', () => {
+  const frontBlock = spin.match(/const WHEEL_SEGMENTS = \[([\s\S]*?)\n\];/);
+  const backendBlock = server.match(/const PRIZES = \[([\s\S]*?)\n\];/);
+  assert.ok(frontBlock && backendBlock);
+  const front = [...frontBlock[1].matchAll(/id:'([^']+)'[^\n]*weight:([\d.]+)/g)]
+    .map(row => [row[1], Number(row[2])]).sort((a,b) => a[0].localeCompare(b[0]));
+  const backend = [...backendBlock[1].matchAll(/\{\s*id:'([^']+)'\s*,\s*weight:([\d.]+)/g)]
+    .map(row => [row[1], Number(row[2])]).sort((a,b) => a[0].localeCompare(b[0]));
+  assert.deepEqual(front, backend);
+  assert.match(spin, /cumulativeWeight \/ WHEEL_TOTAL_WEIGHT \* 360/);
+  assert.match(spin, /conic-gradient\(from 0deg/);
+});
+
+test('spin pointer target uses weighted segment midpoint rather than equal slices', () => {
+  assert.match(spin, /precedingWeight \+ WHEEL_SEGMENTS\[idx\]\.weight \/ 2/);
+  assert.doesNotMatch(spin, /const SEG_ANGLE = 360 \/ WHEEL_SEGMENTS.length/);
+});
+
+test('spin button is disabled until verified balance is loaded and whenever balance is below cost', () => {
+  assert.match(spin, /currentCoinBalance < SPIN_COST_COINS/);
+  assert.match(spin, /currentCoinBalance === null/);
+  assert.match(spin, /button.disabled = spinning \|\| balanceUnavailable \|\| insufficientBalance/);
+  assert.match(spin, /currentCoinBalance = Number.isFinite\(balance\)/);
+});
