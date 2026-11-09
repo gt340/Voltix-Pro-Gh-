@@ -13,6 +13,7 @@ admin.initializeApp({
 const db = admin.firestore();
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors());
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
