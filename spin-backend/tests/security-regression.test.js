@@ -42,7 +42,7 @@ test('spin record uses the resolved prize after earpod eligibility checks', () =
   const end = server.indexOf('// ---------- RELOADLY ----------', start);
   const block = server.slice(start, end);
   assert.ok(block.indexOf("if(prize.type === 'earpods')") < block.indexOf('tx.set(spinRef'));
-  assert.match(block, /tx\.set\(spinRef, \{ phone, prizeId:prize\.id/);
+  assert.match(block, /tx\.set\(spinRef, \{ phone, shopperUid:shopper\.uid, prizeId:prize\.id/);
 });
 
 test('shopper wallet and spin endpoints require verified Firebase phone identity', () => {
