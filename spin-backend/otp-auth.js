@@ -17,6 +17,7 @@ function createOtpAuthService(options = {}) {
   const now = options.now || Date.now;
   const randomId = options.randomId || (() => crypto.randomUUID());
   const hashSecret = String(options.hashSecret || '');
+  const dailyLimit = Number.isInteger(options.dailyLimit) && options.dailyLimit > 0 ? options.dailyLimit : 250;
 
   if (!db || !auth || !otpClient) throw new TypeError('Firestore, Firebase Auth and Arkesel client are required');
   if (hashSecret.length < 32) throw new TypeError('OTP rate-limit secret must be at least 32 characters');
@@ -33,16 +34,21 @@ function createOtpAuthService(options = {}) {
     const phoneLimitRef = db.collection('otpRateLimits').doc('phone_' + digest(phone));
     const ipKey = ipAddress ? digest(ipAddress) : 'unknown';
     const ipLimitRef = db.collection('otpRateLimits').doc('ip_' + ipKey);
+    const dayKey = new Date(time).toISOString().slice(0, 10);
+    const globalLimitRef = db.collection('otpRateLimits').doc('global_' + dayKey);
 
     await db.runTransaction(async tx => {
       const phoneSnap = await tx.get(phoneLimitRef);
       const ipSnap = await tx.get(ipLimitRef);
+      const globalSnap = await tx.get(globalLimitRef);
       const phoneLimit = phoneSnap.exists ? phoneSnap.data() : {};
       const ipLimit = ipSnap.exists ? ipSnap.data() : {};
+      const globalLimit = globalSnap.exists ? globalSnap.data() : {};
       const phoneWindow = Number(phoneLimit.windowStart) || time;
       const ipWindow = Number(ipLimit.windowStart) || time;
       const phoneCount = time - phoneWindow >= 60 * 60 * 1000 ? 0 : Number(phoneLimit.count) || 0;
       const ipCount = time - ipWindow >= 60 * 60 * 1000 ? 0 : Number(ipLimit.count) || 0;
+      const globalCount = Number(globalLimit.count) || 0;
       const lastSentAt = Number(phoneLimit.lastSentAt) || 0;
 
       if (time - lastSentAt < RESEND_COOLDOWN_MS) {
@@ -50,7 +56,7 @@ function createOtpAuthService(options = {}) {
         error.code = 'OTP_RESEND_COOLDOWN';
         throw error;
       }
-      if (phoneCount >= PHONE_HOURLY_LIMIT || ipCount >= IP_HOURLY_LIMIT) {
+      if (phoneCount >= PHONE_HOURLY_LIMIT || ipCount >= IP_HOURLY_LIMIT || globalCount >= dailyLimit) {
         const error = new Error('OTP request limit reached');
         error.code = 'OTP_RATE_LIMITED';
         throw error;
@@ -59,18 +65,25 @@ function createOtpAuthService(options = {}) {
       tx.set(phoneLimitRef, {
         windowStart: phoneCount ? phoneWindow : time,
         count: phoneCount + 1,
-        lastSentAt: time
+        lastSentAt: time,
+        expireAt: new Date(time + 48 * 60 * 60 * 1000)
       }, { merge: true });
       tx.set(ipLimitRef, {
         windowStart: ipCount ? ipWindow : time,
-        count: ipCount + 1
+        count: ipCount + 1,
+        expireAt: new Date(time + 48 * 60 * 60 * 1000)
+      }, { merge: true });
+      tx.set(globalLimitRef, {
+        count: globalCount + 1,
+        expireAt: new Date(time + 48 * 60 * 60 * 1000)
       }, { merge: true });
       tx.create(challengeRef, {
         phone,
         status: 'generating',
         attempts: 0,
         createdAt: time,
-        expiresAt: time + OTP_TTL_MS
+        expiresAt: time + OTP_TTL_MS,
+        expireAt: new Date(time + 24 * 60 * 60 * 1000)
       });
     });
 
