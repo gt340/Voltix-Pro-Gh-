@@ -32,5 +32,6 @@ jobs:
         run: |
           node --check server.js
           node --check arkesel-otp.js
+          node --check otp-auth.js
       - name: Run regression and OTP tests
         run: npm test
