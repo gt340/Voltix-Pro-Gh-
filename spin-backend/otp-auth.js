@@ -101,6 +101,7 @@ function createOtpAuthService(options = {}) {
     const leaseId = randomId();
     const time = now();
     let phone;
+    let providerAlreadyVerified = false;
 
     await db.runTransaction(async tx => {
       const snap = await tx.get(challengeRef);
@@ -115,19 +116,20 @@ function createOtpAuthService(options = {}) {
         error.code = 'OTP_VERIFY_IN_PROGRESS';
         throw error;
       }
-      if (data.status !== 'pending' && !(data.status === 'verifying' && Number(data.leaseUntil) <= time)) {
+      providerAlreadyVerified = data.status === 'provider_verified';
+      if (!providerAlreadyVerified &&
+          data.status !== 'pending' &&
+          !(data.status === 'verifying' && Number(data.leaseUntil) <= time)) {
         const error = new Error('Invalid or expired verification session');
         error.code = 'OTP_CHALLENGE_INVALID';
         throw error;
       }
-      if (Number(data.expiresAt) <= time) {
-        tx.update(challengeRef, { status: 'expired' });
+      if (!providerAlreadyVerified && Number(data.expiresAt) <= time) {
         const error = new Error('Verification code has expired');
         error.code = 'OTP_EXPIRED';
         throw error;
       }
-      if ((Number(data.attempts) || 0) >= VERIFY_ATTEMPT_LIMIT) {
-        tx.update(challengeRef, { status: 'locked' });
+      if (!providerAlreadyVerified && (Number(data.attempts) || 0) >= VERIFY_ATTEMPT_LIMIT) {
         const error = new Error('Too many incorrect verification attempts');
         error.code = 'OTP_ATTEMPTS_EXCEEDED';
         throw error;
@@ -135,30 +137,28 @@ function createOtpAuthService(options = {}) {
       phone = data.phone;
       tx.update(challengeRef, {
         status: 'verifying',
-        attempts: (Number(data.attempts) || 0) + 1,
+        attempts: providerAlreadyVerified ? (Number(data.attempts) || 0) : (Number(data.attempts) || 0) + 1,
         leaseId,
         leaseUntil: time + VERIFY_LEASE_MS
       });
     });
 
     try {
-      await otpClient.verify(phone, code);
-    } catch (providerError) {
-      const expired = providerError && providerError.providerCode === '1105';
-      await challengeRef.update({
-        status: expired ? 'expired' : 'pending',
-        leaseId: null,
-        leaseUntil: null,
-        lastVerificationFailureAt: now()
-      });
-      const error = new Error(expired ? 'Verification code has expired' : 'The verification code is incorrect or could not be verified');
-      error.code = expired ? 'OTP_EXPIRED' :
-        (providerError && providerError.providerCode === '1104' ? 'OTP_CODE_INCORRECT' : 'OTP_PROVIDER_FAILURE');
-      throw error;
-    }
+      if (!providerAlreadyVerified) {
+        await otpClient.verify(phone, code);
+        await db.runTransaction(async tx => {
+          const snap = await tx.get(challengeRef);
+          const current = snap.exists ? snap.data() : null;
+          if (!current || current.status !== 'verifying' || current.leaseId !== leaseId) {
+            const error = new Error('Verification session is no longer valid');
+            error.code = 'OTP_CHALLENGE_INVALID';
+            throw error;
+          }
+          tx.update(challengeRef, { providerVerified: true });
+        });
+      }
 
-    let user;
-    try {
+      let user;
       try {
         user = await auth.getUserByPhoneNumber(phone);
       } catch (error) {
@@ -170,7 +170,10 @@ function createOtpAuthService(options = {}) {
         error.code = 'SHOPPER_ACCOUNT_UNAVAILABLE';
         throw error;
       }
-      const customToken = await auth.createCustomToken(user.uid, { shopperPhoneVerified: true });
+
+      // Persist provider verification before token issuance. If Firebase token
+      // creation fails, the challenge can retry token issuance without asking
+      // Arkesel to verify an already-consumed OTP again.
       await db.runTransaction(async tx => {
         const snap = await tx.get(challengeRef);
         const current = snap.exists ? snap.data() : null;
@@ -180,21 +183,50 @@ function createOtpAuthService(options = {}) {
           throw error;
         }
         tx.update(challengeRef, {
-          status: 'consumed',
-          consumedAt: now(),
+          status: 'provider_verified',
           firebaseUid: user.uid,
           leaseId: null,
-          leaseUntil: null
+          leaseUntil: null,
+          providerVerifiedAt: now()
         });
+      });
+
+      const customToken = await auth.createCustomToken(user.uid, { shopperPhoneVerified: true });
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(challengeRef);
+        const current = snap.exists ? snap.data() : null;
+        if (!current || current.status !== 'provider_verified' || current.firebaseUid !== user.uid) {
+          const error = new Error('Verification session is no longer valid');
+          error.code = 'OTP_CHALLENGE_INVALID';
+          throw error;
+        }
+        tx.update(challengeRef, { status: 'consumed', consumedAt: now() });
       });
       return { customToken, uid: user.uid, phone };
     } catch (error) {
-      await challengeRef.update({
-        status: 'verified_unissued',
-        leaseId: null,
-        leaseUntil: null,
-        verifiedAt: now()
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(challengeRef);
+        const current = snap.exists ? snap.data() : null;
+        if (!current || current.status !== 'verifying' || current.leaseId !== leaseId) return;
+        tx.update(challengeRef, {
+          status: current.providerVerified ? 'provider_verified' :
+            (error && error.providerCode === '1105' ? 'expired' : 'pending'),
+          leaseId: null,
+          leaseUntil: null,
+          lastVerificationFailureAt: now()
+        });
       }).catch(() => {});
+      if (error && error.code === 'auth/user-not-found') {
+        error.code = 'SHOPPER_ACCOUNT_RESOLUTION_FAILED';
+      }
+      if (error && error.providerCode) {
+        const expired = error.providerCode === '1105';
+        const mapped = new Error(expired ? 'Verification code has expired' :
+          'The verification code is incorrect or could not be verified');
+        mapped.code = expired ? 'OTP_EXPIRED' :
+          (error.providerCode === '1104' ? 'OTP_CODE_INCORRECT' : 'OTP_PROVIDER_FAILURE');
+        throw mapped;
+      }
       throw error;
     }
   }
