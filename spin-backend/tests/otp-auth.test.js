@@ -180,6 +180,25 @@ test('expired challenge does not call Arkesel verification', async () => {
   assert.equal(ctx.calls.verified.length, 0);
 });
 
+test('verification stops after five provider-rejected attempts', async () => {
+  const providerError = new Error('invalid');
+  providerError.providerCode = '1104';
+  const ctx = makeService({ verifyError: providerError });
+  const requested = await ctx.service.requestOtp('0241234567', '203.0.113.8');
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await assert.rejects(
+      ctx.service.verifyOtp(requested.challengeId, '123456'),
+      error => error.code === 'OTP_CODE_INCORRECT'
+    );
+  }
+  await assert.rejects(
+    ctx.service.verifyOtp(requested.challengeId, '123456'),
+    error => error.code === 'OTP_ATTEMPTS_EXCEEDED'
+  );
+  assert.equal(ctx.calls.verified.length, 5);
+  assert.equal(ctx.calls.tokens.length, 0);
+});
+
 test('consumed challenge cannot be replayed', async () => {
   const ctx = makeService();
   const requested = await ctx.service.requestOtp('0241234567', '203.0.113.8');
