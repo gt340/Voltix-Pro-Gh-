@@ -138,9 +138,14 @@ test('shopper phone-auth client and protected Spin calls are syntactically valid
   const spin = fs.readFileSync(path.join(root, 'spin.html'), 'utf8');
   assert.match(account, /sendShopperPhoneCode/);
   assert.match(account, /confirmShopperPhoneCode/);
-  assert.match(appJs, /if\(window\.__voltixPhoneCodeRequest\) return window\.__voltixPhoneCodeRequest/);
-  assert.match(appJs, /let verifier = window\.__voltixRecaptchaVerifier/);
-  assert.doesNotMatch(appJs, /window\.__voltixRecaptchaVerifier\.clear\(\)/);
+  assert.match(appJs, /window\.__voltixOtpRequest/);
+  assert.match(appJs, /signInWithCustomToken\(auth, data\.customToken\)/);
+  assert.match(appJs, /claims\.phone_number !== expectedPhone/);
+  assert.match(appJs, /claims\.shopperPhoneVerified !== true/);
+  assert.doesNotMatch(appJs, /signInWithPhoneNumber|RecaptchaVerifier/);
+  assert.match(server, /app\.post\('\/api\/auth\/otp\/request'/);
+  assert.match(server, /app\.post\('\/api\/auth\/otp\/verify'/);
+  assert.match(server, /OTP_AUTH_ENABLED === 'true'/);
   assert.match(spin, /getShopperAuthHeaders/);
   for (const [file, html] of [['account.html', account], ['spin.html', spin]]) {
     const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
