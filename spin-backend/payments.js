@@ -160,17 +160,26 @@ async function creditSpinPurchase(deps, reference) {
         purchase.spinRefCode && REFCODE_RE.test(purchase.spinRefCode)) {
       const codeSnap = await tx.get(db.collection('spinReferralCodes').doc(purchase.spinRefCode));
       if (codeSnap.exists) {
-        const referrerPhone = codeSnap.data().phone;
-        if (referrerPhone && referrerPhone !== purchase.phone) {
+        const codeData = codeSnap.data() || {};
+        const referrerPhone = codeData.phone;
+        const referrerUid = codeData.ownerUid;
+        if (referrerPhone && referrerPhone !== purchase.phone &&
+            typeof referrerUid === 'string' && referrerUid &&
+            referrerUid !== purchase.shopperUid) {
           const prior = await tx.get(db.collection('spinReferrals')
             .where('referredPhone', '==', purchase.phone).where('status', '==', 'rewarded'));
           if (prior.empty) {
             const referrerRef = db.collection('wallets').doc(referrerPhone);
             const referrerSnap = await tx.get(referrerRef);
-            referral = {
-              referrerPhone, referrerRef,
-              referrerName: referrerSnap.exists ? (referrerSnap.data().name || 'Unknown') : 'Unknown',
-            };
+            const referrerWallet = referrerSnap.exists ? (referrerSnap.data() || {}) : {};
+            // Legacy referral codes and unowned wallets are not eligible for
+            // automatic rewards. Recovery must establish the UID first.
+            if (referrerWallet.ownerUid === referrerUid) {
+              referral = {
+                referrerPhone, referrerUid, referrerRef,
+                referrerName: referrerWallet.name || 'Unknown',
+              };
+            }
           }
         }
       }
@@ -184,8 +193,9 @@ async function creditSpinPurchase(deps, reference) {
     if (referral) {
       tx.set(referral.referrerRef, { coins: inc(REFERRAL_BONUS_COINS) }, { merge: true });
       tx.set(db.collection('spinReferrals').doc(), {
-        referrerPhone: referral.referrerPhone, referrerName: referral.referrerName,
-        referredPhone: purchase.phone,
+        referrerPhone: referral.referrerPhone, referrerUid: referral.referrerUid,
+        referrerName: referral.referrerName,
+        referredPhone: purchase.phone, referredUid: purchase.shopperUid,
         referredName: purchase.name || (walletSnap.exists ? walletSnap.data().name : null) || 'Unknown',
         coinsAwarded: REFERRAL_BONUS_COINS, status: 'rewarded', rewardedAt: new Date(now()).toISOString(),
       });
