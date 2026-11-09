@@ -104,6 +104,10 @@ test('spin, winner, and fulfillment records retain the authenticated shopper UID
   assert.match(server, /shopperUid:shopper\.uid, prizeId:prize\.id/);
   assert.match(server, /shopperUid:shopper\.uid, type:'earpods'/);
   assert.match(server, /shopperUid:shopper\.uid, type:'coupon'/);
+  const spinStart = server.indexOf("app.post('/api/spin'");
+  const spinEnd = server.indexOf('// ---------- RELOADLY ----------', spinStart);
+  const spinBlock = server.slice(spinStart, spinEnd);
+  assert.doesNotMatch(spinBlock, /logSpinWinner\([^\n]*prize\.id\);/);
 });
 
 test('payment crediting refuses legacy purchases and wallets without matching UID ownership', () => {
