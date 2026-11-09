@@ -86,6 +86,7 @@ function makeService(overrides = {}) {
   const service = createOtpAuthService({
     db, auth, otpClient, hashSecret: 'x'.repeat(48),
     now: () => time,
+    dailyLimit: overrides.dailyLimit,
     randomId: () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0')
   });
   return { service, db, calls, users, advance: ms => { time += ms; } };
@@ -116,6 +117,17 @@ test('OTP resend cooldown and hourly limits are persisted across service calls',
     ctx.service.requestOtp('0241234567', '203.0.113.8'),
     error => error.code === 'OTP_RESEND_COOLDOWN'
   );
+});
+
+test('global daily OTP budget blocks additional billable sends', async () => {
+  const ctx = makeService({ dailyLimit: 1 });
+  await ctx.service.requestOtp('0241234567', '203.0.113.8');
+  ctx.advance(61000);
+  await assert.rejects(
+    ctx.service.requestOtp('0247654321', '203.0.113.9'),
+    error => error.code === 'OTP_RATE_LIMITED'
+  );
+  assert.equal(ctx.calls.generated.length, 1);
 });
 
 test('incorrect provider code does not issue a Firebase token', async () => {
