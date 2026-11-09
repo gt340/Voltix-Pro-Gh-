@@ -277,7 +277,7 @@ app.post('/api/spin', async (req,res)=>{
       await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id, shopper.uid);
     } else if(prize.type === 'airtime'){
       await sendReloadlyAirtime(phone, finalNetwork, prize.value);
-      await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
+      await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id, shopper.uid);
     } else if(prize.type === 'data'){
       await sendReloadlyData(phone, finalNetwork, prize.value);
       await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
