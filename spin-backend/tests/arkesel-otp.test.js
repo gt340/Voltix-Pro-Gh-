@@ -45,9 +45,9 @@ test('generation uses Arkesel OTP generate contract and never exposes the API ke
   assert.equal(capture.url, 'https://sms.arkesel.com/api/otp/generate');
   assert.equal(capture.body.phone_number, '233241234567');
   assert.equal(capture.body.sender_id, 'VOLTIX');
-    assert.equal(capture.body.expiry, 5);
+  assert.equal(capture.body.expiry, 5);
   assert.equal(capture.body.medium, 'sms');
-    assert.match(capture.body.message, /%otp_code%/);
+  assert.match(capture.body.message, /%otp_code%/);
   assert.equal(capture.config.headers['api-key'], 'test-key');
   assert.equal(JSON.stringify(capture.body).includes('test-key'), false);
 });
