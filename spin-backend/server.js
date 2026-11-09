@@ -21,19 +21,25 @@ app.use(bodyParser.json());
 const otpAuthEnabled = process.env.OTP_AUTH_ENABLED === 'true';
 let otpAuthService = null;
 if (otpAuthEnabled) {
-  const otpClient = createArkeselOtpClient({
-    http: axios,
-    apiKey: process.env.ARKESEL_API_KEY,
-    senderId: process.env.ARKESEL_SENDER_ID,
-    expiryMinutes: 5
-  });
-  otpAuthService = createOtpAuthService({
-    db,
-    auth: admin.auth(),
-    otpClient,
-    hashSecret: process.env.OTP_RATE_LIMIT_SECRET,
-    dailyLimit: Number(process.env.OTP_DAILY_GLOBAL_LIMIT) || 250
-  });
+  try {
+    const otpClient = createArkeselOtpClient({
+      http: axios,
+      apiKey: process.env.ARKESEL_API_KEY,
+      senderId: process.env.ARKESEL_SENDER_ID,
+      expiryMinutes: 5
+    });
+    otpAuthService = createOtpAuthService({
+      db,
+      auth: admin.auth(),
+      otpClient,
+      hashSecret: process.env.OTP_RATE_LIMIT_SECRET,
+      dailyLimit: Number(process.env.OTP_DAILY_GLOBAL_LIMIT) || 250
+    });
+  } catch (error) {
+    // Do not take down wallet, game or Paystack routes if OTP config is absent.
+    // OTP endpoints remain unavailable until every required secret is present.
+    console.error('OTP auth is disabled because server configuration is incomplete:', error.name);
+  }
 }
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
