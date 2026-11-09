@@ -222,7 +222,7 @@ function shareProductCard(id, e){
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail,
-    signInWithPhoneNumber, RecaptchaVerifier
+    signInWithCustomToken
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   const {
     getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
@@ -649,70 +649,61 @@ function shareProductCard(id, e){
     },
 
     normalizeShopperPhone(phone){
-  const digits = String(phone || '').replace(/\D/g, '');
+      const digits = String(phone || '').replace(/\D/g, '');
       if(digits.startsWith('233') && digits.length === 12) return '0' + digits.slice(3);
       if(digits.length === 10 && digits.startsWith('0')) return digits;
       throw new Error('Enter a valid Ghana phone number, e.g. 0241234567.');
     },
-    async sendShopperPhoneCode(phone, recaptchaContainerId){
+    async sendShopperPhoneCode(phone){
       const digits = this.normalizeShopperPhone(phone);
       const e164 = '+233' + digits.slice(1);
-      const container = document.getElementById(recaptchaContainerId);
-      if(!container) throw new Error('Phone verification could not start: reCAPTCHA container is missing.');
-
-      // Serialize requests and keep one verifier bound to this exact container.
-      // A verifier from another container, or a verifier whose render failed,
-      // must not be reused on the next attempt.
-      if(window.__voltixPhoneCodeRequest) return window.__voltixPhoneCodeRequest;
-
+      if(window.__voltixOtpRequest) return window.__voltixOtpRequest;
       const request = (async()=>{
-        let verifier = window.__voltixRecaptchaVerifier;
-        if(window.__voltixRecaptchaContainerId !== recaptchaContainerId){
-          if(verifier){
-            try{ verifier.clear(); }catch(_){}
-          }
-          verifier = null;
-          window.__voltixRecaptchaVerifier = null;
-          window.__voltixRecaptchaContainerId = null;
-          container.replaceChildren();
+        const response = await fetch('https://spin-backend-delta.vercel.app/api/auth/otp/request', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body:JSON.stringify({ phone:e164 })
+        });
+        const data = await response.json().catch(()=>({}));
+        if(!response.ok || !data.challengeId){
+          const error = new Error(data.error || 'Could not send a verification code. Try again later.');
+          error.code = data.code || 'OTP_REQUEST_FAILED';
+          throw error;
         }
-        if(!verifier){
-          verifier = new RecaptchaVerifier(auth, container, { size:'invisible' });
-          window.__voltixRecaptchaVerifier = verifier;
-          window.__voltixRecaptchaContainerId = recaptchaContainerId;
-        }
-        window.__voltixPhoneConfirmation = null;
-        try{
-          const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
-          window.__voltixPhoneConfirmation = confirmation;
-          return { phone: digits };
-        }catch(err){
-          // Firebase may leave a rendered widget attached after a render/send
-          // failure. Clear both the verifier and its host so retry is clean.
-          try{ verifier.clear(); }catch(_){}
-          if(window.__voltixRecaptchaVerifier === verifier){
-            window.__voltixRecaptchaVerifier = null;
-            window.__voltixRecaptchaContainerId = null;
-          }
-          container.replaceChildren();
-          window.__voltixPhoneConfirmation = null;
-          throw err;
-        }
+        window.__voltixOtpChallenge = data.challengeId;
+        window.__voltixOtpPhoneE164 = e164;
+        return { phone:digits, expiresInSeconds:data.expiresInSeconds || 300 };
       })();
-
-      window.__voltixPhoneCodeRequest = request;
-      try{
-        return await request;
-      }finally{
-        if(window.__voltixPhoneCodeRequest === request) window.__voltixPhoneCodeRequest = null;
-      }
+      window.__voltixOtpRequest = request;
+      try{ return await request; }
+      finally{ if(window.__voltixOtpRequest === request) window.__voltixOtpRequest = null; }
     },
     async confirmShopperPhoneCode(code){
-      const confirmation = window.__voltixPhoneConfirmation;
-      if(!confirmation) throw new Error('Request an SMS verification code first.');
-      const credential = await confirmation.confirm(String(code || '').trim());
-      window.__voltixPhoneConfirmation = null;
-      return { uid: credential.user.uid, phone: this.normalizeShopperPhone(credential.user.phoneNumber) };
+      const challengeId = window.__voltixOtpChallenge;
+      const expectedPhone = window.__voltixOtpPhoneE164;
+      if(!challengeId || !expectedPhone) throw new Error('Request an SMS verification code first.');
+      const response = await fetch('https://spin-backend-delta.vercel.app/api/auth/otp/verify', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body:JSON.stringify({ challengeId, code:String(code || '').trim() })
+      });
+      const data = await response.json().catch(()=>({}));
+      if(!response.ok || !data.customToken){
+        const error = new Error(data.error || 'Could not verify the code. Try again later.');
+        error.code = data.code || 'OTP_VERIFICATION_FAILED';
+        throw error;
+      }
+      const credential = await signInWithCustomToken(auth, data.customToken);
+      const tokenResult = await credential.user.getIdTokenResult(true);
+      const tokenPhone = tokenResult.claims.phone_number;
+      if(!credential.user.phoneNumber || credential.user.phoneNumber !== expectedPhone ||
+         tokenPhone !== expectedPhone || tokenResult.claims.shopperPhoneVerified !== true){
+        await signOut(auth);
+        throw new Error('Firebase did not confirm the verified phone identity. Sign-in was stopped.');
+      }
+      window.__voltixOtpChallenge = null;
+      window.__voltixOtpPhoneE164 = null;
+      return { uid:credential.user.uid, phone:this.normalizeShopperPhone(credential.user.phoneNumber) };
     },
     async getVerifiedShopperIdentity(){
       let user = auth.currentUser;
