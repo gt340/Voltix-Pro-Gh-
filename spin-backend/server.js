@@ -85,17 +85,19 @@ function getEligibleEarpodTier(totalSpend){
 
 // ---------- PRIZE TABLE ----------
 const PRIZES = [
-  { id:'none',        weight:30, type:'none' },
-  { id:'coins5',      weight:20, type:'coins',   value:5 },
-  { id:'coins10',     weight:15, type:'coins',   value:10 },
-  { id:'airtime1',    weight:12, type:'airtime', value:1 },
-  { id:'airtime2',    weight:8,  type:'airtime', value:2 },
-  { id:'data500mb',   weight:5,  type:'data',    value:500 },
-  { id:'airtime5',    weight:2.5,type:'airtime', value:5 },
-  { id:'data1gb',     weight:1.5,type:'data',    value:1000 },
-  { id:'coupon10',    weight:0.7,type:'coupon',  value:10 },
-  { id:'freeshipping',weight:2,  type:'freeship' },
-  { id:'earpods',     weight:3.3,type:'earpods' },
+  // Weights total 100. Non-reward outcomes intentionally account for 58%.
+  { id:'tryAgain',    weight:38,  type:'none' },
+  { id:'zeroCoin',    weight:20,  type:'none' },
+  { id:'coins5',      weight:15,  type:'coins',   value:5 },
+  { id:'coins10',     weight:10,  type:'coins',   value:10 },
+  { id:'airtime1',    weight:7,   type:'airtime', value:1 },
+  { id:'airtime2',    weight:4,   type:'airtime', value:2 },
+  { id:'data500mb',   weight:2,   type:'data',    value:500 },
+  { id:'airtime5',    weight:1,   type:'airtime', value:5 },
+  { id:'data1gb',     weight:0.5, type:'data',    value:1000 },
+  { id:'coupon10',    weight:0.3, type:'coupon',  value:10 },
+  { id:'freeshipping',weight:1.2, type:'freeship' },
+  { id:'earpods',     weight:1,   type:'earpods' },
 ];
 function pickPrize(){
   const total = PRIZES.reduce((s,p)=>s+p.weight,0);
@@ -324,7 +326,7 @@ app.post('/api/spin', async (req,res)=>{
       finalNetwork = finalNetworkCandidate || current.network || 'MTN';
       if(prize.type === 'earpods'){
         earpodTier = getEligibleEarpodTier(Number(current.totalSpend)||0);
-        if(!earpodTier) prize = { id:'coins10', type:'coins', value:10 };
+        if(!earpodTier) prize = { id:'tryAgain', type:'none' };
         else freeShipping = (Number(current.totalSpend)||0) >= earpodTier.freeShipSpend;
       }
       const updateData = {
