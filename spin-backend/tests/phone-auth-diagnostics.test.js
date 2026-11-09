@@ -67,7 +67,7 @@ test('diagnostic records are bounded to five entries', () => {
   assert.equal(diagnostics.readRecords().length, 5);
 });
 
-test('account page loads diagnostics and records phone-auth failures', () => {
+test('account page loads diagnostics and records shopper OTP failures', () => {
   const account = fs.readFileSync(
     path.join(__dirname, '../../account.html'),
     'utf8'
@@ -75,7 +75,8 @@ test('account page loads diagnostics and records phone-auth failures', () => {
 
   assert.match(account, /shopper-auth-diagnostics\.js/);
   assert.match(account, /recordShopperAuthDiagnostic\(err\)/);
-  assert.match(account, /auth\/operation-not-allowed/);
+  assert.match(account, /OTP_CODE_INCORRECT/);
+  assert.match(account, /recordShopperAuthDiagnostic\(err\)/);
   assert.doesNotMatch(
     account,
     /Phone sign-in is disabled in Firebase Authentication/
