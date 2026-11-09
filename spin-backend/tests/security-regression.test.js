@@ -140,7 +140,7 @@ test('shopper phone-auth client and protected Spin calls are syntactically valid
   assert.match(account, /confirmShopperPhoneCode/);
   assert.match(appJs, /window\.__voltixOtpRequest/);
   assert.match(appJs, /signInWithCustomToken\(auth, data\.customToken\)/);
-  assert.match(appJs, /claims\.phone_number !== expectedPhone/);
+  assert.match(appJs, /const tokenPhone = tokenResult\.claims\.phone_number/);
   assert.match(appJs, /claims\.shopperPhoneVerified !== true/);
   assert.doesNotMatch(appJs, /signInWithPhoneNumber|RecaptchaVerifier/);
   assert.match(server, /app\.post\('\/api\/auth\/otp\/request'/);
