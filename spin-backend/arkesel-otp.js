@@ -14,7 +14,9 @@ class ArkeselOtpError extends Error {
 
 function normalizeE164(value) {
   const raw = String(value || '').trim();
-  const digits = raw.replace(/\D/g, '');
+  let digits = raw.replace(/\D/g, '');
+  if (digits.length === 10 && digits.startsWith('0')) digits = '233' + digits.slice(1);
+  if (digits.length === 9) digits = '233' + digits;
   if (!/^233\d{9}$/.test(digits)) {
     throw new TypeError('A valid Ghana E.164 phone number is required');
   }
