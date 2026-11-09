@@ -74,8 +74,19 @@ async function creditSpinPurchase(deps, reference) {
   const purchase = purchaseSnap.data();
   const walletOf = async () => {
     const w = await db.collection('wallets').doc(purchase.phone).get();
-    return w.exists ? (w.data().coins || 0) : 0;
+    if (!w.exists) return 0;
+    const wallet = w.data() || {};
+    // Never disclose a wallet balance when the purchase identity is absent
+    // or does not own the wallet.
+    if (!purchase.shopperUid || wallet.ownerUid !== purchase.shopperUid) return 0;
+    return wallet.coins || 0;
   };
+
+  // A phone match alone is not sufficient ownership evidence. Legacy
+  // purchases without a Firebase UID require a separate recovery process.
+  if (typeof purchase.shopperUid !== 'string' || !purchase.shopperUid) {
+    return { http: 409, json: { error: 'Purchase requires account ownership recovery', code: 'OWNER_RECOVERY_REQUIRED' } };
+  }
 
   // Purchases confirmed before this change are already credited.
   if (purchase.status === 'confirmed') {
@@ -127,14 +138,23 @@ async function creditSpinPurchase(deps, reference) {
   const evRef = db.collection('paymentEvents').doc(reference);
   const walletRef = db.collection('wallets').doc(purchase.phone);
   let lostLease = false;
+  let walletOwnershipFailure = null;
   await db.runTransaction(async (tx) => {
     lostLease = false;
+    walletOwnershipFailure = null;
     // ---- all reads first ----
     const evSnap = await tx.get(evRef);
     const ev = evSnap.exists ? evSnap.data() : null;
     if (!ev || ev.status !== 'PROCESSING' || ev.leaseToken !== token) { lostLease = true; return; }
     const walletSnap = await tx.get(walletRef);
-    const wasFirstPurchase = !walletSnap.exists || !walletSnap.data().hasPurchasedBefore;
+    const walletData = walletSnap.exists ? (walletSnap.data() || {}) : null;
+    if (walletData && walletData.ownerUid !== purchase.shopperUid) {
+      walletOwnershipFailure = walletData.ownerUid
+        ? 'WALLET_OWNED_BY_ANOTHER_ACCOUNT'
+        : 'LEGACY_WALLET_RECOVERY_REQUIRED';
+      return;
+    }
+    const wasFirstPurchase = !walletSnap.exists || !walletData.hasPurchasedBefore;
     let referral = null;
     if (wasFirstPurchase && pkg.priceGhs >= REFERRAL_MIN_PRICE_GHS &&
         purchase.spinRefCode && REFCODE_RE.test(purchase.spinRefCode)) {
@@ -158,6 +178,7 @@ async function creditSpinPurchase(deps, reference) {
     // ---- writes ----
     const bonus = referral ? REFERRAL_BONUS_COINS : 0;
     tx.set(walletRef, {
+      ownerUid: purchase.shopperUid,
       coins: inc(pkg.coins + bonus), totalSpend: inc(pkg.priceGhs), hasPurchasedBefore: true,
     }, { merge: true });
     if (referral) {
@@ -178,6 +199,14 @@ async function creditSpinPurchase(deps, reference) {
       credited: pkg.coins, leaseExpiresAt: 0, updatedAt: now(),
     }, { merge: true });
   });
+  if (walletOwnershipFailure) {
+    await failReference(db, reference, token, walletOwnershipFailure, null, now());
+    return {
+      http: 409,
+      code: walletOwnershipFailure,
+      json: { error: 'Wallet ownership must be recovered before crediting this purchase', code: walletOwnershipFailure }
+    };
+  }
   if (lostLease) return { http: 409, code: 'IN_PROGRESS', json: { status: 'processing' } };
   return { http: 200, json: { status: 'confirmed', coins: await walletOf() } };
 }
@@ -216,11 +245,8 @@ async function handleBuyCoins(deps, body, shopper) {
   } catch (e) {
     if (!isAlreadyExists(e)) throw e;
     const existing = (await purchaseRef.get()).data() || {};
-    if (existing.phone !== phone || (existing.shopperUid && existing.shopperUid !== shopper.uid)) {
-      return { http: 409, json: { error: 'Reference already used' } };
-    }
-    if (!existing.shopperUid && existing.status !== 'confirmed') {
-      await purchaseRef.update({ shopperUid: shopper.uid, identityLinkedAt: new Date((deps.now || Date.now)()).toISOString() });
+    if (existing.phone !== phone || existing.shopperUid !== shopper.uid) {
+      return { http: 409, json: { error: 'Reference already used or account ownership recovery is required' } };
     }
     return { http: 200, json: { status: existing.status === 'confirmed' ? 'confirmed' : 'pending' } };
   }
@@ -239,11 +265,8 @@ async function handleVerifyPurchase(deps, body, shopper) {
   if (!purchaseSnap.exists) return { http: 404, json: { error: 'Purchase record not found' } };
   const purchase = purchaseSnap.data() || {};
   if (normalizePhone(purchase.phone) !== normalizePhone(shopper.phone_number) ||
-      (purchase.shopperUid && purchase.shopperUid !== shopper.uid)) {
-    return { http: 403, json: { error: 'This purchase does not belong to the authenticated shopper' } };
-  }
-  if (!purchase.shopperUid && purchase.status !== 'confirmed') {
-    await purchaseRef.update({ shopperUid: shopper.uid, identityLinkedAt: new Date((deps.now || Date.now)()).toISOString() });
+      purchase.shopperUid !== shopper.uid) {
+    return { http: 403, json: { error: 'This purchase does not belong to the authenticated shopper or requires ownership recovery' } };
   }
   let result;
   for (let i = 0; i < 6; i++) {
