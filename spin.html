@@ -417,6 +417,7 @@ document.querySelectorAll('.coin-pack').forEach(el=>{
   });
 });
 document.getElementById('openBuyCoinsBtn').addEventListener('click', function(){
+  if(IS_PREVIEW_DEPLOYMENT){ showToast('Preview mode: coin purchases are disabled.'); return; }
   if(!currentUser){ showToast('Please login first'); window.location.href='account.html'; return; }
   document.getElementById('buyCoinsModal').classList.add('active');
 });
@@ -425,6 +426,7 @@ document.getElementById('cancelBuyCoinsBtn').addEventListener('click', function(
 });
 
 document.getElementById('payNowBtn').addEventListener('click', function(){
+  if(IS_PREVIEW_DEPLOYMENT){ showToast('Preview mode: coin purchases are disabled.'); return; }
   if(!currentUser) return;
   const btn = this;
   btn.disabled = true;
