@@ -62,6 +62,13 @@ test('verification uses same canonical number and requires six digits', async ()
   await assert.rejects(() => client.verify('0241234567', '1234'), /six digits/);
 });
 
+test('verification normalizes Ghana phone input without undefined helpers', async () => {
+  const capture = {};
+  const client = makeClient({ status: 200, data: { code: '1100', message: 'Successful' } }, capture);
+  await client.verify('0241234567', '123456');
+  assert.deepEqual(capture.body, { number: '+233241234567', code: '123456' });
+});
+
 test('provider-level rejection is not treated as successful HTTP response', async () => {
   const client = makeClient({ status: 200, data: { code: '1007', message: 'Insufficient balance' } });
   await assert.rejects(client.generate('0241234567'), error => {
