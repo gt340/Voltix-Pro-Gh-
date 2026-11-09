@@ -43,7 +43,7 @@ test('generation uses Arkesel OTP generate contract and never exposes the API ke
   const result = await client.generate('0241234567');
   assert.equal(result.code, '1000');
   assert.equal(capture.url, 'https://sms.arkesel.com/api/otp/generate');
-  assert.equal(capture.body.phone_number, '233241234567');
+  assert.equal(capture.body.number, '+233241234567');
   assert.equal(capture.body.sender_id, 'VOLTIX');
   assert.equal(capture.body.expiry, 5);
   assert.equal(capture.body.medium, 'sms');
@@ -58,7 +58,7 @@ test('verification uses same canonical number and requires six digits', async ()
   const result = await client.verify('+233241234567', '123456');
   assert.equal(result.code, '1100');
   assert.equal(capture.url, 'https://sms.arkesel.com/api/otp/verify');
-  assert.deepEqual(capture.body, { phone_number: '233241234567', code: '123456' });
+  assert.deepEqual(capture.body, { number: '+233241234567', code: '123456' });
   await assert.rejects(() => client.verify('0241234567', '1234'), /six digits/);
 });
 
