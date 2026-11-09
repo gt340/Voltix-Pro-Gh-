@@ -41,4 +41,6 @@ Before live activation, configure Firestore TTL policies on the `expireAt` field
 
 ## Recovery considerations
 
+Phone OTP proves current control of a number; it does not prove continuity of ownership. If a mobile number has been recycled, a new holder could resolve to the old Firebase user by phone and inherit that UID. UID-bound wallet checks do not prevent that specific recycled-number takeover. Before enabling this for accounts with material wallet balances or purchase history, decide on a second factor or a manual recovery step for existing accounts. Do not describe phone-only OTP as protection against recycled-number account takeover.
+
 If Arkesel verification succeeds but Firebase token issuance fails, the challenge is retained in a provider-verified state so token issuance can be retried without re-verifying the already-consumed OTP. A consumed challenge cannot be replayed.
