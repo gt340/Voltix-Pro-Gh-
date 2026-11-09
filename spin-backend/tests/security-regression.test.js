@@ -98,6 +98,14 @@ test('wallet reads and mutations require the authenticated Firebase UID owner', 
   assert.match(spinBlock, /ownerUid: shopper\.uid/);
 });
 
+test('spin, winner, and fulfillment records retain the authenticated shopper UID', () => {
+  assert.match(server, /async function logSpinWinner\(phone, name, prizeLabel, prizeId, shopperUid\)/);
+  assert.match(server, /phone, shopperUid, name: name \|\| 'Unknown'/);
+  assert.match(server, /shopperUid:shopper\.uid, prizeId:prize\.id/);
+  assert.match(server, /shopperUid:shopper\.uid, type:'earpods'/);
+  assert.match(server, /shopperUid:shopper\.uid, type:'coupon'/);
+});
+
 test('payment crediting refuses legacy purchases and wallets without matching UID ownership', () => {
   const payments = fs.readFileSync(path.join(__dirname, '..', 'payments.js'), 'utf8');
   assert.match(payments, /purchase\.shopperUid !== shopper\.uid/);
