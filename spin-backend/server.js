@@ -347,7 +347,7 @@ app.post('/api/spin', async (req,res)=>{
       await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id, shopper.uid);
     } else if(prize.type === 'data'){
       await sendReloadlyData(phone, finalNetwork, prize.value);
-      await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
+      await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id, shopper.uid);
     } else if(prize.type === 'freeship'){
       await db.collection('fulfillmentQueue').add({ phone, shopperUid:shopper.uid, type:'freeship_voucher', status:'pending', createdAt: new Date().toISOString() });
       await logSpinWinner(phone, name, 'Free Shipping Voucher', prize.id, shopper.uid);
