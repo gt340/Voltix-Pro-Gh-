@@ -44,7 +44,8 @@ body{background:#0a0a0a;}
 
 .wheel-wrap{position:relative;width:min(90vw,340px);height:min(90vw,340px);margin:0 auto 1.8rem;}
 .wheel-pointer{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:26px solid var(--gold);z-index:5;filter:drop-shadow(0 3px 8px rgba(0,0,0,.6));}
-.wheel-disc{width:100%;height:100%;border-radius:50%;object-fit:cover;transition:transform 4.5s cubic-bezier(.17,.67,.12,.99);box-shadow:0 0 0 2px rgba(250,204,21,.25),0 0 50px rgba(250,204,21,.25);}
+.wheel-disc{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;transition:transform 8.2s cubic-bezier(.12,.78,.08,1);box-shadow:0 0 0 3px rgba(250,204,21,.55),0 0 50px rgba(250,204,21,.25);border:5px solid #d4a72c;background:#17120a;}
+.wheel-segment-label{position:absolute;left:50%;top:50%;width:62px;margin-left:-31px;margin-top:-11px;color:#fff;font-size:8.5px;line-height:1.05;font-weight:900;text-align:center;text-transform:uppercase;text-shadow:0 1px 3px #000,0 1px 7px #000;pointer-events:none;}
 
 .spin-btn-row{padding:0 1.1rem 1.5rem;text-align:center;}
 .spin-cta-btn{width:100%;max-width:300px;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:900;font-size:1rem;padding:1.1rem;border-radius:1rem;border:2px solid rgba(250,204,21,.4);box-shadow:0 10px 30px rgba(14,165,233,.35);}
@@ -122,7 +123,7 @@ body{background:#0a0a0a;}
 
 <div class="wheel-wrap">
   <div class="wheel-pointer"></div>
-  <img class="wheel-disc" id="wheelDisc" src="https://res.cloudinary.com/gi28yswe/image/upload/f_auto,q_auto,w_600/v1787315750/grok_1787314566690_u3wtyd.jpg" alt="Spin wheel" loading="eager" decoding="async" fetchpriority="high">
+  <div class="wheel-disc" id="wheelDisc" role="img" aria-label="Prize wheel"></div>
 </div>
 
 <div class="spin-btn-row">
@@ -182,18 +183,39 @@ body{background:#0a0a0a;}
 <script src="app.js"></script>
 <script>
 const WHEEL_SEGMENTS = [
-  { id:'data500mb',   label:'500MB Data' },
-  { id:'airtime5',    label:'Ghc5 Airtime' },
-  { id:'data1gb',     label:'1GB Data' },
-  { id:'coupon10',    label:'10% Off' },
-  { id:'earpods',     label:'FREE Earpods!' },
-  { id:'freeshipping',label:'Free Shipping' },
-  { id:'coins5',      label:'5 Coins' },
-  { id:'coins10',     label:'10 Coins' },
-  { id:'airtime1',    label:'Ghc1 Airtime' },
-  { id:'airtime2',    label:'Ghc2 Airtime' },
+  { id:'data500mb',   label:'500MB Data', color:'#176b87' },
+  { id:'airtime5',    label:'GHc5 Airtime', color:'#9b3d32' },
+  { id:'data1gb',     label:'1GB Data', color:'#315c9b' },
+  { id:'coupon10',    label:'10% Off', color:'#76509a' },
+  { id:'earpods',     label:'FREE Earpods', color:'#a97819' },
+  { id:'freeshipping',label:'Free Shipping', color:'#26734b' },
+  { id:'coins5',      label:'5 Coins', color:'#8b6b22' },
+  { id:'coins10',     label:'10 Coins', color:'#a34c68' },
+  { id:'airtime1',    label:'GHc1 Airtime', color:'#286b72' },
+  { id:'airtime2',    label:'GHc2 Airtime', color:'#79522d' },
+  { id:'tryAgain',    label:'TRY AGAIN', color:'#4b4b4b' },
+  { id:'zeroCoin',    label:'0 COIN', color:'#252525' },
 ];
 const SEG_ANGLE = 360 / WHEEL_SEGMENTS.length;
+
+function renderPrizeWheel(){
+  const disc = document.getElementById('wheelDisc');
+  if(!disc) return;
+  const stops = [];
+  WHEEL_SEGMENTS.forEach((segment, index) => {
+    const start = index * SEG_ANGLE;
+    const end = (index + 1) * SEG_ANGLE;
+    stops.push(`${segment.color} ${start}deg ${end}deg`);
+    const label = document.createElement('span');
+    label.className = 'wheel-segment-label';
+    label.textContent = segment.label;
+    const mid = start + SEG_ANGLE / 2;
+    label.style.transform = `rotate(${mid}deg) translateY(-116px) rotate(${-mid}deg)`;
+    disc.appendChild(label);
+  });
+  disc.style.background = `conic-gradient(from 0deg, ${stops.join(',')})`;
+}
+renderPrizeWheel();
 
 const BACKEND = 'https://spin-backend-delta.vercel.app';
 const SPIN_API_URL = BACKEND + '/api/spin';
@@ -465,26 +487,37 @@ async function spinAndFetch(){
 
 function animateWheelToPrize(data){
   const idx = WHEEL_SEGMENTS.findIndex(s=>s.id===data.prize);
-  const targetSegmentAngle = 360 - (idx*SEG_ANGLE + SEG_ANGLE/2);
-
-  const currentMod = currentWheelRotation % 360;
+  if(idx < 0){
+    spinning = false;
+    document.getElementById('spinBtn').disabled = false;
+    showToast('The spin result was not recognised. Your wallet has not been changed again.');
+    loadCoinBalance();
+    return;
+  }
+  const targetSegmentAngle = 360 - (idx * SEG_ANGLE + SEG_ANGLE / 2);
+  const currentMod = ((currentWheelRotation % 360) + 360) % 360;
   let delta = targetSegmentAngle - currentMod;
   if(delta <= 0) delta += 360;
-  currentWheelRotation += delta + (360 * 5);
+  currentWheelRotation += delta + (360 * 6);
 
   const disc = document.getElementById('wheelDisc');
-  disc.style.transform = `rotate(${currentWheelRotation}deg)`;
-
-  setTimeout(()=>{
+  let finished = false;
+  let fallbackTimer;
+  const finishSpin = () => {
+    if(finished) return;
+    finished = true;
+    clearTimeout(fallbackTimer);
     spinning = false;
     document.getElementById('spinBtn').disabled = false;
     loadCoinBalance();
-    try{
-      showPrizeResult(data);
-    } catch(e){
-      console.error('showPrizeResult failed:', e);
-    }
-  }, 4600);
+    try { showPrizeResult(data); }
+    catch(e) { console.error('showPrizeResult failed:', e); }
+  };
+  disc.addEventListener('transitionend', event => {
+    if(event.target === disc && event.propertyName === 'transform') finishSpin();
+  }, { once:true });
+  disc.style.transform = `rotate(${currentWheelRotation}deg)`;
+  fallbackTimer = setTimeout(finishSpin, 8700);
 }
 
 function announceResult(text){
@@ -501,7 +534,8 @@ function announceResult(text){
 function showPrizeResult(data){
   const prizeId = data.prize;
   const seg = WHEEL_SEGMENTS.find(s=>s.id===prizeId);
-  const isWin = prizeId !== 'none';
+  const isNoPrize = prizeId === 'tryAgain' || prizeId === 'zeroCoin';
+  const isWin = !isNoPrize;
   let displayName = seg.label;
   let announceText = '';
 
@@ -521,11 +555,12 @@ function showPrizeResult(data){
     }
     shippingNote.style.display = 'block';
   } else {
-    announceText = isWin ? `Congratulations! You won ${displayName}!` : "No luck this time — try again!";
+    announceText = isWin ? `Congratulations! You won ${displayName}!` : (prizeId === 'zeroCoin' ? 'This spin awarded zero coins.' : 'No prize this time. Try again on your next eligible spin.');
   }
 
   const descriptions = {
-    none: "No luck this time — try again!",
+    tryAgain: "No prize this time. You can try again on your next eligible spin.",
+    zeroCoin: "This spin awarded 0 coins. No coins were added to your wallet.",
     coins5: "5 coins added to your balance.",
     coins10: "10 coins added to your balance.",
     airtime1: "Ghc1 airtime is on its way to your number.",
@@ -538,8 +573,8 @@ function showPrizeResult(data){
     earpods: "Our team will contact you on WhatsApp to arrange delivery!"
   };
 
-  document.getElementById('prizeResultIcon').textContent = prizeId==='none' ? '😢' : (prizeId==='earpods' ? '🎧' : '🎉');
-  document.getElementById('prizeResultTitle').textContent = isWin ? 'Congratulations!' : 'So Close!';
+  document.getElementById('prizeResultIcon').textContent = prizeId==='tryAgain' ? '↻' : (prizeId==='zeroCoin' ? '🪙' : (prizeId==='earpods' ? '🎧' : '🎉'));
+  document.getElementById('prizeResultTitle').textContent = prizeId==='tryAgain' ? 'Try Again' : (prizeId==='zeroCoin' ? '0 Coin' : 'Congratulations!');
   document.getElementById('prizeResultName').textContent = displayName;
   document.getElementById('prizeResultDesc').textContent = descriptions[prizeId] || '';
   document.getElementById('prizeResultModal').classList.add('active');
