@@ -32,7 +32,7 @@ Before live activation, configure Firestore TTL policies on the `expireAt` field
 
 ## Rollout gates
 
-1. The current frontend code still targets the existing backend alias `https://spin-backend-delta.vercel.app`. This is the Production backend alias, not a verified preview URL. Preview OTP requests therefore must not be tested through this frontend yet. Keep `window.VOLTIX_USE_ARKESEL_OTP` unset/false. Confirm the exact preview backend URL and change the frontend endpoint to that URL before preview OTP testing. Do not enable OTP in Production.
+1. The current branch preview frontend is `https://voltix-pro-gh-git-phase3-ark-abacb9-nekarakodiya-7935s-projects.vercel.app` and its paired backend branch alias is `https://spin-backend-git-phase3-arke-127ac8-nekarakodiya-7935s-projects.vercel.app`. The frontend selects this backend only on that exact preview hostname; other hosts use the Production backend alias. Keep `window.VOLTIX_USE_ARKESEL_OTP` unset/false until the backend preview is READY and its environment is checked. Do not enable OTP in Production.
 2. Keep `OTP_AUTH_ENABLED=false` while reviewing the preview build and CI test results.
 3. Obtain separate approval before enabling billable OTP requests, including any real-user SMS trial.
 4. Verify the resulting Firebase ID token contains the standard `phone_number` claim and the `shopperPhoneVerified` custom claim. The frontend fails closed if either check is absent.
