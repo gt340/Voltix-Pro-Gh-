@@ -74,3 +74,11 @@ test('spin button is disabled until verified balance is loaded and whenever bala
   assert.match(spin, /button.disabled = spinning \|\| balanceUnavailable \|\| insufficientBalance/);
   assert.match(spin, /currentCoinBalance = Number.isFinite\(balance\)/);
 });
+
+test('Vercel preview is read-only and cannot claim coins, recover payments, or submit spins', () => {
+  assert.match(spin, /window\.location\.hostname\.includes\('-git-'\)/);
+  assert.match(spin, /if\(!currentUser \|\| IS_PREVIEW_DEPLOYMENT\) return/);
+  assert.match(spin, /if\(IS_PREVIEW_DEPLOYMENT\) return/);
+  assert.match(spin, /if\(IS_PREVIEW_DEPLOYMENT\)\{ showToast\('Preview mode: spins are disabled\.'\); return; \}/);
+  assert.match(spin, /button\.disabled = IS_PREVIEW_DEPLOYMENT \|\| spinning/);
+});
