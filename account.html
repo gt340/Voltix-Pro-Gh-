@@ -224,6 +224,7 @@
       <div class="acc-form-group"><label>Full Name</label><input type="text" id="accLoginName" placeholder="Enter your full name" required></div>
       <div class="acc-form-group"><label>Phone Number</label><input type="tel" id="accLoginPhone" placeholder="0241234567" autocomplete="tel" required></div>
       <div id="accLoginOtpGroup" class="acc-form-group" style="display:none;"><label>SMS Verification Code</label><input type="text" id="accLoginOtp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Enter 6-digit code"></div>
+      <div id="shopperRecaptcha"></div>
       <p id="accPhoneAuthNote" style="font-size:.78rem;color:#b8b8b8;line-height:1.5;margin:.5rem 0;">Your phone must be verified to protect your wallet and Spin &amp; Win balance.</p>
       <button type="submit" id="accLoginSubmit" class="acc-login-btn ripple">📩 Send verification code</button>
     </form>
@@ -394,7 +395,7 @@ async function handleAccountLogin(e){
     }
     submit.disabled = true;
     if(!shopperPhoneCodeSent){
-      const result = await VDB.sendShopperPhoneCode(phoneInput);
+      const result = await VDB.sendShopperPhoneCode(phoneInput, 'shopperRecaptcha');
       document.getElementById('accLoginPhone').value = result.phone;
       document.getElementById('accLoginOtpGroup').style.display = 'block';
       document.getElementById('accLoginOtp').required = true;
@@ -437,6 +438,14 @@ async function handleAccountLogin(e){
       msg = 'Too many code requests. Wait before trying again.';
     } else if(code === 'OTP_PROVIDER_FAILURE' || code === 'OTP_REQUEST_FAILED'){
       msg = 'The SMS verification service is temporarily unavailable. Try again later.';
+    } else if(code === 'auth/operation-not-allowed'){
+      msg = 'Firebase Phone Auth is not enabled for this fallback sign-in. Contact support.';
+    } else if(code === 'auth/too-many-requests' || code === 'auth/quota-exceeded'){
+      msg = 'Phone verification is temporarily rate-limited. Try again later.';
+    } else if(code === 'auth/invalid-phone-number'){
+      msg = 'The phone number was rejected. Check the number and country code.';
+    } else if(code === 'auth/captcha-check-failed'){
+      msg = 'The reCAPTCHA verification failed. Refresh the page and try again.';
     }
 
     showToast(msg);
