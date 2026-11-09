@@ -80,6 +80,34 @@ test('Paystack webhook remains provider-signature authenticated, not browser-tok
   assert.doesNotMatch(block, /requireVerifiedShopper/);
 });
 
+
+test('wallet reads and mutations require the authenticated Firebase UID owner', () => {
+  const walletStart = server.indexOf("app.get('/api/wallet'");
+  const walletEnd = server.indexOf('// ---------- FREE STARTER SPIN ----------', walletStart);
+  const walletBlock = server.slice(walletStart, walletEnd);
+  assert.match(walletBlock, /data\.ownerUid !== shopper\.uid/);
+  const claimStart = server.indexOf("app.post('/api/claim-free-spin'");
+  const claimEnd = server.indexOf('// ---------- SPIN REFERRAL CODES ----------', claimStart);
+  const claimBlock = server.slice(claimStart, claimEnd);
+  assert.match(claimBlock, /data\.ownerUid !== shopper\.uid/);
+  assert.match(claimBlock, /ownerUid:shopper\.uid/);
+  const spinStart = server.indexOf("app.post('/api/spin'");
+  const spinEnd = server.indexOf('// ---------- RELOADLY ----------', spinStart);
+  const spinBlock = server.slice(spinStart, spinEnd);
+  assert.match(spinBlock, /current\.ownerUid !== shopper\.uid/);
+  assert.match(spinBlock, /ownerUid: shopper\.uid/);
+});
+
+test('payment crediting refuses legacy purchases and wallets without matching UID ownership', () => {
+  const payments = fs.readFileSync(path.join(__dirname, '..', 'payments.js'), 'utf8');
+  assert.match(payments, /purchase\.shopperUid !== shopper\.uid/);
+  assert.match(payments, /OWNER_RECOVERY_REQUIRED/);
+  assert.match(payments, /walletData\.ownerUid !== purchase\.shopperUid/);
+  assert.match(payments, /ownerUid: purchase\.shopperUid/);
+  assert.match(payments, /referrerWallet\.ownerUid === referrerUid/);
+  assert.match(payments, /referredUid: purchase\.shopperUid/);
+});
+
 test('account UI never treats localStorage alone as a verified shopper session', () => {
   const root = path.join(__dirname, '..', '..');
   const account = fs.readFileSync(path.join(root, 'account.html'), 'utf8');
