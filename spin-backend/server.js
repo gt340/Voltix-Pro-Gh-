@@ -157,9 +157,9 @@ app.post('/api/auth/otp/verify', async (req, res) => {
 });
 
 // ---------- SHOPPER IDENTITY ----------
-// Legacy phone-keyed wallets are accessible only when Firebase verifies that
-// the caller controls the same phone number. This intentionally fails closed
-// until the frontend phone-auth/linking flow is implemented and configured.
+// Arkesel OTP verification is exchanged for a Firebase custom token. The
+// resulting Firebase ID token must carry the verified phone_number claim;
+// wallet access additionally requires an exact ownerUid match.
 function normalizePhone(value){
   const digits = String(value || '').replace(/\D/g, '');
   return digits.startsWith('233') && digits.length === 12 ? '0' + digits.slice(3) : digits;
