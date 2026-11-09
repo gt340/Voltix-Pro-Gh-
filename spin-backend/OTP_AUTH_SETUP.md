@@ -31,7 +31,7 @@ Before live activation, configure Firestore TTL policies on the `expireAt` field
 
 ## Rollout gates
 
-1. Confirm the preview backend deployment URL and configure the preview frontend to call that exact URL. Do not let a preview frontend call the Production backend.
+1. The current frontend code still targets the existing backend alias `https://spin-backend-delta.vercel.app`. This is the Production backend alias, not a verified preview URL. Preview OTP requests therefore must not be tested through this frontend yet. Confirm the exact preview backend URL and change the frontend endpoint to that URL before preview OTP testing. Do not enable OTP in Production.
 2. Keep `OTP_AUTH_ENABLED=false` while reviewing the preview build and CI test results.
 3. Obtain separate approval before enabling billable OTP requests, including any real-user SMS trial.
 4. Verify the resulting Firebase ID token contains the standard `phone_number` claim and the `shopperPhoneVerified` custom claim. The frontend fails closed if either check is absent.
