@@ -80,5 +80,6 @@ test('Vercel preview is read-only and cannot claim coins, recover payments, or s
   assert.match(spin, /if\(!currentUser \|\| IS_PREVIEW_DEPLOYMENT\) return/);
   assert.match(spin, /if\(IS_PREVIEW_DEPLOYMENT\) return/);
   assert.match(spin, /if\(IS_PREVIEW_DEPLOYMENT\)\{ showToast\('Preview mode: spins are disabled\.'\); return; \}/);
+  assert.match(spin, /Preview mode: coin purchases are disabled\./);
   assert.match(spin, /button\.disabled = IS_PREVIEW_DEPLOYMENT \|\| spinning/);
 });
