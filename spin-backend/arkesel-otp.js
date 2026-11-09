@@ -23,6 +23,10 @@ function normalizeE164(value) {
   return '+' + digits;
 }
 
+function toArkeselPhoneNumber(value) {
+  return normalizeE164(value).slice(1);
+}
+
 function responseCode(data) {
   return data && data.code != null ? String(data.code) : '';
 }
@@ -75,14 +79,14 @@ function createArkeselOtpClient(options = {}) {
 
   return Object.freeze({
     async generate(phone) {
-      const number = normalizeE164(phone);
+      const phone_number = toArkeselPhoneNumber(phone);
       return request('/generate', {
         expiry: expiryMinutes,
         length: 6,
         medium: 'sms',
         message: 'Your Voltix Pro GH verification code is %otp_code%. It expires in ' +
           expiryMinutes + ' minutes. Do not share this code.',
-        number,
+        phone_number,
         sender_id: senderId,
         type: 'numeric'
       }, '1000', 'OTP generation');
@@ -94,7 +98,7 @@ function createArkeselOtpClient(options = {}) {
       if (!/^\d{6}$/.test(otp)) {
         throw new TypeError('OTP must contain exactly six digits');
       }
-      return request('/verify', { number, code: otp }, '1100', 'OTP verification');
+      return request('/verify', { phone_number, code: otp }, '1100', 'OTP verification');
     }
   });
 }
