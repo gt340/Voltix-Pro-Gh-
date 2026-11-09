@@ -245,7 +245,10 @@ function renderPrizeWheel(){
 }
 renderPrizeWheel();
 
-const BACKEND = 'https://spin-backend-delta.vercel.app';
+const IS_PREVIEW_DEPLOYMENT = window.location.hostname.includes('-git-');
+const BACKEND = IS_PREVIEW_DEPLOYMENT
+  ? 'https://spin-backend-git-phase3-arke-127ac8-nekarakodiya-7935s-projects.vercel.app'
+  : 'https://spin-backend-delta.vercel.app';
 const SPIN_API_URL = BACKEND + '/api/spin';
 const WALLET_API_URL = BACKEND + '/api/wallet';
 const REF_CODE_API_URL = BACKEND + '/api/spin-referral-code';
@@ -281,7 +284,7 @@ let currentWheelRotation = 0;
 })();
 
 async function loadMySpinReferralCode(){
-  if(!currentUser) return;
+  if(!currentUser || IS_PREVIEW_DEPLOYMENT) return;
   try{
     const res = await fetch(`${REF_CODE_API_URL}?phone=${encodeURIComponent(currentUser.phone)}`, { headers: await getShopperAuthHeaders() });
     const data = await res.json();
@@ -309,6 +312,7 @@ document.querySelectorAll('.share-btn').forEach(btn=>{
 
 /* ---------- FREE STARTER SPIN ---------- */
 async function recoverPendingPurchase(){
+  if(IS_PREVIEW_DEPLOYMENT) return;
   const pending = localStorage.getItem('voltixPendingCoinPurchase');
   if(!pending || !currentUser) return;
   const { reference, coins, priceGHC } = JSON.parse(pending);
@@ -316,7 +320,7 @@ async function recoverPendingPurchase(){
   await completeCoinPurchase(reference, coins, priceGHC);
    }
 async function claimFreeSpinIfEligible(){
-  if(!currentUser) return;
+  if(!currentUser || IS_PREVIEW_DEPLOYMENT) return;
   try{
     const res = await fetch(CLAIM_FREE_SPIN_URL, {
       method:'POST', headers:{'Content-Type':'application/json', ...(await getShopperAuthHeaders())},
@@ -379,8 +383,9 @@ function updateSpinButtonState(){
   const button = document.getElementById('spinBtn');
   if(!button) return;
   const balanceUnavailable = Boolean(currentUser) && currentCoinBalance === null;
+  const previewReadOnly = IS_PREVIEW_DEPLOYMENT;
   const insufficientBalance = Boolean(currentUser) && currentCoinBalance !== null && currentCoinBalance < SPIN_COST_COINS;
-  button.disabled = spinning || balanceUnavailable || insufficientBalance;
+  button.disabled = IS_PREVIEW_DEPLOYMENT || spinning || balanceUnavailable || insufficientBalance;
   button.setAttribute('aria-disabled', String(button.disabled));
 }
 
@@ -511,6 +516,7 @@ document.getElementById('spinBtn').addEventListener('click', function(){
 });
 
 async function spinAndFetch(){
+  if(IS_PREVIEW_DEPLOYMENT){ showToast('Preview mode: spins are disabled.'); return; }
   spinning = true;
   updateSpinButtonState();
   try{
