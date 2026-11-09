@@ -31,7 +31,8 @@ if (otpAuthEnabled) {
     db,
     auth: admin.auth(),
     otpClient,
-    hashSecret: process.env.OTP_RATE_LIMIT_SECRET
+    hashSecret: process.env.OTP_RATE_LIMIT_SECRET,
+    dailyLimit: Number(process.env.OTP_DAILY_GLOBAL_LIMIT) || 250
   });
 }
 
