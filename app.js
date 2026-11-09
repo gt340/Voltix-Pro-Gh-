@@ -1,3 +1,10 @@
+const ARKESEL_PREVIEW_HOST = 'voltix-pro-gh-git-phase3-ark-abacb9-nekarakodiya-7935s-projects.vercel.app';
+const ARKESEL_PREVIEW_BACKEND = 'https://spin-backend-git-phase3-arke-127ac8-nekarakodiya-7935s-projects.vercel.app';
+const ARKESEL_PRODUCTION_BACKEND = 'https://spin-backend-delta.vercel.app';
+const SHOPPER_AUTH_BACKEND = window.location.hostname === ARKESEL_PREVIEW_HOST
+  ? ARKESEL_PREVIEW_BACKEND
+  : ARKESEL_PRODUCTION_BACKEND;
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAponv8T3TBWaGRNW0Sa9DEmRFAmOY8DFc",
   authDomain: "voltix-pro-dc363.firebaseapp.com",
@@ -663,7 +670,7 @@ function shareProductCard(id, e){
       if(window.VOLTIX_USE_ARKESEL_OTP === true){
         if(window.__voltixOtpRequest) return window.__voltixOtpRequest;
         const request = (async()=>{
-          const response = await fetch('https://spin-backend-delta.vercel.app/api/auth/otp/request', {
+          const response = await fetch(SHOPPER_AUTH_BACKEND + '/api/auth/otp/request', {
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
             body:JSON.stringify({ phone:e164 })
@@ -729,7 +736,7 @@ function shareProductCard(id, e){
         const challengeId = window.__voltixOtpChallenge;
         const expectedPhone = window.__voltixOtpPhoneE164;
         if(!challengeId || !expectedPhone) throw new Error('Request an SMS verification code first.');
-        const response = await fetch('https://spin-backend-delta.vercel.app/api/auth/otp/verify', {
+        const response = await fetch(SHOPPER_AUTH_BACKEND + '/api/auth/otp/verify', {
           method:'POST',
           headers:{ 'Content-Type':'application/json' },
           body:JSON.stringify({ challengeId, code:String(code || '').trim() })
