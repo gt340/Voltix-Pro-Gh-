@@ -93,7 +93,7 @@ function createArkeselOtpClient(options = {}) {
     },
 
     async verify(phone, code) {
-      const number = normalizeE164(phone);
+      const phone_number = toArkeselPhoneNumber(phone);
       const otp = String(code || '').trim();
       if (!/^\d{6}$/.test(otp)) {
         throw new TypeError('OTP must contain exactly six digits');
