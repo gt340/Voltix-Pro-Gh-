@@ -123,7 +123,10 @@ app.get('/api/wallet', async (req,res)=>{
   if(!phone) return res.status(400).json({ error:'phone required' });
   const snap = await db.collection('wallets').doc(phone).get();
   if(!snap.exists) return res.json({ coins: 0, network: null, totalSpend: 0 });
-  const data = snap.data();
+  const data = snap.data() || {};
+  if (data.ownerUid !== shopper.uid) {
+    return res.status(409).json({ error:'Wallet ownership recovery required', code:'WALLET_OWNER_RECOVERY_REQUIRED' });
+  }
   res.json({ coins: data.coins || 0, network: data.network || null, totalSpend: data.totalSpend || 0 });
 });
 
@@ -138,14 +141,18 @@ app.post('/api/claim-free-spin', async (req,res)=>{
   try {
     const result = await db.runTransaction(async tx => {
       const snap = await tx.get(walletRef);
-      const data = snap.exists ? snap.data() : {};
+      const data = snap.exists ? (snap.data() || {}) : {};
+      if(snap.exists && data.ownerUid !== shopper.uid) {
+        return { error:'Wallet ownership recovery required', code:'WALLET_OWNER_RECOVERY_REQUIRED' };
+      }
       if(data.claimedFreeSpin) return { claimed:false, coins:Number(data.coins)||0 };
       const coins = (Number(data.coins)||0) + 20;
-      const updateData = { coins, claimedFreeSpin:true };
+      const updateData = { ownerUid:shopper.uid, coins, claimedFreeSpin:true };
       if(typeof name === 'string') updateData.name = name.slice(0,80);
       tx.set(walletRef, updateData, { merge:true });
       return { claimed:true, coins };
     });
+    if(result.error) return res.status(409).json({ error:result.error, code:result.code });
     res.json(result);
   } catch(err) {
     console.error('claim-free-spin failed:', err.message);
@@ -164,12 +171,16 @@ app.get('/api/spin-referral-code', async (req,res)=>{
   if(!phone) return res.status(400).json({ error:'phone required' });
   const walletRef = db.collection('wallets').doc(phone);
   const snap = await walletRef.get();
-  const existing = snap.exists ? snap.data().spinReferralCode : null;
+  const wallet = snap.exists ? (snap.data() || {}) : null;
+  if(wallet && wallet.ownerUid !== shopper.uid) {
+    return res.status(409).json({ error:'Wallet ownership recovery required', code:'WALLET_OWNER_RECOVERY_REQUIRED' });
+  }
+  const existing = wallet ? wallet.spinReferralCode : null;
   if(existing) return res.json({ code: existing });
 
   const code = generateReferralCode(phone);
-  await walletRef.set({ spinReferralCode: code }, { merge:true });
-  await db.collection('spinReferralCodes').doc(code).set({ phone });
+  await walletRef.set({ ownerUid:shopper.uid, spinReferralCode: code }, { merge:true });
+  await db.collection('spinReferralCodes').doc(code).set({ phone, ownerUid:shopper.uid });
   res.json({ code });
 });
 
@@ -228,7 +239,10 @@ app.post('/api/spin', async (req,res)=>{
   try {
     const result = await db.runTransaction(async tx => {
       const walletSnap = await tx.get(walletRef);
-      const current = walletSnap.exists ? walletSnap.data() : { coins:0, totalSpend:0 };
+      const current = walletSnap.exists ? (walletSnap.data() || {}) : { coins:0, totalSpend:0 };
+      if(walletSnap.exists && current.ownerUid !== shopper.uid) {
+        return { error:'Wallet ownership recovery required', code:'WALLET_OWNER_RECOVERY_REQUIRED', status:409 };
+      }
       const currentCount = current.dailySpinDate === dayKey ? (Number(current.dailySpinCount)||0) : 0;
       const balance = Number(current.coins)||0;
       if(currentCount >= DAILY_SPIN_CAP) return { error:'Daily spin limit reached', status:429 };
@@ -241,6 +255,7 @@ app.post('/api/spin', async (req,res)=>{
         else freeShipping = (Number(current.totalSpend)||0) >= earpodTier.freeShipSpend;
       }
       const updateData = {
+        ownerUid: shopper.uid,
         coins: balance - SPIN_COST,
         network: finalNetwork,
         dailySpinDate: dayKey,
@@ -251,7 +266,7 @@ app.post('/api/spin', async (req,res)=>{
       tx.set(spinRef, { phone, prizeId:prize.id, network:finalNetwork, createdAt:nowDate.toISOString(), dayKey }, { merge:false });
       return { ok:true };
     });
-    if(result.error) return res.status(result.status).json({ error:result.error });
+    if(result.error) return res.status(result.status).json({ error:result.error, code:result.code || 'SPIN_REJECTED' });
   } catch(err) {
     console.error('spin transaction failed:', err.message);
     return res.status(500).json({ error:'Could not process spin' });
