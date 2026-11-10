@@ -245,9 +245,10 @@ function renderPrizeWheel(){
 }
 renderPrizeWheel();
 
-const IS_PREVIEW_DEPLOYMENT = window.location.hostname.includes('-git-');
+const PRODUCTION_FRONTEND_HOST = 'voltix-pro-gh.vercel.app';
+const IS_PREVIEW_DEPLOYMENT = window.location.hostname.toLowerCase() !== PRODUCTION_FRONTEND_HOST;
 const BACKEND = IS_PREVIEW_DEPLOYMENT
-  ? 'https://spin-backend-git-phase3-arke-127ac8-nekarakodiya-7935s-projects.vercel.app'
+  ? 'https://spin-backend-e7jyvatrb-nekarakodiya-7935s-projects.vercel.app'
   : 'https://spin-backend-delta.vercel.app';
 const SPIN_API_URL = BACKEND + '/api/spin';
 const WALLET_API_URL = BACKEND + '/api/wallet';
@@ -382,9 +383,10 @@ document.getElementById('networkOverrideSelect').addEventListener('change', func
 function updateSpinButtonState(){
   const button = document.getElementById('spinBtn');
   if(!button) return;
-  const balanceUnavailable = Boolean(currentUser) && currentCoinBalance === null;
-  const insufficientBalance = Boolean(currentUser) && currentCoinBalance !== null && currentCoinBalance < SPIN_COST_COINS;
-  button.disabled = IS_PREVIEW_DEPLOYMENT || spinning || balanceUnavailable || insufficientBalance;
+  const signedOut = !currentUser;
+  const balanceUnavailable = currentCoinBalance === null;
+  const insufficientBalance = currentCoinBalance !== null && currentCoinBalance < SPIN_COST_COINS;
+  button.disabled = IS_PREVIEW_DEPLOYMENT || signedOut || spinning || balanceUnavailable || insufficientBalance;
   button.setAttribute('aria-disabled', String(button.disabled));
 }
 
