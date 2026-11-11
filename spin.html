@@ -18,10 +18,10 @@ body{background:#0a0a0a;}
 .app-topbar .icon-btn{width:2.6rem;height:2.6rem;border:1px solid rgba(250,204,21,.4);background:rgba(250,204,21,.06);color:var(--gold);}
 .app-topbar > div{font-family:'Playfair Display',serif;font-weight:700;font-size:1.15rem;}
 
-.spin-hero{padding:1.5rem 1.1rem 1.3rem;text-align:center;}
+ .spin-hero{padding:1.1rem 1.1rem 1rem;text-align:center;overflow:visible;}
 .spin-hero .ferris{font-size:2.4rem;margin-bottom:.3rem;}
 .spin-hero h1{font-family:'Playfair Display',serif;font-weight:800;font-size:2.4rem;background:linear-gradient(135deg,var(--gold),#fff8dc,var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.7rem;}
-.spin-hero p{font-size:.85rem;color:rgba(255,255,255,.65);line-height:1.6;max-width:320px;margin:0 auto;}
+ .spin-hero p{font-size:.85rem;color:rgba(255,255,255,.65);line-height:1.6;max-width:320px;margin:0 auto;}
 
 .coin-balance-card{margin:0 1.1rem 1rem;padding:1.1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;background:#0f0f0f;border:1px solid rgba(250,204,21,.25);border-radius:1.2rem;}
 .coin-balance-left{display:flex;align-items:center;gap:.9rem;}
@@ -52,12 +52,13 @@ body{background:#0a0a0a;}
 .prize-odds-item{display:flex;justify-content:space-between;gap:.5rem;border-bottom:1px solid rgba(255,255,255,.08);padding:.25rem 0;}
 .prize-odds-item b{color:#fff;white-space:nowrap;}
 
-.spin-btn-row{padding:0 1.1rem 1.5rem;text-align:center;}
+body{padding-bottom:calc(8rem + env(safe-area-inset-bottom));}
+.spin-btn-row{padding:0 1.1rem 2.25rem;text-align:center;scroll-margin-bottom:8rem;}
 .spin-cta-btn{width:100%;max-width:300px;background:linear-gradient(135deg,var(--blue-electric),var(--blue-deep));color:#fff;font-weight:900;font-size:1rem;padding:1.1rem;border-radius:1rem;border:2px solid rgba(250,204,21,.4);box-shadow:0 10px 30px rgba(14,165,233,.35);}
 .spin-cta-btn:disabled{opacity:.5;}
 .spin-cost-note{font-size:.72rem;color:rgba(255,255,255,.45);margin-top:.7rem;}
 
-.share-section{padding:0 1.1rem calc(7rem + env(safe-area-inset-bottom));text-align:center;}
+ .share-section{padding:0 1.1rem calc(10rem + env(safe-area-inset-bottom));text-align:center;scroll-margin-bottom:8rem;}
 .share-section .lbl{font-size:.82rem;color:rgba(255,255,255,.6);margin-bottom:.9rem;}
 .share-btns-row{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;}
 .share-btn{border:none;color:#fff;font-weight:800;font-size:.78rem;padding:.75rem 1.1rem;border-radius:999px;cursor:pointer;position:relative;z-index:5;}
