@@ -75,11 +75,33 @@ test('spin button is disabled until verified balance is loaded and whenever bala
   assert.match(spin, /currentCoinBalance = Number.isFinite\(balance\)/);
 });
 
-test('Vercel preview is read-only and cannot claim coins, recover payments, or submit spins', () => {
-  assert.match(spin, /window\.location\.hostname\.includes\('-git-'\)/);
+test('Vercel preview is read-only and routes only to its dedicated preview backend', () => {
+  assert.match(spin, /const PRODUCTION_FRONTEND_HOST = 'voltix-pro-gh\.vercel\.app'/);
+  assert.match(spin, /window\.location\.hostname\.toLowerCase\(\) !== PRODUCTION_FRONTEND_HOST/);
+  assert.match(spin, /const BACKEND = IS_PREVIEW_DEPLOYMENT\s*\? 'https:\/\/spin-backend-e7jyvatrb-nekarakodiya-7935s-projects\.vercel\.app'\s*:\s*'https:\/\/spin-backend-delta\.vercel\.app'/);
   assert.match(spin, /if\(!currentUser \|\| IS_PREVIEW_DEPLOYMENT\) return/);
   assert.match(spin, /if\(IS_PREVIEW_DEPLOYMENT\) return/);
   assert.match(spin, /if\(IS_PREVIEW_DEPLOYMENT\)\{ showToast\('Preview mode: spins are disabled\.'\); return; \}/);
   assert.match(spin, /Preview mode: coin purchases are disabled\./);
-  assert.match(spin, /button\.disabled = IS_PREVIEW_DEPLOYMENT \|\| spinning/);
+  assert.match(spin, /button\.disabled = IS_PREVIEW_DEPLOYMENT \|\| signedOut \|\| spinning/);
+});
+
+test('prize selection uses cryptographic integer randomness and preserves every configured weight', () => {
+  const prizeBlock = server.match(/const PRIZES = \[[\s\S]*?\n\];/);
+  const pickerBlock = server.match(/function pickPrize\(randomInt = crypto\.randomInt\)\{[\s\S]*?\n\}/);
+  assert.ok(prizeBlock && pickerBlock, 'prize table and secure picker exist');
+  const sandbox = { crypto: { randomInt: () => 0 }, module: { exports: {} } };
+  vm.runInNewContext(prizeBlock[0] + '\n' + pickerBlock[0] + '\nmodule.exports = { PRIZES, pickPrize };', sandbox);
+  const { PRIZES, pickPrize } = sandbox.module.exports;
+  assert.equal(PRIZES.reduce((sum, prize) => sum + prize.weight, 0), 100);
+  let cursor = 0;
+  for (const prize of PRIZES) {
+    const start = cursor;
+    const units = Math.round(prize.weight * 10);
+    assert.equal(pickPrize(() => start).id, prize.id);
+    assert.equal(pickPrize(() => start + units - 1).id, prize.id);
+    cursor += units;
+  }
+  assert.equal(cursor, 1000);
+  assert.equal(pickPrize(() => 999).id, PRIZES[PRIZES.length - 1].id);
 });
