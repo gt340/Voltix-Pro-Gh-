@@ -37,7 +37,7 @@ app.use(bodyParser.json());
 // Preview deployments are read-only at the API boundary. This blocks direct
 // requests as well as UI-triggered writes, including Paystack, spins, and OTP.
 app.use((req, res, next) => {
-  if (IS_VERCEL_PREVIEW && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.path !== '/') {
+  if (IS_VERCEL_PREVIEW && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return res.status(503).json({ error: 'Preview backend is read-only' });
   }
   next();
