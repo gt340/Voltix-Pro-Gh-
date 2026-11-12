@@ -8,8 +8,23 @@ const payments = require('./payments');
 const { createArkeselOtpClient } = require('./arkesel-otp');
 const { createOtpAuthService } = require('./otp-auth');
 
+const IS_VERCEL_PREVIEW = process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'preview';
+const firebaseServiceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || 'null');
+if (!firebaseServiceAccount || typeof firebaseServiceAccount.project_id !== 'string') {
+  throw new Error('FIREBASE_SERVICE_ACCOUNT must contain a valid project_id');
+}
+if (IS_VERCEL_PREVIEW) {
+  const expectedPreviewProject = process.env.PREVIEW_FIREBASE_PROJECT_ID;
+  if (!expectedPreviewProject || firebaseServiceAccount.project_id !== expectedPreviewProject) {
+    throw new Error('Preview backend requires a dedicated Firebase project; refusing to start');
+  }
+  if (process.env.PAYSTACK_SECRET_KEY || process.env.RELOADLY_CLIENT_ID ||
+      process.env.RELOADLY_CLIENT_SECRET || process.env.OTP_AUTH_ENABLED === 'true') {
+    throw new Error('Preview backend must not have live payment, top-up, or SMS credentials enabled');
+  }
+}
 admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+  credential: admin.credential.cert(firebaseServiceAccount)
 });
 const db = admin.firestore();
 
@@ -18,6 +33,15 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
+
+// Preview deployments are read-only at the API boundary. This blocks direct
+// requests as well as UI-triggered writes, including Paystack, spins, and OTP.
+app.use((req, res, next) => {
+  if (IS_VERCEL_PREVIEW && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.path !== '/') {
+    return res.status(503).json({ error: 'Preview backend is read-only' });
+  }
+  next();
+});
 
 const otpAuthEnabled = process.env.OTP_AUTH_ENABLED === 'true';
 let otpAuthService = null;
