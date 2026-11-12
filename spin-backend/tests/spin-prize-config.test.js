@@ -87,6 +87,7 @@ test('Vercel preview is read-only and routes only to its dedicated preview backe
 });
 
 test('prize selection uses cryptographic integer randomness and preserves every configured weight', () => {
+  const vm = require('node:vm');
   const prizeBlock = server.match(/const PRIZES = \[[\s\S]*?\n\];/);
   const pickerBlock = server.match(/function pickPrize\(randomInt = crypto\.randomInt\)\{[\s\S]*?\n\}/);
   assert.ok(prizeBlock && pickerBlock, 'prize table and secure picker exist');
