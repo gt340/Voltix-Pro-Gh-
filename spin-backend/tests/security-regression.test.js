@@ -159,3 +159,17 @@ test('shopper phone-auth client and protected Spin calls are syntactically valid
     }
   }
 });
+
+test('Vercel preview backend fails closed without isolated Firebase and no live provider credentials', () => {
+  assert.match(server, /const IS_VERCEL_PREVIEW = process\.env\.VERCEL === '1' && process\.env\.VERCEL_ENV === 'preview'/);
+  assert.match(server, /process\.env\.PREVIEW_FIREBASE_PROJECT_ID/);
+  assert.match(server, /firebaseServiceAccount\.project_id !== expectedPreviewProject/);
+  assert.match(server, /Preview backend requires a dedicated Firebase project; refusing to start/);
+  assert.match(server, /process\.env\.PAYSTACK_SECRET_KEY \|\| process\.env\.RELOADLY_CLIENT_ID/);
+  assert.match(server, /Preview backend must not have live payment, top-up, or SMS credentials enabled/);
+});
+
+test('Vercel preview API blocks all state-changing HTTP methods', () => {
+  assert.match(server, /if \(IS_VERCEL_PREVIEW && !\['GET', 'HEAD', 'OPTIONS'\]\.includes\(req\.method\) && req\.path !== '\/'\)/);
+  assert.match(server, /Preview backend is read-only/);
+});
