@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -99,10 +100,16 @@ const PRIZES = [
   { id:'freeshipping',weight:1.2, type:'freeship' },
   { id:'earpods',     weight:1,   type:'earpods' },
 ];
-function pickPrize(){
-  const total = PRIZES.reduce((s,p)=>s+p.weight,0);
-  let r = Math.random()*total;
-  for(const p of PRIZES){ if(r<p.weight) return p; r-=p.weight; }
+function pickPrize(randomInt = crypto.randomInt){
+  // Scale weights to integer tenths so crypto.randomInt can preserve 0.1% odds.
+  const scale = 10;
+  const total = PRIZES.reduce((sum, prize) => sum + Math.round(prize.weight * scale), 0);
+  let r = randomInt(total);
+  for(const prize of PRIZES){
+    const weightUnits = Math.round(prize.weight * scale);
+    if(r < weightUnits) return prize;
+    r -= weightUnits;
+  }
   return PRIZES[0];
 }
 
