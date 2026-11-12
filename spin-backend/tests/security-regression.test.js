@@ -169,7 +169,8 @@ test('Vercel preview backend fails closed without isolated Firebase and no live 
   assert.match(server, /Preview backend must not have live payment, top-up, or SMS credentials enabled/);
 });
 
-test('Vercel preview API blocks all state-changing HTTP methods', () => {
-  assert.match(server, /if \(IS_VERCEL_PREVIEW && !\['GET', 'HEAD', 'OPTIONS'\]\.includes\(req\.method\) && req\.path !== '\/'\)/);
+test('Vercel preview API blocks all state-changing HTTP methods on every path, including root', () => {
+  assert.match(server, /if \(IS_VERCEL_PREVIEW && !\['GET', 'HEAD', 'OPTIONS'\]\.includes\(req\.method\)\)/);
+  assert.doesNotMatch(server, /req\.path !== '\/'/);
   assert.match(server, /Preview backend is read-only/);
 });
