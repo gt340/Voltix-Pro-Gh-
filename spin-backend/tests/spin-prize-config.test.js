@@ -71,7 +71,7 @@ test('spin pointer target uses weighted segment midpoint rather than equal slice
 test('spin button is disabled until verified balance is loaded and whenever balance is below cost', () => {
   assert.match(spin, /currentCoinBalance < SPIN_COST_COINS/);
   assert.match(spin, /currentCoinBalance === null/);
-  assert.match(spin, /button\.disabled = IS_PREVIEW_DEPLOYMENT \|\| spinning \|\| balanceUnavailable \|\| insufficientBalance/);
+  assert.match(spin, /button\.disabled = IS_PREVIEW_DEPLOYMENT \|\| signedOut \|\| spinning \|\| balanceUnavailable \|\| insufficientBalance/);
   assert.match(spin, /currentCoinBalance = Number.isFinite\(balance\)/);
 });
 
