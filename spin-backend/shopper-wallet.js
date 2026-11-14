@@ -64,7 +64,7 @@ async function getOrCreateReferralCode(db, phone, uid, generateCode) {
     const collision = await tx.get(codeRef);
     if (collision.exists) return { http: 409, json: { error: 'Could not allocate a unique referral code', code: 'REFERRAL_CODE_COLLISION' } };
     tx.set(walletRef, { ownerUid: uid, spinReferralCode: code }, { merge: true });
-    tx.create(codeRef, { phone, ownerUid: uid });
+    tx.set(codeRef, { phone, ownerUid: uid });
     return { http: 200, json: { code } };
   });
 }
