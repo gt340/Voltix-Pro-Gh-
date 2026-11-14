@@ -7,6 +7,18 @@ const path = require('node:path');
 
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
+test('wallet Firestore reads are restricted to the owner or an admin', () => {
+  const root = path.join(__dirname, '..', '..');
+  const rules = fs.readFileSync(path.join(root, 'firestore.rules'), 'utf8');
+  const start = rules.indexOf('match /wallets/{phone}');
+  const end = rules.indexOf('match /spinWinners/{id}', start);
+  const walletRule = rules.slice(start, end);
+  assert.match(walletRule, /allow read: if isAdmin\(\) \|\|/);
+  assert.match(walletRule, /resource\.data\.get\('ownerUid', ''\) == request\.auth\.uid/);
+  assert.match(walletRule, /allow write: if false/);
+  assert.doesNotMatch(walletRule, /allow read: if request\.auth != null;/);
+});
+
 test('free starter claim delegates to an ownership-checked Firestore transaction', () => {
   const wallet = fs.readFileSync(path.join(__dirname, '..', 'shopper-wallet.js'), 'utf8');
   const start = server.indexOf("app.post('/api/claim-free-spin'");
