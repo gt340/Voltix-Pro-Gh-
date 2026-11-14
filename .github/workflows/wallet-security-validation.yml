@@ -38,7 +38,7 @@ jobs:
       - name: Check out requested code
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.inputs.source_ref || 'security/shopper-wallet-ownership-guards' }}
+          ref: ${{ github.event_name == 'pull_request' && 'security/shopper-wallet-ownership-guards' || github.event.inputs.source_ref || 'security/shopper-wallet-ownership-guards' }}
 
       - name: Verify checked-out source and required test script
         run: |
