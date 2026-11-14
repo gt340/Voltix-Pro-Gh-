@@ -3,8 +3,8 @@ name: Wallet Security Validation
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Git ref to validate (branch, tag, or commit SHA)"
+      source_ref:
+        description: "Repository ref to validate (branch, tag, or commit SHA)"
         required: true
         type: string
         default: "security/shopper-wallet-ownership-guards"
@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wallet-security-validation-${{ github.event.pull_request.number || inputs.ref || github.ref }}
+  group: wallet-security-validation-${{ github.event.pull_request.number || inputs.source_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -37,7 +37,14 @@ jobs:
       - name: Check out requested code
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.ref || 'security/shopper-wallet-ownership-guards' }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.inputs.source_ref || 'security/shopper-wallet-ownership-guards' }}
+
+      - name: Verify checked-out source and required test script
+        run: |
+          echo "Checked-out commit: $(git rev-parse HEAD)"
+          echo "Workflow event: ${GITHUB_EVENT_NAME}"
+          node -e "const p=require('./package.json'); console.log('Root package:', require('path').resolve('package.json')); console.log('Available scripts:', JSON.stringify(p.scripts || {}, null, 2)); if (!p.scripts || !p.scripts['test:rules']) { console.error('ERROR: Checked-out ref does not define the required test:rules script.'); process.exit(1); }"
+          test -f tests/firestore-rules.test.js || { echo "ERROR: tests/firestore-rules.test.js is missing from the checked-out ref."; exit 1; }
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
