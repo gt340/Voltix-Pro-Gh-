@@ -366,6 +366,6 @@ app.get('/', (req,res)=> res.send('Voltix Spin Backend running'));
 
 if (process.env.VERCEL !== '1') {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`Spin Backend running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Spin backend running on port ${PORT}`));
 }
 module.exports = app;
