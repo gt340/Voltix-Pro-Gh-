@@ -7,13 +7,29 @@ const path = require('node:path');
 
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
-test('free starter claim uses a Firestore transaction and a one-time flag', () => {
+test('wallet Firestore reads are restricted to the owner or an admin', () => {
+  const root = path.join(__dirname, '..', '..');
+  const rules = fs.readFileSync(path.join(root, 'firestore.rules'), 'utf8');
+  const start = rules.indexOf('match /wallets/{phone}');
+  const end = rules.indexOf('match /spinWinners/{id}', start);
+  const walletRule = rules.slice(start, end);
+  assert.match(walletRule, /allow read: if isAdmin\(\) \|\|/);
+  assert.match(walletRule, /resource\.data\.get\('ownerUid', ''\) == request\.auth\.uid/);
+  assert.match(walletRule, /allow write: if false/);
+  assert.doesNotMatch(walletRule, /allow read: if request\.auth != null;/);
+});
+
+test('free starter claim delegates to an ownership-checked Firestore transaction', () => {
+  const wallet = fs.readFileSync(path.join(__dirname, '..', 'shopper-wallet.js'), 'utf8');
   const start = server.indexOf("app.post('/api/claim-free-spin'");
   const end = server.indexOf('// ---------- SPIN REFERRAL CODES ----------', start);
   const block = server.slice(start, end);
-  assert.match(block, /db\.runTransaction/);
-  assert.match(block, /data\.claimedFreeSpin/);
-  assert.match(block, /claimedFreeSpin:true/);
+  assert.match(block, /shopperWallet\.claimFreeSpin\(db, phone, shopper\.uid, name\)/);
+  assert.match(wallet, /db\.runTransaction/);
+  assert.match(wallet, /wallet\.claimedFreeSpin/);
+  assert.match(wallet, /claimedFreeSpin: true/);
+  assert.match(wallet, /ownerUid: uid/);
+  assert.match(wallet, /LEGACY_WALLET_RECOVERY_REQUIRED/);
 });
 
 test('spin balance deduction and daily cap are enforced in one transaction', () => {
@@ -25,6 +41,7 @@ test('spin balance deduction and daily cap are enforced in one transaction', () 
   assert.match(block, /balance < SPIN_COST/);
   assert.match(block, /dailySpinCount: currentCount \+ 1/);
   assert.match(block, /coins: balance - SPIN_COST/);
+  assert.match(block, /ownerUid: shopper\.uid/);
   assert.doesNotMatch(block, /Daily spin count query failed/);
 });
 

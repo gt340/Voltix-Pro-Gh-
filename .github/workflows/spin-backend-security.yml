@@ -7,6 +7,13 @@ on:
       - phase2b4a/shopper-identity-foundation
   pull_request:
     paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tests/firestore-rules.test.js'
+      - 'tests/payments.test.js'
+      - 'tests/shopper-wallet.test.js'
       - 'spin-backend/**'
       - '.github/workflows/spin-backend-security.yml'
 
@@ -17,9 +24,23 @@ jobs:
       run:
         working-directory: spin-backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
-      - run: node --check server.js
-      - run: npm test
+          node-version: 24.12.0
+          cache: npm
+          cache-dependency-path: package.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install root test dependencies
+        working-directory: .
+        run: npm install --no-audit --no-fund
+      - name: Run Firestore rules against emulator
+        working-directory: .
+        run: npm run test:rules
+      - name: Check backend syntax
+        run: node --check server.js
+      - name: Run backend regression suite
+        run: npm test

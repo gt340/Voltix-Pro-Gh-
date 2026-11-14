@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
+const shopperWallet = require('./shopper-wallet');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -121,10 +122,13 @@ app.get('/api/wallet', async (req,res)=>{
   if(!shopper) return;
   const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
-  const snap = await db.collection('wallets').doc(phone).get();
-  if(!snap.exists) return res.json({ coins: 0, network: null, totalSpend: 0 });
-  const data = snap.data();
-  res.json({ coins: data.coins || 0, network: data.network || null, totalSpend: data.totalSpend || 0 });
+  try {
+    const result = await shopperWallet.getWallet(db, phone, shopper.uid);
+    res.status(result.http).json(result.json);
+  } catch(err) {
+    console.error('wallet lookup failed:', err.message);
+    res.status(500).json({ error:'Could not load wallet' });
+  }
 });
 
 // ---------- FREE STARTER SPIN ----------
@@ -134,19 +138,9 @@ app.post('/api/claim-free-spin', async (req,res)=>{
   if(!shopper) return;
   const phone = shopper.walletPhone;
   if(!phone || typeof phone !== 'string' || phone.length > 24 || /[\\/]/.test(phone)) return res.status(400).json({ error:'Valid phone required' });
-  const walletRef = db.collection('wallets').doc(phone);
   try {
-    const result = await db.runTransaction(async tx => {
-      const snap = await tx.get(walletRef);
-      const data = snap.exists ? snap.data() : {};
-      if(data.claimedFreeSpin) return { claimed:false, coins:Number(data.coins)||0 };
-      const coins = (Number(data.coins)||0) + 20;
-      const updateData = { coins, claimedFreeSpin:true };
-      if(typeof name === 'string') updateData.name = name.slice(0,80);
-      tx.set(walletRef, updateData, { merge:true });
-      return { claimed:true, coins };
-    });
-    res.json(result);
+    const result = await shopperWallet.claimFreeSpin(db, phone, shopper.uid, name);
+    res.status(result.http).json(result.json);
   } catch(err) {
     console.error('claim-free-spin failed:', err.message);
     res.status(500).json({ error:'Could not claim starter coins' });
@@ -162,15 +156,13 @@ app.get('/api/spin-referral-code', async (req,res)=>{
   if(!shopper) return;
   const phone = shopper.walletPhone;
   if(!phone) return res.status(400).json({ error:'phone required' });
-  const walletRef = db.collection('wallets').doc(phone);
-  const snap = await walletRef.get();
-  const existing = snap.exists ? snap.data().spinReferralCode : null;
-  if(existing) return res.json({ code: existing });
-
-  const code = generateReferralCode(phone);
-  await walletRef.set({ spinReferralCode: code }, { merge:true });
-  await db.collection('spinReferralCodes').doc(code).set({ phone });
-  res.json({ code });
+  try {
+    const result = await shopperWallet.getOrCreateReferralCode(db, phone, shopper.uid, generateReferralCode);
+    res.status(result.http).json(result.json);
+  } catch(err) {
+    console.error('spin referral code failed:', err.message);
+    res.status(500).json({ error:'Could not load referral code' });
+  }
 });
 
 // ---------- SPIN WINNERS LOG ----------
@@ -229,6 +221,10 @@ app.post('/api/spin', async (req,res)=>{
     const result = await db.runTransaction(async tx => {
       const walletSnap = await tx.get(walletRef);
       const current = walletSnap.exists ? walletSnap.data() : { coins:0, totalSpend:0 };
+      if(walletSnap.exists) {
+        const ownershipError = shopperWallet.ownershipFailure(current, shopper.uid);
+        if(ownershipError) return { error:'Wallet ownership recovery is required', status:409, code:ownershipError };
+      }
       const currentCount = current.dailySpinDate === dayKey ? (Number(current.dailySpinCount)||0) : 0;
       const balance = Number(current.coins)||0;
       if(currentCount >= DAILY_SPIN_CAP) return { error:'Daily spin limit reached', status:429 };
@@ -241,6 +237,7 @@ app.post('/api/spin', async (req,res)=>{
         else freeShipping = (Number(current.totalSpend)||0) >= earpodTier.freeShipSpend;
       }
       const updateData = {
+        ownerUid: shopper.uid,
         coins: balance - SPIN_COST,
         network: finalNetwork,
         dailySpinDate: dayKey,
@@ -251,7 +248,7 @@ app.post('/api/spin', async (req,res)=>{
       tx.set(spinRef, { phone, prizeId:prize.id, network:finalNetwork, createdAt:nowDate.toISOString(), dayKey }, { merge:false });
       return { ok:true };
     });
-    if(result.error) return res.status(result.status).json({ error:result.error });
+    if(result.error) return res.status(result.status).json({ error:result.error, code:result.code });
   } catch(err) {
     console.error('spin transaction failed:', err.message);
     return res.status(500).json({ error:'Could not process spin' });
