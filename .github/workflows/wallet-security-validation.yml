@@ -12,6 +12,7 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/wallet-security-validation.yml"
       - "firestore.rules"
       - "firebase.json"
       - "package.json"
