@@ -338,3 +338,84 @@ test('SECURITY: no secrets or provider internals leak in responses', async () =>
   const r = await verifyBall(deps, { reference: 'REF0000015', userId: 'u1' });
   assert.ok(!JSON.stringify(r).includes(SECRET)); assert.ok(!JSON.stringify(r).includes('network'));
 });
+
+
+// ======================= SHOPPER WALLET OWNERSHIP =======================
+test('SECURITY: another Firebase UID cannot verify a shopper purchase', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-OWN0001';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  const attacker = await verifyPurchase(deps, ref, { uid: 'attacker-uid', phone_number: PHONE });
+  assert.equal(attacker.http, 403);
+  assert.equal(walletCoins(db), 0);
+  assert.equal(db.read('coinPurchases/' + ref).status, 'pending');
+});
+
+test('SECURITY: wallet owned by another UID rejects buyer and referral credits', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-OWN0002';
+  db.seed('wallets/' + PHONE, { ownerUid: 'different-shopper', coins: 25 });
+  db.seed('wallets/0244111222', { ownerUid: 'referrer-owner', coins: 60 });
+  db.seed('spinReferralCodes/VLXOWN02', { phone: '0244111222', ownerUid: 'referrer-owner' });
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref, { spinRefCode: 'VLXOWN02' });
+  const r = await verifyPurchase(deps, ref);
+  assert.equal(r.http, 409);
+  assert.equal(r.json.code, 'WALLET_OWNED_BY_ANOTHER_ACCOUNT');
+  assert.equal(walletCoins(db), 25);
+  assert.equal(db.read('wallets/0244111222').coins, 60);
+  assert.equal((await db.collection('spinReferrals').get()).size, 0);
+  assert.equal(db.read('paymentEvents/' + ref).status, 'FAILED');
+});
+
+test('SECURITY: legacy wallet without ownerUid requires recovery and receives no credits', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-OWN0003';
+  db.seed('wallets/' + PHONE, { coins: 31 });
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  const r = await verifyPurchase(deps, ref);
+  assert.equal(r.http, 409);
+  assert.equal(r.json.code, 'LEGACY_WALLET_RECOVERY_REQUIRED');
+  assert.equal(walletCoins(db), 31);
+  assert.equal(db.read('coinPurchases/' + ref).status, 'pending');
+});
+
+test('SECURITY: purchase without shopperUid requires ownership recovery', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-OWN0004';
+  db.seed('coinPurchases/' + ref, { phone: PHONE, coins: 100, status: 'pending' });
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  const r = await spin.creditSpinPurchase(deps, ref);
+  assert.equal(r.http, 409);
+  assert.equal(r.json.code, 'OWNER_RECOVERY_REQUIRED');
+  assert.equal(walletCoins(db), 0);
+  assert.equal(db.read('paymentEvents/' + ref), undefined);
+});
+
+test('SECURITY: referral code UID mismatch suppresses bonus but preserves buyer package credit', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-OWN0005';
+  db.seed('wallets/0244111222', { ownerUid: 'actual-referrer-owner', coins: 70 });
+  db.seed('spinReferralCodes/VLXOWN05', { phone: '0244111222', ownerUid: 'different-code-owner' });
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref, { spinRefCode: 'VLXOWN05' });
+  const r = await verifyPurchase(deps, ref);
+  assert.equal(r.http, 200);
+  assert.equal(walletCoins(db), 100);
+  assert.equal(db.read('wallets/0244111222').coins, 70);
+  assert.equal((await db.collection('spinReferrals').get()).size, 0);
+});
+
+test('SECURITY: ownership failure can be retried after wallet recovery without double credit', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-OWN0006';
+  db.seed('wallets/' + PHONE, { ownerUid: 'old-owner', coins: 9 });
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  const rejected = await verifyPurchase(deps, ref);
+  assert.equal(rejected.http, 409);
+  assert.equal(walletCoins(db), 9);
+  await db.collection('wallets').doc(PHONE).set({ ownerUid: SHOPPER.uid }, { merge: true });
+  const recovered = await verifyPurchase(deps, ref);
+  assert.equal(recovered.http, 200);
+  assert.equal(walletCoins(db), 109);
+  assert.equal(db.read('paymentEvents/' + ref).status, 'SUCCESS');
+  await verifyPurchase(deps, ref);
+  assert.equal(walletCoins(db), 109);
+});
