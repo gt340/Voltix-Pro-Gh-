@@ -7,13 +7,17 @@ const path = require('node:path');
 
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
-test('free starter claim uses a Firestore transaction and a one-time flag', () => {
+test('free starter claim delegates to an ownership-checked Firestore transaction', () => {
+  const wallet = fs.readFileSync(path.join(__dirname, '..', 'shopper-wallet.js'), 'utf8');
   const start = server.indexOf("app.post('/api/claim-free-spin'");
   const end = server.indexOf('// ---------- SPIN REFERRAL CODES ----------', start);
   const block = server.slice(start, end);
-  assert.match(block, /db\.runTransaction/);
-  assert.match(block, /data\.claimedFreeSpin/);
-  assert.match(block, /claimedFreeSpin:true/);
+  assert.match(block, /shopperWallet\.claimFreeSpin\(db, phone, shopper\.uid, name\)/);
+  assert.match(wallet, /db\.runTransaction/);
+  assert.match(wallet, /wallet\.claimedFreeSpin/);
+  assert.match(wallet, /claimedFreeSpin: true/);
+  assert.match(wallet, /ownerUid: uid/);
+  assert.match(wallet, /LEGACY_WALLET_RECOVERY_REQUIRED/);
 });
 
 test('spin balance deduction and daily cap are enforced in one transaction', () => {
