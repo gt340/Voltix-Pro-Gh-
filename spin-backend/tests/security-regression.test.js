@@ -41,6 +41,7 @@ test('spin balance deduction and daily cap are enforced in one transaction', () 
   assert.match(block, /balance < SPIN_COST/);
   assert.match(block, /dailySpinCount: currentCount \+ 1/);
   assert.match(block, /coins: balance - SPIN_COST/);
+  assert.match(block, /ownerUid: shopper\.uid/);
   assert.doesNotMatch(block, /Daily spin count query failed/);
 });
 
