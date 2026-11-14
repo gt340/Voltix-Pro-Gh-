@@ -1,0 +1,65 @@
+name: Wallet Security Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to validate (branch, tag, or commit SHA)"
+        required: true
+        type: string
+        default: "security/shopper-wallet-ownership-guards"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "firestore.rules"
+      - "firebase.json"
+      - "package.json"
+      - "package-lock.json"
+      - "tests/firestore-rules.test.js"
+      - "tests/payments.test.js"
+      - "tests/shopper-wallet.test.js"
+      - "spin-backend/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wallet-security-validation-${{ github.event.pull_request.number || inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wallet-security:
+    name: Firestore rules and backend regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out requested code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.ref || 'security/shopper-wallet-ownership-guards' }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.12.0"
+
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install root test dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run Firestore wallet security rules tests
+        run: npm run test:rules
+
+      - name: Check backend JavaScript syntax
+        working-directory: spin-backend
+        run: node --check server.js
+
+      - name: Run backend regression suite
+        working-directory: spin-backend
+        run: npm test
