@@ -237,6 +237,7 @@ app.post('/api/spin', async (req,res)=>{
         else freeShipping = (Number(current.totalSpend)||0) >= earpodTier.freeShipSpend;
       }
       const updateData = {
+        ownerUid: shopper.uid,
         coins: balance - SPIN_COST,
         network: finalNetwork,
         dailySpinDate: dayKey,
@@ -365,6 +366,6 @@ app.get('/', (req,res)=> res.send('Voltix Spin Backend running'));
 
 if (process.env.VERCEL !== '1') {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`Spin backend running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Spin Backend running on port ${PORT}`));
 }
 module.exports = app;
