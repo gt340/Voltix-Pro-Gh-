@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const { before, after, test } = require('node:test');
 const path = require('node:path');
 const {
   initializeTestEnvironment,
