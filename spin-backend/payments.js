@@ -660,11 +660,15 @@ async function reconcileWebhookInbox(deps, options) {
       summary.failed++;
     } finally {
       // Move attempted nonterminal records behind untouched records in the queue.
-      const attemptedAt = (deps.now || Date.now)();
-      await inbox.doc(snap.id).set({
-        lastReconciliationAttemptAt: attemptedAt,
-        updatedAt: attemptedAt,
-      }, { merge: true });
+      try {
+        const attemptedAt = (deps.now || Date.now)();
+        await inbox.doc(snap.id).set({
+          lastReconciliationAttemptAt: attemptedAt,
+          updatedAt: attemptedAt,
+        }, { merge: true });
+      } catch (_) {
+        summary.failed++;
+      }
     }
   }
   return summary;
