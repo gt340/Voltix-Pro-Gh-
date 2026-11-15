@@ -342,6 +342,54 @@ test('CROSS-PATH: one reference cannot credit both balls and coins', async () =>
   assert.equal(walletCoins(db), 0); assert.equal(balls(db, 'u1'), 10);
 });
 
+test('CROSS-PATH: a successful ball payment cannot be reported as a confirmed coin purchase', async () => {
+  const db = new FakeFirestore();
+  const ref = 'CROSS-BALL001';
+  db.seed('coinPurchases/' + ref, {
+    phone: PHONE, shopperUid: SHOPPER.uid, status: 'pending'
+  });
+  db.seed('paymentEvents/' + ref, {
+    status: 'SUCCESS', purpose: 'balls', credited: 10
+  });
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  const result = await verifyPurchase(deps, ref);
+  assert.equal(result.http, 409);
+  assert.equal(result.json.code, 'REFERENCE_PURPOSE_MISMATCH');
+  assert.equal(walletCoins(db), 0);
+  assert.equal(db.read('coinPurchases/' + ref).status, 'pending');
+});
+
+test('CROSS-PATH: a successful coin payment cannot be reported as a completed ball purchase', async () => {
+  const db = new FakeFirestore();
+  const ref = 'CROSS-COIN001';
+  db.seed('paymentEvents/' + ref, {
+    status: 'SUCCESS', purpose: 'spinCoins', credited: 100
+  });
+  const deps = bdeps(db, { [ref]: bpaid(1000, 'player-1') });
+  const result = await verifyBall(deps, { reference: ref, userId: 'player-1' });
+  assert.equal(result.http, 409);
+  assert.equal(result.json.code, 'REFERENCE_PURPOSE_MISMATCH');
+  assert.equal(balls(db, 'player-1'), 0);
+  assert.equal((await db.collection('transactions').where('reference', '==', ref).get()).size, 0);
+});
+
+test('CROSS-PATH: an active lease held by another payment flow is not treated as ordinary contention', async () => {
+  const db = new FakeFirestore();
+  const ref = 'CROSS-LEASE01';
+  db.seed('coinPurchases/' + ref, {
+    phone: PHONE, shopperUid: SHOPPER.uid, status: 'pending'
+  });
+  db.seed('paymentEvents/' + ref, {
+    status: 'PROCESSING', purpose: 'balls', leaseToken: 'ball-worker',
+    leaseExpiresAt: 1700000030000, attempts: 1
+  });
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  const result = await verifyPurchase(deps, ref);
+  assert.equal(result.http, 409);
+  assert.equal(result.json.code, 'REFERENCE_PURPOSE_MISMATCH');
+  assert.equal(walletCoins(db), 0);
+});
+
 test('SECURITY: no secrets or provider internals leak in responses', async () => {
   const db = new FakeFirestore(); const deps = bdeps(db, { REF0000015: 'THROW' });
   const r = await verifyBall(deps, { reference: 'REF0000015', userId: 'u1' });
