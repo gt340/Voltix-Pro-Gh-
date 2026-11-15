@@ -5,7 +5,7 @@
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
-const { creditSpinPurchase } = require('../spin-backend/payments');
+const { creditSpinPurchase, resolveRecoveryCase } = require('../spin-backend/payments');
 
 const PROJECT_ID = 'demo-voltix-wallet-rules';
 const suffix = String(process.pid).padStart(6, '0');
@@ -14,6 +14,8 @@ const referrerPhone = '024' + suffix + '2';
 const buyerUid = 'concurrency-buyer-' + suffix;
 const referrerUid = 'concurrency-referrer-' + suffix;
 const referralCode = 'VLX' + suffix.toUpperCase();
+const recoveryPhone = '056' + suffix + '3';
+const recoveryRef = 'COINSRECOV' + suffix;
 const refs = ['COINSCONC' + suffix + 'A', 'COINSCONC' + suffix + 'B'];
 
 let app;
@@ -36,7 +38,13 @@ after(async () => {
     'coinPurchases/' + refs[0],
     'coinPurchases/' + refs[1],
     'paymentEvents/' + refs[0],
-    'paymentEvents/' + refs[1]
+    'paymentEvents/' + refs[1],
+    'wallets/' + recoveryPhone,
+    'coinPurchases/' + recoveryRef,
+    'paymentEvents/' + recoveryRef,
+    'paymentRecoveryCases/' + recoveryRef,
+    'paymentRecoveryAudit/recovery-' + suffix + '-a',
+    'paymentRecoveryAudit/recovery-' + suffix + '-b'
   ];
   for (const path of paths) await db.doc(path).delete().catch(() => {});
   const rewards = await db.collection('spinReferrals').where('referredPhone', '==', buyerPhone).get();
@@ -88,4 +96,51 @@ test('real Firestore concurrency: two simultaneous first purchases award one ref
     const purchase = await db.collection('coinPurchases').doc(reference).get();
     assert.equal(purchase.data().status, 'confirmed');
   }
+});
+
+
+test('real Firestore concurrency: competing admin recovery resolutions credit one time', async () => {
+  await db.collection('wallets').doc(recoveryPhone).set({
+    ownerUid: buyerUid, coins: 5, totalSpend: 0
+  });
+  await db.collection('coinPurchases').doc(recoveryRef).set({
+    phone: recoveryPhone, shopperUid: buyerUid, requestedPackageId: 'PACKAGE_100',
+    status: 'recovery_required'
+  });
+  await db.collection('paymentEvents').doc(recoveryRef).set({
+    status: 'RECOVERY_REQUIRED', purpose: 'spinCoins'
+  });
+  await db.collection('paymentRecoveryCases').doc(recoveryRef).set({
+    status: 'OPEN', phone: recoveryPhone, shopperUid: buyerUid,
+    reason: 'WALLET_OWNED_BY_ANOTHER_ACCOUNT'
+  });
+
+  const deps = {
+    db,
+    FieldValue: admin.firestore.FieldValue,
+    now: () => Date.now(),
+    paystackVerify: async (reference) => ({
+      found: true,
+      data: {
+        reference, status: 'success', currency: 'GHS', amount: 1000,
+        customer: { email: recoveryPhone + '@voltix.com' }
+      }
+    })
+  };
+  const results = await Promise.all([
+    resolveRecoveryCase(deps, {
+      reference: recoveryRef, resolutionId: 'recovery-' + suffix + '-a', adminUid: 'admin-a'
+    }),
+    resolveRecoveryCase(deps, {
+      reference: recoveryRef, resolutionId: 'recovery-' + suffix + '-b', adminUid: 'admin-b'
+    })
+  ]);
+  assert.equal(results.filter((result) => result.http === 200).length, 1);
+  assert.equal(results.filter((result) => result.http === 409).length, 1);
+  const wallet = await db.collection('wallets').doc(recoveryPhone).get();
+  const recovery = await db.collection('paymentRecoveryCases').doc(recoveryRef).get();
+  const audits = await db.collection('paymentRecoveryAudit').where('reference', '==', recoveryRef).get();
+  assert.equal(wallet.data().coins, 105, 'only one 100-coin recovery credit is applied');
+  assert.equal(recovery.data().status, 'RESOLVED');
+  assert.equal(audits.size, 1, 'only the winning resolution creates an audit record');
 });
