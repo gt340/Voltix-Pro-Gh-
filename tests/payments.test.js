@@ -255,6 +255,8 @@ test('SPIN webhook reconciler: batch limit is enforced and repeated runs remain 
   const db = new FakeFirestore();
   const refs = ['COINS-RECON0011', 'COINS-RECON0012', 'COINS-RECON0013'];
   const deps = mkDeps(db, {});
+  let clock = 1700000000100;
+  deps.now = () => ++clock;
   for (const ref of refs) {
     await spin.persistWebhookReceipt(db, ref, {
       event: 'charge.success',
@@ -272,6 +274,8 @@ test('SPIN webhook reconciler: batch limit is enforced and repeated runs remain 
   assert.equal(db.read('paymentWebhookInbox/' + refs[0]).status, 'RECEIVED_UNMATCHED');
   assert.equal(db.read('paymentWebhookInbox/' + refs[1]).status, 'RECEIVED_UNMATCHED');
   assert.equal(db.read('paymentWebhookInbox/' + refs[2]).status, 'RECEIVED_UNMATCHED');
+  assert.ok(db.read('paymentWebhookInbox/' + refs[2]).lastReconciliationAttemptAt,
+    'the oldest untouched receipt must be reached on the next bounded run');
 });
 
 test('SPIN webhook inbox: terminal Paystack amount mismatch is retained for review without credit', async () => {
