@@ -596,3 +596,109 @@ test('SPIN webhook: active credit lease returns retryable response', async () =>
   assert.equal(result.text, 'Retry later');
   assert.equal(walletCoins(db), 0);
 });
+
+
+// ======================= ADMIN PAYMENT RECOVERY =======================
+function seedOpenRecovery(db, reference, walletOwner = SHOPPER.uid) {
+  db.seed('wallets/' + PHONE, { ownerUid: walletOwner, coins: 7, totalSpend: 0 });
+  db.seed('coinPurchases/' + reference, {
+    phone: PHONE, shopperUid: SHOPPER.uid, requestedPackageId: 'PACKAGE_100',
+    status: 'recovery_required', name: 'Ama'
+  });
+  db.seed('paymentEvents/' + reference, {
+    status: 'RECOVERY_REQUIRED', purpose: 'spinCoins', recoveryCode: 'WALLET_OWNED_BY_ANOTHER_ACCOUNT'
+  });
+  db.seed('paymentRecoveryCases/' + reference, {
+    status: 'OPEN', phone: PHONE, shopperUid: SHOPPER.uid,
+    reason: 'WALLET_OWNED_BY_ANOTHER_ACCOUNT'
+  });
+}
+
+test('RECOVERY ADMIN: verified payment and restored original wallet ownership credit exactly once with audit', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-ADMIN0001';
+  seedOpenRecovery(db, ref);
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  const input = { reference: ref, resolutionId: 'resolution-00000001', adminUid: 'trusted-admin-1' };
+  const first = await spin.resolveRecoveryCase(deps, input);
+  assert.equal(first.http, 200);
+  assert.equal(first.json.coinsCredited, 100);
+  assert.equal(walletCoins(db), 107);
+  assert.equal(db.read('coinPurchases/' + ref).status, 'confirmed');
+  assert.equal(db.read('paymentEvents/' + ref).status, 'SUCCESS');
+  assert.equal(db.read('paymentRecoveryCases/' + ref).status, 'RESOLVED');
+  assert.equal(db.read('paymentRecoveryAudit/' + input.resolutionId).adminUid, 'trusted-admin-1');
+  assert.equal(db.read('paymentRecoveryAudit/' + input.resolutionId).coinsCredited, 100);
+  const replay = await spin.resolveRecoveryCase(deps, input);
+  assert.equal(replay.http, 409);
+  assert.equal(walletCoins(db), 107);
+  assert.equal((await db.collection('paymentRecoveryAudit').get()).size, 1);
+});
+
+test('RECOVERY ADMIN: refuses credit while wallet ownership is not proven', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-ADMIN0002';
+  seedOpenRecovery(db, ref, 'different-owner');
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  const result = await spin.resolveRecoveryCase(deps, {
+    reference: ref, resolutionId: 'resolution-00000002', adminUid: 'trusted-admin-1'
+  });
+  assert.equal(result.http, 409);
+  assert.equal(walletCoins(db), 7);
+  assert.equal(db.read('paymentRecoveryCases/' + ref).status, 'OPEN');
+  assert.equal((await db.collection('paymentRecoveryAudit').get()).size, 0);
+});
+
+test('RECOVERY ADMIN: refuses payment amount, status, currency or shopper mismatch', async () => {
+  const cases = [
+    paid(2250),
+    paid(1000, { status: 'abandoned' }),
+    paid(1000, { currency: 'USD' }),
+    paid(1000, { customer: { email: '0240000000@voltix.com' } })
+  ];
+  for (let i = 0; i < cases.length; i++) {
+    const db = new FakeFirestore();
+    const ref = 'COINS-ADMIN1' + i;
+    seedOpenRecovery(db, ref);
+    const deps = mkDeps(db, { [ref]: cases[i] });
+    const result = await spin.resolveRecoveryCase(deps, {
+      reference: ref, resolutionId: 'resolution-0000001' + i, adminUid: 'trusted-admin-1'
+    });
+    assert.equal(result.http, 409);
+    assert.equal(walletCoins(db), 7);
+    assert.equal(db.read('paymentRecoveryCases/' + ref).status, 'OPEN');
+  }
+});
+
+test('RECOVERY ADMIN: invalid or missing administrator and malformed resolution IDs are rejected', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-ADMIN0003';
+  seedOpenRecovery(db, ref);
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  assert.equal((await spin.resolveRecoveryCase(deps, {
+    reference: ref, resolutionId: 'resolution-00000003'
+  })).http, 400);
+  assert.equal((await spin.resolveRecoveryCase(deps, {
+    reference: ref, resolutionId: 'bad id', adminUid: 'trusted-admin-1'
+  })).http, 400);
+  assert.equal(walletCoins(db), 7);
+});
+
+test('RECOVERY ADMIN: resolution ID cannot be reused for a different payment', async () => {
+  const db = new FakeFirestore();
+  const firstRef = 'COINS-ADMIN0004';
+  const secondRef = 'COINS-ADMIN0005';
+  seedOpenRecovery(db, firstRef);
+  seedOpenRecovery(db, secondRef);
+  const deps = mkDeps(db, { [firstRef]: paid(1000), [secondRef]: paid(1000) });
+  const resolutionId = 'resolution-00000004';
+  assert.equal((await spin.resolveRecoveryCase(deps, {
+    reference: firstRef, resolutionId, adminUid: 'trusted-admin-1'
+  })).http, 200);
+  const second = await spin.resolveRecoveryCase(deps, {
+    reference: secondRef, resolutionId, adminUid: 'trusted-admin-1'
+  });
+  assert.equal(second.http, 409);
+  assert.equal(walletCoins(db), 107);
+  assert.equal(db.read('paymentRecoveryCases/' + secondRef).status, 'OPEN');
+});
