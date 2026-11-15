@@ -22,7 +22,7 @@ function makeContext(overrides = {}) {
       removeItem: key => store.delete(key),
     },
     showToast: message => toasts.push(String(message)),
-    currentUser: { phone: '0536193862', name: 'Test Shopper' },
+    currentUser: { phone: '0536193862', name: 'Test Shopper', uid: 'test-shopper-1' },
     getShopperAuthHeaders: async () => ({ Authorization: 'Bearer test' }),
     BUY_COINS_URL: '/api/buy-coins',
     VERIFY_PURCHASE_URL: '/api/verify-purchase',
@@ -140,4 +140,37 @@ test('client recovery retries every queued reference for the current session', a
   context.savePendingCoinPurchase({ reference: 'COINS-RETRY02', coins: 250, priceGHC: 22.5 });
   await context.recoverPendingPurchase();
   assert.deepEqual(attempted, ['COINS-RETRY01', 'COINS-RETRY02']);
+});
+
+test('client recovery skips pending references owned by a different shopper account', async () => {
+  const attempted = [];
+  const { context, toasts } = makeContext({
+    currentUser: { phone: '0240000000', name: 'Other Shopper', uid: 'other-shopper' },
+    completeCoinPurchase: async reference => attempted.push(reference),
+  });
+  context.savePendingCoinPurchase({
+    reference: 'COINS-OTHER001', coins: 100, priceGHC: 10,
+    shopperUid: 'original-shopper', phone: '0536193862'
+  });
+  await context.recoverPendingPurchase();
+  assert.deepEqual(attempted, []);
+  assert.match(toasts[0], /belong to another shopper account/i);
+});
+
+test('client recovery processes only references scoped to the active shopper', async () => {
+  const attempted = [];
+  const { context, toasts } = makeContext({
+    completeCoinPurchase: async reference => attempted.push(reference),
+  });
+  context.savePendingCoinPurchase({
+    reference: 'COINS-MINE0001', coins: 100, priceGHC: 10,
+    shopperUid: 'test-shopper-1', phone: '0536193862'
+  });
+  context.savePendingCoinPurchase({
+    reference: 'COINS-THEIRS02', coins: 250, priceGHC: 22.5,
+    shopperUid: 'different-shopper', phone: '0240000000'
+  });
+  await context.recoverPendingPurchase();
+  assert.deepEqual(attempted, ['COINS-MINE0001']);
+  assert.match(toasts[0], /other account references were skipped/i);
 });
