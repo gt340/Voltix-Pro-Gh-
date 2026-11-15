@@ -617,7 +617,7 @@ async function processWebhookReceipt(deps, reference) {
 // sequential and capped so an admin request cannot fan out unbounded provider calls.
 async function reconcileWebhookInbox(deps, options) {
   const requested = Number(options && options.limit);
-  const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 50)) : 25;
+  const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 10)) : 5;
   const inbox = deps.db.collection('paymentWebhookInbox');
   const pending = await inbox
     .where('status', 'in', ['RECEIVED', 'RECEIVED_UNMATCHED'])
