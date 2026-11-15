@@ -1,8 +1,5 @@
 name: Spin Backend Security Tests
 
-permissions:
-  contents: write
-
 on:
   push:
     branches:
@@ -33,40 +30,14 @@ jobs:
         with:
           node-version: 24.12.0
           cache: npm
-          cache-dependency-path: package.json
+          cache-dependency-path: package-lock.json
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - name: Install root test dependencies
+      - name: Install root test dependencies from lockfile
         working-directory: .
-        run: npm install --no-package-lock --no-audit --no-fund
-      - name: Generate reproducible root npm lockfile
-        working-directory: .
-        run: rm -f package-lock.json && npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Commit generated root npm lockfile
-        working-directory: .
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          if git diff --cached --quiet; then
-            echo "Root lockfile is already current."
-          else
-            git commit -m "Add reproducible root npm lockfile"
-            generated_commit="$(git rev-parse HEAD)"
-            git fetch origin security/shopper-wallet-ownership-guards
-            git checkout -B lockfile-push origin/security/shopper-wallet-ownership-guards
-            git cherry-pick "$generated_commit"
-            git push origin HEAD:security/shopper-wallet-ownership-guards
-          fi
-      - name: Upload generated root npm lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: root-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 3
+        run: npm ci --no-audit --no-fund
       - name: Run Firestore rules against emulator
         working-directory: .
         run: npm run test:rules
