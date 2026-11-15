@@ -451,3 +451,23 @@ test('SECURITY: new shopper with no wallet can prepare a coin purchase', async (
   assert.equal(r.json.status, 'pending');
   assert.equal(db.read('coinPurchases/COINS-PRE0003').shopperUid, SHOPPER.uid);
 });
+
+test('SPIN webhook: active credit lease returns retryable response', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-LEASE0001';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  db.seed('paymentEvents/' + ref, {
+    status: 'PROCESSING',
+    purpose: 'spinCoins',
+    leaseToken: 'another-worker',
+    leaseExpiresAt: deps.now() + 30000,
+    attempts: 1,
+  });
+  const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref } }));
+  const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+  const result = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(result.http, 500);
+  assert.equal(result.text, 'Retry later');
+  assert.equal(walletCoins(db), 0);
+});
