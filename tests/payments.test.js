@@ -167,6 +167,73 @@ test('SPIN 10: webhook + verification retry safely and credit once', async () =>
   assert.equal(walletCoins(db), 100);
 });
 
+test('SPIN webhook: verified webhook arriving before purchase is durably reconciled after purchase creation', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-INBOX0001';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref, amount: 1000, currency: 'GHS', status: 'success' } }));
+  const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+
+  const webhook = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(webhook.http, 200);
+  assert.equal(webhook.outcome, 'UNMATCHED');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'RECEIVED_UNMATCHED');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).signatureVerified, true);
+  assert.equal(walletCoins(db), 0);
+  assert.equal(deps.paystackVerify.calls.length, 0);
+
+  const purchase = await buy(deps, ref);
+  assert.equal(purchase.http, 200);
+  assert.equal(purchase.json.status, 'confirmed');
+  assert.equal(walletCoins(db), 100);
+  assert.equal(db.read('coinPurchases/' + ref).status, 'confirmed');
+  assert.equal(db.read('paymentEvents/' + ref).status, 'SUCCESS');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'PROCESSED');
+});
+
+test('SPIN webhook inbox: duplicate unmatched deliveries are idempotent and later credit once', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-INBOX0002';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref, amount: 1000, currency: 'GHS', status: 'success' } }));
+  const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+
+  assert.equal((await spin.handleWebhook(deps, { rawBody: raw, signature: sig })).outcome, 'UNMATCHED');
+  assert.equal((await spin.handleWebhook(deps, { rawBody: raw, signature: sig })).outcome, 'UNMATCHED');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).deliveryCount, 2);
+  assert.equal(walletCoins(db), 0);
+
+  await buy(deps, ref);
+  assert.equal(walletCoins(db), 100);
+  await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(walletCoins(db), 100);
+  assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'PROCESSED');
+});
+
+test('SPIN webhook inbox: terminal Paystack amount mismatch is retained for review without credit', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-INBOX0003';
+  const deps = mkDeps(db, { [ref]: paid(2250) });
+  await buy(deps, ref, { packageId: 'PACKAGE_100' });
+  const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref, amount: 2250, currency: 'GHS', status: 'success' } }));
+  const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+
+  const result = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(result.http, 200);
+  assert.equal(result.outcome, 'REQUIRES_REVIEW');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'REQUIRES_REVIEW');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).resultCode, 'AMOUNT_MISMATCH');
+  assert.equal(db.read('coinPurchases/' + ref).status, 'pending');
+  assert.equal(walletCoins(db), 0);
+});
+
+test('SPIN webhook inbox: durable receipt write failure is not acknowledged', async () => {
+  const db = new FakeFirestore(); const ref = 'COINS-INBOX0004';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  db.runTransaction = async () => { throw new Error('storage unavailable'); };
+  const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref } }));
+  const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+  await assert.rejects(() => spin.handleWebhook(deps, { rawBody: raw, signature: sig }), /storage unavailable/);
+  assert.equal(db.read('paymentWebhookInbox/' + ref), undefined);
+});
+
 test('SPIN webhook: bad / missing signature is rejected and credits nothing', async () => {
   const db = new FakeFirestore(); const ref = 'COINS-8100001';
   const deps = mkDeps(db, { [ref]: paid(1000) });
@@ -175,6 +242,7 @@ test('SPIN webhook: bad / missing signature is rejected and credits nothing', as
   assert.equal((await spin.handleWebhook(deps, { rawBody: raw, signature: 'deadbeef' })).http, 401);
   assert.equal((await spin.handleWebhook(deps, { rawBody: raw, signature: undefined })).http, 401);
   assert.equal(walletCoins(db), 0);
+  assert.equal(db.read('paymentWebhookInbox/' + ref), undefined);
 });
 
 test('SPIN: buy-coins cannot reset an already confirmed purchase (no re-credit loop)', async () => {
