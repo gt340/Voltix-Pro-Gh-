@@ -208,7 +208,7 @@ test('SPIN: a reference that already paid for balls cannot be reused for coins',
   assert.equal(walletCoins(db), 0);
 });
 
-test('SPIN referral: simultaneous first purchases award one referral bonus only', async () => {
+test('SPIN referral: simultaneous first purchases award one buyer bonus and one referrer bonus', async () => {
   const db = new FakeFirestore();
   db.seed('wallets/0244111222', { ownerUid: 'referrer-concurrent', coins: 10, name: 'Kofi' });
   db.seed('spinReferralCodes/VLXCONC123', { phone: '0244111222', ownerUid: 'referrer-concurrent' });
@@ -220,7 +220,9 @@ test('SPIN referral: simultaneous first purchases award one referral bonus only'
   await Promise.all(refs.map((ref) => buy(deps, ref, { spinRefCode: 'VLXCONC123' })));
   const results = await Promise.all(refs.map((ref) => verifyPurchase(deps, ref)));
   assert.ok(results.every((result) => result.http === 200));
-  assert.equal(walletCoins(db), 200);
+  // Exactly one referral reward is recorded. The referred shopper receives
+  // one 40-coin bonus in addition to both 100-coin package credits.
+  assert.equal(walletCoins(db), 240);
   assert.equal(db.read('wallets/0244111222').coins, 50);
   const rewards = await db.collection('spinReferrals')
     .where('referredPhone', '==', PHONE).where('status', '==', 'rewarded').get();
@@ -522,7 +524,7 @@ test('SECURITY: referral code UID mismatch suppresses bonus but preserves buyer 
   assert.equal((await db.collection('spinReferrals').get()).size, 0);
 });
 
-test('SECURITY: ownership failure can be retried after wallet recovery without double credit', async () => {
+test('SECURITY: ownership-blocked paid purchase stays queued after wallet metadata changes', async () => {
   const db = new FakeFirestore(); const ref = 'COINS-OWN0006';
   db.seed('wallets/' + PHONE, { ownerUid: 'old-owner', coins: 9 });
   const deps = mkDeps(db, { [ref]: paid(1000) });
@@ -533,13 +535,16 @@ test('SECURITY: ownership failure can be retried after wallet recovery without d
   assert.equal(rejected.http, 409);
   assert.equal(rejected.json.code, 'WALLET_OWNED_BY_ANOTHER_ACCOUNT');
   assert.equal(walletCoins(db), 9);
+  // Once payment is durably queued, automatic retries must not bypass the
+  // support-review gate even if wallet metadata later changes.
   await db.collection('wallets').doc(PHONE).set({ ownerUid: SHOPPER.uid }, { merge: true });
-  const recovered = await verifyPurchase(deps, ref);
-  assert.equal(recovered.http, 200);
-  assert.equal(walletCoins(db), 109);
-  assert.equal(db.read('paymentEvents/' + ref).status, 'SUCCESS');
-  await verifyPurchase(deps, ref);
-  assert.equal(walletCoins(db), 109);
+  const retried = await verifyPurchase(deps, ref);
+  assert.equal(retried.http, 409);
+  assert.equal(retried.code, 'RECOVERY_REQUIRED');
+  assert.equal(retried.json.status, 'recovery_required');
+  assert.equal(walletCoins(db), 9);
+  assert.equal(db.read('paymentEvents/' + ref).status, 'RECOVERY_REQUIRED');
+  assert.equal(db.read('paymentRecoveryCases/' + ref).status, 'OPEN');
 });
 
 
