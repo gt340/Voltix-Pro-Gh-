@@ -357,26 +357,25 @@ test('SECURITY: wallet owned by another UID rejects buyer and referral credits',
   db.seed('wallets/0244111222', { ownerUid: 'referrer-owner', coins: 60 });
   db.seed('spinReferralCodes/VLXOWN02', { phone: '0244111222', ownerUid: 'referrer-owner' });
   const deps = mkDeps(db, { [ref]: paid(1000) });
-  await buy(deps, ref, { spinRefCode: 'VLXOWN02' });
-  const r = await verifyPurchase(deps, ref);
+  const r = await buy(deps, ref, { spinRefCode: 'VLXOWN02' });
   assert.equal(r.http, 409);
   assert.equal(r.json.code, 'WALLET_OWNED_BY_ANOTHER_ACCOUNT');
+  assert.equal(db.read('coinPurchases/' + ref), undefined);
   assert.equal(walletCoins(db), 25);
   assert.equal(db.read('wallets/0244111222').coins, 60);
   assert.equal((await db.collection('spinReferrals').get()).size, 0);
-  assert.equal(db.read('paymentEvents/' + ref).status, 'FAILED');
+  assert.equal(db.read('paymentEvents/' + ref), undefined);
 });
 
 test('SECURITY: legacy wallet without ownerUid requires recovery and receives no credits', async () => {
   const db = new FakeFirestore(); const ref = 'COINS-OWN0003';
   db.seed('wallets/' + PHONE, { coins: 31 });
   const deps = mkDeps(db, { [ref]: paid(1000) });
-  await buy(deps, ref);
-  const r = await verifyPurchase(deps, ref);
+  const r = await buy(deps, ref);
   assert.equal(r.http, 409);
   assert.equal(r.json.code, 'LEGACY_WALLET_RECOVERY_REQUIRED');
+  assert.equal(db.read('coinPurchases/' + ref), undefined);
   assert.equal(walletCoins(db), 31);
-  assert.equal(db.read('coinPurchases/' + ref).status, 'pending');
 });
 
 test('SECURITY: purchase without shopperUid requires ownership recovery', async () => {
@@ -407,9 +406,12 @@ test('SECURITY: ownership failure can be retried after wallet recovery without d
   const db = new FakeFirestore(); const ref = 'COINS-OWN0006';
   db.seed('wallets/' + PHONE, { ownerUid: 'old-owner', coins: 9 });
   const deps = mkDeps(db, { [ref]: paid(1000) });
-  await buy(deps, ref);
+  // Simulate the narrow race where wallet ownership changes after purchase
+  // preparation but before Paystack verification completes.
+  db.seed('coinPurchases/' + ref, { phone: PHONE, shopperUid: SHOPPER.uid, status: 'pending' });
   const rejected = await verifyPurchase(deps, ref);
   assert.equal(rejected.http, 409);
+  assert.equal(rejected.json.code, 'WALLET_OWNED_BY_ANOTHER_ACCOUNT');
   assert.equal(walletCoins(db), 9);
   await db.collection('wallets').doc(PHONE).set({ ownerUid: SHOPPER.uid }, { merge: true });
   const recovered = await verifyPurchase(deps, ref);
