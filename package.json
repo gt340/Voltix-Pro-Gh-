@@ -4,7 +4,7 @@
   "private": true,
   "description": "Voltix Pro foosball challenge game with Firebase + Paystack payments",
   "scripts": {
-    "test": "node --test tests/payments.test.js tests/admin-reconciliation.test.js tests/sneaker-coins.test.js tests/shopper-wallet.test.js",
+    "test": "node --test tests/payments.test.js tests/admin-reconciliation.test.js tests/admin-auth.test.js tests/sneaker-coins.test.js tests/shopper-wallet.test.js",
     "test:rules": "firebase emulators:exec --project demo-voltix-wallet-rules --only firestore \"node --test tests/firestore-rules.test.js tests/firestore-referral-concurrency.test.js\""
   },
   "dependencies": {
