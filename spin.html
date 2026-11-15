@@ -355,51 +355,69 @@ document.getElementById('cancelBuyCoinsBtn').addEventListener('click', function(
   document.getElementById('buyCoinsModal').classList.remove('active');
 });
 
-document.getElementById('payNowBtn').addEventListener('click', function(){
+document.getElementById('payNowBtn').addEventListener('click', async function(){
   if(!currentUser) return;
   const btn = this;
   btn.disabled = true;
-  btn.textContent = 'Processing...';
-
+  btn.textContent = 'Checking wallet...';
   const reference = 'COINS-' + Math.floor((Math.random()*9000000)+1000000);
-
-  // Save this BEFORE opening Paystack — if the page reloads mid-payment
-  // (common with Mobile Money's USSD/OTP flow), we can still recover.
-  localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify({
-    reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price
-  }));
-
-  const stuckTimer = setTimeout(()=>{
-    btn.disabled = false;
-    btn.textContent = '💳 Pay Now';
-  }, 15000);
-
-  let handler;
-  try{
-    handler = PaystackPop.setup({
-      key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
-      email: currentUser.phone + '@voltix.com',
-      amount: Math.round(selectedCoinPack.price * 100),
-      currency: 'GHS',
-      ref: reference,
-      onClose: function(){
-        clearTimeout(stuckTimer);
-        btn.disabled = false;
-        btn.textContent = '💳 Pay Now';
-      },
-      onSuccess: async function(transaction){
-        clearTimeout(stuckTimer);
-        await completeCoinPurchase(transaction.reference, selectedCoinPack.coins, selectedCoinPack.price);
-        btn.disabled = false;
-        btn.textContent = '💳 Pay Now';
-      }
+  try {
+    const authHeaders = await getShopperAuthHeaders();
+    // Record the purchase with the backend BEFORE opening Paystack. The server
+    // checks wallet ownership here, so a locked wallet cannot take payment.
+    const createRes = await fetch(BUY_COINS_URL, {
+      method:'POST', headers:{'Content-Type':'application/json', ...authHeaders},
+      body: JSON.stringify({
+        phone: currentUser.phone, coins: selectedCoinPack.coins,
+        priceGHC: selectedCoinPack.price, ref: reference,
+        spinRefCode: localStorage.getItem('voltixSpinRefCode'), name: currentUser.name
+      })
     });
-    handler.openIframe();
+    const createData = await createRes.json();
+    if(!createRes.ok) {
+      const messages = {
+        LEGACY_WALLET_RECOVERY_REQUIRED: 'Your wallet needs ownership recovery before you can buy coins. Contact support.',
+        WALLET_OWNED_BY_ANOTHER_ACCOUNT: 'This wallet is linked to another account. Contact support.'
+      };
+      throw new Error(messages[createData.code] || createData.error || 'Could not prepare purchase');
+    }
+    localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify({
+      reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price
+    }));
+    btn.textContent = 'Opening secure payment...';
+    const stuckTimer = setTimeout(()=>{
+      btn.disabled = false;
+      btn.textContent = '💳 Pay Now';
+    }, 15000);
+    let handler;
+    try{
+      handler = PaystackPop.setup({
+        key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
+        email: currentUser.phone + '@voltix.com',
+        amount: Math.round(selectedCoinPack.price * 100),
+        currency: 'GHS',
+        ref: reference,
+        onClose: function(){
+          clearTimeout(stuckTimer);
+          btn.disabled = false;
+          btn.textContent = '💳 Pay Now';
+        },
+        onSuccess: async function(transaction){
+          clearTimeout(stuckTimer);
+          await completeCoinPurchase(transaction.reference, selectedCoinPack.coins, selectedCoinPack.price);
+          btn.disabled = false;
+          btn.textContent = '💳 Pay Now';
+        }
+      });
+      handler.openIframe();
+    } catch(err){
+      clearTimeout(stuckTimer);
+      throw err;
+    }
   } catch(err){
-    clearTimeout(stuckTimer);
     btn.disabled = false;
     btn.textContent = '💳 Pay Now';
-    showToast('Could not open payment window — check your key configuration');
+    showToast(err.message || 'Could not prepare payment. Please try again.');
   }
 });
 
