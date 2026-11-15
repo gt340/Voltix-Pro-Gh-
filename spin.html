@@ -292,8 +292,22 @@ async function recoverPendingPurchase(){
   if(!currentUser) return;
   const pending = readPendingCoinPurchases();
   if(!pending.length) return;
-  showToast('Checking your pending payments...');
-  for(const purchase of pending){
+  // New records are scoped to the Firebase shopper identity. Older records
+  // without identity metadata remain server-verified for backward compatibility.
+  const owned = pending.filter(purchase =>
+    (!purchase.shopperUid || purchase.shopperUid === currentUser.uid) &&
+    (!purchase.phone || purchase.phone === currentUser.phone)
+  );
+  if(owned.length !== pending.length && !owned.length){
+    showToast('Some pending payments belong to another shopper account. Sign in to the account that started those payments.');
+    return;
+  }
+  if(owned.length !== pending.length){
+    showToast('Checking payments for this shopper account. Other account references were skipped.');
+  } else {
+    showToast('Checking your pending payments...');
+  }
+  for(const purchase of owned){
     await completeCoinPurchase(purchase.reference, purchase.coins, purchase.priceGHC);
   }
 }
@@ -415,7 +429,8 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
       throw new Error(messages[createData.code] || createData.error || 'Could not prepare purchase');
     }
     savePendingCoinPurchase({
-      reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price
+      reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price,
+      shopperUid: currentUser.uid, phone: currentUser.phone
     });
     btn.textContent = 'Opening secure payment...';
     const stuckTimer = setTimeout(()=>{
