@@ -661,7 +661,7 @@ async function reconcileWebhookInbox(deps, options) {
     } finally {
       // Move attempted nonterminal records behind untouched records in the queue.
       try {
-        const attemptedAt = (deps.now || Date.now)();
+        const attemptedAt = Math.max((deps.now || Date.now)(), Number(snap.data().updatedAt || 0) + 1);
         await inbox.doc(snap.id).set({
           lastReconciliationAttemptAt: attemptedAt,
           updatedAt: attemptedAt,
