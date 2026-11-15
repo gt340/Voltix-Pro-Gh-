@@ -78,7 +78,7 @@ test('client recovery rejects a 21st unresolved reference without overwriting ex
 test('client recovery clears corrupt JSON and warns the shopper', () => {
   const { context, store, toasts } = makeContext();
   store.set('voltixPendingCoinPurchase', '{broken');
-  assert.deepEqual(context.readPendingCoinPurchases(), []);
+  assert.equal(context.readPendingCoinPurchases().length, 0);
   assert.equal(store.has('voltixPendingCoinPurchase'), false);
   assert.match(toasts[0], /damaged pending payment record/i);
 });
