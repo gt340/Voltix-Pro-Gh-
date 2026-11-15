@@ -318,7 +318,9 @@ async function handleWebhook(deps, { rawBody, signature }) {
     const exists = (await deps.db.collection('coinPurchases').doc(ref).get()).exists;
     if (exists) {
       const r = await creditSpinPurchase(deps, ref);
-      if (r.transient) return { http: 500, text: 'Retry later' };
+      // Ask Paystack to retry if another worker currently holds the lease.
+      // Acknowledging an in-progress event could lose the webhook if that worker crashes.
+      if (r.transient || r.code === 'IN_PROGRESS') return { http: 500, text: 'Retry later' };
     }
   }
   return { http: 200, text: 'OK' };
