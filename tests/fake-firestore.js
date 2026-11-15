@@ -43,10 +43,11 @@ class FakeFirestore {
 }
 
 class Collection {
-  constructor(db, name) { this.db = db; this.name = name; this.filters = []; }
+  constructor(db, name) { this.db = db; this.name = name; this.filters = []; this.maxResults = null; }
   doc(id) { return new DocRef(this.db, this.name, id || 'auto' + (++this.db.autoId)); }
   async add(data) { const r = this.doc(); r._write(data, false); return r; }
-  where(f, op, v) { const c = new Collection(this.db, this.name); c.filters = [...this.filters, [f, op, v]]; return c; }
+  where(f, op, v) { const c = new Collection(this.db, this.name); c.filters = [...this.filters, [f, op, v]]; c.maxResults = this.maxResults; return c; }
+  limit(n) { const c = new Collection(this.db, this.name); c.filters = [...this.filters]; c.maxResults = n; return c; }
   async get() {
     const docs = [];
     for (const [path, data] of this.db.store) {
@@ -55,7 +56,8 @@ class Collection {
         docs.push({ id: path.slice(this.name.length + 1), data: () => JSON.parse(JSON.stringify(data)) });
       }
     }
-    return { empty: docs.length === 0, size: docs.length, docs };
+    const selected = this.maxResults == null ? docs : docs.slice(0, this.maxResults);
+    return { empty: selected.length === 0, size: selected.length, docs: selected };
   }
 }
 
