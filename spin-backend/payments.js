@@ -572,7 +572,9 @@ async function processWebhookReceipt(deps, reference) {
       unmatchedAt: (deps.now || Date.now)(),
       updatedAt: (deps.now || Date.now)(),
     }, { merge: true });
-    return { http: 200, text: 'OK', outcome: 'UNMATCHED' };
+    // Keep Paystack retrying until the authenticated purchase exists. The
+    // durable inbox protects the event if this retry window is exhausted.
+    return { http: 500, text: 'Purchase not recorded yet; retry later', outcome: 'UNMATCHED' };
   }
 
   const result = await creditSpinPurchase(deps, reference);
