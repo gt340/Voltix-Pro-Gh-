@@ -611,6 +611,70 @@ async function processWebhookReceipt(deps, reference) {
   return { http: 200, text: 'OK', outcome: 'REQUIRES_REVIEW', json: result.json };
 }
 
+
+// Bounded operator-triggered reconciliation. Only verified receipts in retryable
+// states are eligible; terminal records are excluded by the query. The batch is
+// sequential and capped so an admin request cannot fan out unbounded provider calls.
+async function reconcileWebhookInbox(deps, options) {
+  const requested = Number(options && options.limit);
+  const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 10)) : 5;
+  const inbox = deps.db.collection('paymentWebhookInbox');
+  const pending = await inbox
+    .where('status', 'in', ['RECEIVED', 'RECEIVED_UNMATCHED'])
+    .orderBy('updatedAt', 'asc')
+    .limit(limit)
+    .get();
+  const candidates = pending.docs;
+  const summary = {
+    scanned: candidates.length,
+    processed: 0,
+    unmatched: 0,
+    recoveryRequired: 0,
+    requiresReview: 0,
+    retryable: 0,
+    failed: 0,
+  };
+  for (const snap of candidates) {
+    try {
+      if (!snap || !isValidReference(snap.id)) {
+        // Quarantine malformed rows so they cannot permanently occupy the
+        // oldest slots and starve valid receipts in later bounded batches.
+        await inbox.doc(snap.id).set({
+          status: 'REQUIRES_REVIEW',
+          resultCode: 'INVALID_INBOX_REFERENCE',
+          processedAt: (deps.now || Date.now)(),
+          updatedAt: (deps.now || Date.now)(),
+        }, { merge: true });
+        summary.requiresReview++;
+      } else {
+        const result = await processWebhookReceipt(deps, snap.id);
+        if (!result) summary.failed++;
+        else if (result.outcome === 'PROCESSED') summary.processed++;
+        else if (result.outcome === 'UNMATCHED') summary.unmatched++;
+        else if (result.outcome === 'RECOVERY_REQUIRED') summary.recoveryRequired++;
+        else if (result.outcome === 'REQUIRES_REVIEW') summary.requiresReview++;
+        else if (result.http >= 500 || result.outcome === 'PROCESSING') summary.retryable++;
+        else summary.failed++;
+      }
+    } catch (_) {
+      // Continue the batch; a later run can safely retry this durable receipt.
+      summary.failed++;
+    } finally {
+      // Move attempted nonterminal records behind untouched records in the queue.
+      try {
+        const attemptedAt = Math.max((deps.now || Date.now)(), Number(snap.data().updatedAt || 0) + 1);
+        await inbox.doc(snap.id).set({
+          lastReconciliationAttemptAt: attemptedAt,
+          updatedAt: attemptedAt,
+        }, { merge: true });
+      } catch (_) {
+        summary.failed++;
+      }
+    }
+  }
+  return summary;
+}
+
 async function handleWebhook(deps, { rawBody, signature }) {
   if (!verifyWebhookSignature(rawBody, signature, deps.paystackSecret)) {
     return { http: 401, text: 'Invalid signature' };
@@ -629,7 +693,7 @@ async function handleWebhook(deps, { rawBody, signature }) {
 
 module.exports = {
   SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, markRecoveryRequired, creditSpinPurchase, resolveRecoveryCase,
-  handleBuyCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
+  handleBuyCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature, reconcileWebhookInbox,
   persistWebhookReceipt, processWebhookReceipt,
   isValidReference, isValidPhone,
 };

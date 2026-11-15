@@ -5,6 +5,8 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
 const shopperWallet = require('./shopper-wallet');
+const { registerAdminWebhookReconciliationRoute } = require('./admin-reconciliation-route');
+const { resolveAdminUid } = require('./admin-auth');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -173,16 +175,10 @@ async function logSpinWinner(phone, name, prizeLabel, prizeId){
   });
 }
 async function getAdminUid(req) {
-  const header = req.headers.authorization || '';
-  const match = header.match(/^Bearer (.+)$/i);
-  if(!match) return null;
-  try {
-    const decoded = await admin.auth().verifyIdToken(match[1]);
-    const adminDoc = await db.collection('admins').doc(decoded.uid).get();
-    return adminDoc.exists ? decoded.uid : null;
-  } catch (_) {
-    return null;
-  }
+  return resolveAdminUid(req, {
+    verifyIdToken: (token) => admin.auth().verifyIdToken(token),
+    db
+  });
 }
 async function isAdminRequest(req) {
   return !!(await getAdminUid(req));
@@ -351,6 +347,12 @@ app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
     res.status(500).json({ error:'Could not resolve recovery case' });
   }
 });
+
+
+// ---------- ADMIN PAYMENT WEBHOOK RECONCILIATION ----------
+// Manual, bounded recovery for durable receipts left unmatched after provider retries
+// expire. No public trigger, cron secret, or automatic production schedule is added.
+registerAdminWebhookReconciliationRoute(app, { getAdminUid, payments, payDeps, db });
 
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
 // function with the webhook, so a purchase can only ever be credited once. ----------
