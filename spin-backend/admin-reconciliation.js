@@ -4,6 +4,37 @@ async function handleAdminWebhookReconciliation({ req, res, getAdminUid, payment
   const adminUid = await getAdminUid(req);
   if (!adminUid) return res.status(403).json({ error: 'Admin authorization required' });
 
+  // Durable per-admin cooldown. Firestore transaction makes the limit consistent
+  // across serverless instances; an in-memory map would not protect this route.
+  const cooldownMs = 30_000;
+  const startedAt = now();
+  const throttleRef = db.collection('adminOperationLimits')
+    .doc('paymentWebhookReconciliation_' + adminUid);
+  let allowed;
+  try {
+    allowed = await db.runTransaction(async (tx) => {
+      const snapshot = await tx.get(throttleRef);
+      const lastStartedAt = snapshot.exists
+        ? Number(snapshot.data().lastStartedAt || 0)
+        : 0;
+      if (lastStartedAt && startedAt - lastStartedAt < cooldownMs) return false;
+      tx.set(throttleRef, {
+        operation: 'paymentWebhookReconciliation',
+        adminUid,
+        lastStartedAt: startedAt
+      });
+      return true;
+    });
+  } catch (_) {
+    return res.status(503).json({ error: 'Could not verify reconciliation rate limit' });
+  }
+  if (!allowed) {
+    return res.status(429).json({
+      error: 'Reconciliation is rate-limited; wait before retrying',
+      retryAfterSeconds: 30
+    });
+  }
+
   const requestedLimit = Number(req.body && req.body.limit);
   const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 10)) : 5;
   const runRef = db.collection('paymentWebhookReconciliationRuns').doc();
