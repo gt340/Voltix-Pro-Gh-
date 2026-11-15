@@ -98,3 +98,16 @@ test('non-participants cannot write match signaling data', async () => {
     from: 'player-a', type: 'offer', sdp: { type: 'offer', sdp: 'fake' },
   }));
 });
+
+test('a non-admin cannot grant themselves admin status', async () => {
+  const db = testEnv.authenticatedContext('player-a').firestore();
+  await assertFails(setDoc(doc(db, 'admins/player-a'), { role: 'admin' }));
+});
+
+test('a seeded admin can manage store configuration', async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'admins/admin-a'), { role: 'admin' });
+  });
+  const db = testEnv.authenticatedContext('admin-a').firestore();
+  await assertSucceeds(setDoc(doc(db, 'settings/store'), { maintenance: true }));
+});
