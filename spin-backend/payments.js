@@ -620,8 +620,8 @@ async function reconcileWebhookInbox(deps, options) {
   const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 50)) : 25;
   const inbox = deps.db.collection('paymentWebhookInbox');
   const [unmatched, received] = await Promise.all([
-    inbox.where('status', '==', 'RECEIVED_UNMATCHED').limit(limit).get(),
-    inbox.where('status', '==', 'RECEIVED').limit(limit).get(),
+    inbox.where('status', '==', 'RECEIVED_UNMATCHED').orderBy('updatedAt', 'asc').limit(limit).get(),
+    inbox.where('status', '==', 'RECEIVED').orderBy('updatedAt', 'asc').limit(limit).get(),
   ]);
   const byReference = new Map();
   const candidates = [];
@@ -648,8 +648,8 @@ async function reconcileWebhookInbox(deps, options) {
   for (const snap of candidates) {
     try {
       const result = await processWebhookReceipt(deps, snap.id);
-      if (!result) { summary.failed++; continue; }
-      if (result.outcome === 'PROCESSED') summary.processed++;
+      if (!result) summary.failed++;
+      else if (result.outcome === 'PROCESSED') summary.processed++;
       else if (result.outcome === 'UNMATCHED') summary.unmatched++;
       else if (result.outcome === 'RECOVERY_REQUIRED') summary.recoveryRequired++;
       else if (result.outcome === 'REQUIRES_REVIEW') summary.requiresReview++;
@@ -658,6 +658,13 @@ async function reconcileWebhookInbox(deps, options) {
     } catch (_) {
       // Continue the batch; a later run can safely retry this durable receipt.
       summary.failed++;
+    } finally {
+      // Move attempted nonterminal records behind untouched records in the queue.
+      const attemptedAt = (deps.now || Date.now)();
+      await inbox.doc(snap.id).set({
+        lastReconciliationAttemptAt: attemptedAt,
+        updatedAt: attemptedAt,
+      }, { merge: true });
     }
   }
   return summary;
