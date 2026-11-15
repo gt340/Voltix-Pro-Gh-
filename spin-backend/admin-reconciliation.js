@@ -5,7 +5,7 @@ async function handleAdminWebhookReconciliation({ req, res, getAdminUid, payment
   if (!adminUid) return res.status(403).json({ error: 'Admin authorization required' });
 
   const requestedLimit = Number(req.body && req.body.limit);
-  const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 50)) : 25;
+  const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 10)) : 5;
   const runRef = db.collection('paymentWebhookReconciliationRuns').doc();
 
   // Create the audit record before touching receipts. If this fails, no payment
