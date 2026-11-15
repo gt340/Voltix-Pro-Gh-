@@ -143,7 +143,7 @@ test('SPIN 9: repeated and simultaneous verification credit once', async () => {
   assert.equal(walletCoins(db), 250);
 });
 
-test('SPIN 10: webhook + verification for the same transaction credit once', async () => {
+test('SPIN 10: webhook + verification retry safely and credit once', async () => {
   const db = new FakeFirestore(); const ref = 'COINS-8000001';
   const deps = mkDeps(db, { [ref]: paid(1000) });
   await buy(deps, ref);
@@ -154,7 +154,16 @@ test('SPIN 10: webhook + verification for the same transaction credit once', asy
     verifyPurchase(deps, ref ),
     spin.handleWebhook(deps, { rawBody: raw, signature: sig }),
   ]);
-  assert.equal(w1.http, 200); assert.equal(w2.http, 200); assert.equal(v1.http, 200);
+  // A concurrent webhook must ask Paystack to retry rather than acknowledge
+  // a reference whose processing lease is held by another worker.
+  assert.ok([200, 500].includes(w1.http));
+  assert.ok([200, 409].includes(v1.http));
+  assert.ok([200, 500].includes(w2.http));
+  // Once the concurrent worker finishes, either entry point can safely retry.
+  const retried = await verifyPurchase(deps, ref);
+  assert.equal(retried.http, 200);
+  const webhookRetry = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(webhookRetry.http, 200);
   assert.equal(walletCoins(db), 100);
 });
 
