@@ -464,7 +464,25 @@ async function handleBuyCoins(deps, body, shopper) {
     if (existing.phone !== phone || existing.shopperUid !== shopper.uid) {
       return { http: 409, json: { error: 'Reference already used or account ownership recovery is required' } };
     }
-    return { http: 200, json: { status: existing.status === 'confirmed' ? 'confirmed' : 'pending' } };
+    if (existing.status === 'confirmed') {
+      return { http: 200, json: { status: 'confirmed' } };
+    }
+  }
+
+  // A provider webhook may have been durably received before this authenticated
+  // purchase record existed. Reconcile it now; the receipt never supplies identity.
+  const receiptResult = await processWebhookReceipt(deps, ref);
+  if (receiptResult && receiptResult.http >= 500) {
+    return { http: 503, json: { error: 'A prior payment receipt is being reconciled; retry shortly', code: 'PAYMENT_RECEIPT_PROCESSING' } };
+  }
+  if (receiptResult && receiptResult.outcome === 'RECOVERY_REQUIRED') {
+    return { http: 409, json: receiptResult.json };
+  }
+  if (receiptResult && receiptResult.outcome === 'REQUIRES_REVIEW') {
+    return { http: 409, json: { error: 'A prior payment receipt requires support review', code: 'PAYMENT_RECEIPT_REQUIRES_REVIEW' } };
+  }
+  if (receiptResult && receiptResult.outcome === 'PROCESSED') {
+    return { http: 200, json: { status: 'confirmed' } };
   }
   return { http: 200, json: { status: 'pending' } };
 }
@@ -501,6 +519,98 @@ function verifyWebhookSignature(rawBody, signature, secret) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Store only a verified receipt envelope. Shopper identity and package eligibility
+// are deliberately excluded: those must come from the authenticated purchase record
+// and a fresh server-to-server Paystack verification.
+async function persistWebhookReceipt(db, reference, event, nowMs) {
+  const receiptRef = db.collection('paymentWebhookInbox').doc(reference);
+  const data = event && event.data || {};
+  const amount = Number(data.amount);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(receiptRef);
+    const previous = snap.exists ? (snap.data() || {}) : null;
+    const terminal = previous && ['PROCESSED', 'RECOVERY_REQUIRED', 'REQUIRES_REVIEW'].includes(previous.status);
+    tx.set(receiptRef, {
+      reference,
+      event: 'charge.success',
+      signatureVerified: true,
+      status: terminal ? previous.status : 'RECEIVED',
+      // Preserve the first signed payload metadata for audit; duplicate deliveries
+      // must not rewrite the original receipt envelope.
+      amountPesewas: previous && previous.amountPesewas != null ? previous.amountPesewas : (Number.isSafeInteger(amount) ? amount : null),
+      currency: previous && previous.currency || (typeof data.currency === 'string' ? data.currency : null),
+      providerStatus: previous && previous.providerStatus || (typeof data.status === 'string' ? data.status : null),
+      paidAt: previous && previous.paidAt || (typeof data.paid_at === 'string' ? data.paid_at : null),
+      deliveryCount: (previous && Number(previous.deliveryCount) || 0) + 1,
+      firstReceivedAt: previous && previous.firstReceivedAt || nowMs,
+      lastReceivedAt: nowMs,
+      createdAt: previous && previous.createdAt || nowMs,
+      updatedAt: nowMs,
+    }, { merge: true });
+  });
+}
+
+// Reconcile a durable receipt only against a separately-created authenticated
+// purchase. The inbox receipt is a wake-up signal, never authority to credit.
+async function processWebhookReceipt(deps, reference) {
+  const receiptRef = deps.db.collection('paymentWebhookInbox').doc(reference);
+  const receiptSnap = await receiptRef.get();
+  if (!receiptSnap.exists) return null;
+  const receipt = receiptSnap.data() || {};
+  if (receipt.status === 'PROCESSED') return { http: 200, text: 'OK', outcome: 'PROCESSED' };
+  if (receipt.status === 'RECOVERY_REQUIRED') {
+    return { http: 200, text: 'OK', outcome: 'RECOVERY_REQUIRED', json: { status: 'recovery_required', code: receipt.resultCode || 'WALLET_OWNERSHIP_RECOVERY_REQUIRED' } };
+  }
+  if (receipt.status === 'REQUIRES_REVIEW') {
+    return { http: 200, text: 'OK', outcome: 'REQUIRES_REVIEW', json: { status: 'requires_review', code: receipt.resultCode || 'PAYMENT_VALIDATION_FAILED' } };
+  }
+
+  const purchaseSnap = await deps.db.collection('coinPurchases').doc(reference).get();
+  if (!purchaseSnap.exists) {
+    await receiptRef.set({
+      status: 'RECEIVED_UNMATCHED',
+      unmatchedAt: (deps.now || Date.now)(),
+      updatedAt: (deps.now || Date.now)(),
+    }, { merge: true });
+    // Keep Paystack retrying until the authenticated purchase exists. The
+    // durable inbox protects the event if this retry window is exhausted.
+    return { http: 500, text: 'Purchase not recorded yet; retry later', outcome: 'UNMATCHED' };
+  }
+
+  const result = await creditSpinPurchase(deps, reference);
+  // Keep the receipt durable and let Paystack retry if verification is transient
+  // or another worker owns the processing lease.
+  if (result.transient || result.code === 'IN_PROGRESS') {
+    return { http: 500, text: 'Retry later', outcome: 'PROCESSING' };
+  }
+  if (result.code === 'RECOVERY_REQUIRED' || result.json && result.json.status === 'recovery_required') {
+    await receiptRef.set({
+      status: 'RECOVERY_REQUIRED',
+      resultCode: result.json && result.json.code || result.code || null,
+      processedAt: (deps.now || Date.now)(),
+      updatedAt: (deps.now || Date.now)(),
+    }, { merge: true });
+    return { http: 200, text: 'OK', outcome: 'RECOVERY_REQUIRED', json: result.json };
+  }
+  if (result.http === 200) {
+    await receiptRef.set({
+      status: 'PROCESSED',
+      processedAt: (deps.now || Date.now)(),
+      updatedAt: (deps.now || Date.now)(),
+    }, { merge: true });
+    return { http: 200, text: 'OK', outcome: 'PROCESSED', json: result.json };
+  }
+  // Terminal validation failures are retained for investigation and are not
+  // retried forever. They never grant coins.
+  await receiptRef.set({
+    status: 'REQUIRES_REVIEW',
+    resultCode: result.json && result.json.code || result.code || 'PAYMENT_VALIDATION_FAILED',
+    processedAt: (deps.now || Date.now)(),
+    updatedAt: (deps.now || Date.now)(),
+  }, { merge: true });
+  return { http: 200, text: 'OK', outcome: 'REQUIRES_REVIEW', json: result.json };
+}
+
 async function handleWebhook(deps, { rawBody, signature }) {
   if (!verifyWebhookSignature(rawBody, signature, deps.paystackSecret)) {
     return { http: 401, text: 'Invalid signature' };
@@ -509,13 +619,10 @@ async function handleWebhook(deps, { rawBody, signature }) {
   try { event = JSON.parse(rawBody.toString('utf8')); } catch (e) { return { http: 400, text: 'Bad payload' }; }
   if (event && event.event === 'charge.success' && event.data && isValidReference(event.data.reference)) {
     const ref = event.data.reference;
-    const exists = (await deps.db.collection('coinPurchases').doc(ref).get()).exists;
-    if (exists) {
-      const r = await creditSpinPurchase(deps, ref);
-      // Ask Paystack to retry if another worker currently holds the lease.
-      // Acknowledging an in-progress event could lose the webhook if that worker crashes.
-      if (r.transient || r.code === 'IN_PROGRESS') return { http: 500, text: 'Retry later' };
-    }
+    // If durable persistence fails, allow the provider to retry; never acknowledge
+    // an event that exists only in process memory.
+    await persistWebhookReceipt(deps.db, ref, event, (deps.now || Date.now)());
+    return processWebhookReceipt(deps, ref);
   }
   return { http: 200, text: 'OK' };
 }
@@ -523,5 +630,6 @@ async function handleWebhook(deps, { rawBody, signature }) {
 module.exports = {
   SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, markRecoveryRequired, creditSpinPurchase, resolveRecoveryCase,
   handleBuyCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
+  persistWebhookReceipt, processWebhookReceipt,
   isValidReference, isValidPhone,
 };
