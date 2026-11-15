@@ -54,6 +54,10 @@ jobs:
             echo "Root lockfile is already current."
           else
             git commit -m "Add reproducible root npm lockfile"
+            generated_commit="$(git rev-parse HEAD)"
+            git fetch origin security/shopper-wallet-ownership-guards
+            git checkout -B lockfile-push origin/security/shopper-wallet-ownership-guards
+            git cherry-pick "$generated_commit"
             git push origin HEAD:security/shopper-wallet-ownership-guards
           fi
       - name: Upload generated root npm lockfile
