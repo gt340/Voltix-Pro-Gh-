@@ -499,9 +499,15 @@ async function completeCoinPurchase(reference, coins, priceGHC){
     const verifyData = await verifyRes.json();
 
     if(!verifyRes.ok){
-      // Paystack may report an unsuccessful attempt before a later successful
-      // status for the same reference. Retain every unresolved reference.
-      if(verifyData.code === 'NOT_SUCCESSFUL') {
+      // Ownership conflicts after a successful charge are routed to the
+      // durable backend recovery queue. Keep the local reference as well.
+      if(verifyData.status === 'recovery_required' ||
+         verifyData.code === 'WALLET_OWNED_BY_ANOTHER_ACCOUNT' ||
+         verifyData.code === 'LEGACY_WALLET_RECOVERY_REQUIRED') {
+        showToast('Payment received. Wallet ownership review is required. Contact support with reference: ' + reference);
+      } else if(verifyData.code === 'NOT_SUCCESSFUL') {
+        // Paystack may report an unsuccessful attempt before a later successful
+        // status for the same reference. Retain every unresolved reference.
         showToast('Payment is not confirmed yet. The reference is saved for another check: ' + reference);
       } else {
         showToast('Payment is not yet confirmed. Your reference is saved for recovery: ' + reference);
