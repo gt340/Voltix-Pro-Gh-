@@ -172,17 +172,20 @@ async function logSpinWinner(phone, name, prizeLabel, prizeId){
     status: 'pending', createdAt: new Date().toISOString()
   });
 }
-async function isAdminRequest(req) {
+async function getAdminUid(req) {
   const header = req.headers.authorization || '';
   const match = header.match(/^Bearer (.+)$/i);
-  if(!match) return false;
+  if(!match) return null;
   try {
     const decoded = await admin.auth().verifyIdToken(match[1]);
     const adminDoc = await db.collection('admins').doc(decoded.uid).get();
-    return adminDoc.exists;
+    return adminDoc.exists ? decoded.uid : null;
   } catch (_) {
-    return false;
+    return null;
   }
+}
+async function isAdminRequest(req) {
+  return !!(await getAdminUid(req));
 }
 app.post('/api/mark-winner-fulfilled', async (req,res)=>{
   if(!(await isAdminRequest(req))) return res.status(403).json({ error:'Admin authorization required' });
@@ -330,6 +333,22 @@ app.post('/api/buy-coins', async (req,res)=>{
   } catch(err){
     console.error('buy-coins failed:', err.message);
     res.status(500).json({ error:'Could not record purchase' });
+  }
+});
+
+// ---------- RESTRICTED PAYMENT RECOVERY ----------
+// Credit-only support resolution. Admin identity comes exclusively from the
+// verified Firebase bearer token and the server-side /admins/{uid} allowlist.
+app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
+  const adminUid = await getAdminUid(req);
+  if(!adminUid) return res.status(403).json({ error:'Admin authorization required' });
+  const { reference, resolutionId } = req.body || {};
+  try {
+    const result = await payments.resolveRecoveryCase(payDeps, { reference, resolutionId, adminUid });
+    res.status(result.http).json(result.json);
+  } catch(err) {
+    console.error('payment recovery resolution failed:', err.message);
+    res.status(500).json({ error:'Could not resolve recovery case' });
   }
 });
 
