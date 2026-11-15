@@ -257,13 +257,60 @@ document.querySelectorAll('.share-btn').forEach(btn=>{
 });
 
 /* ---------- FREE STARTER SPIN ---------- */
+function readPendingCoinPurchases(){
+  const raw = localStorage.getItem('voltixPendingCoinPurchase');
+  if(!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    // Accept the previous single-record format for backward compatibility.
+    const records = Array.isArray(parsed) ? parsed : [parsed];
+    return records.filter(item => item &&
+      typeof item.reference === 'string' &&
+      /^[A-Za-z0-9_-]{6,64}$/.test(item.reference));
+  } catch (_) {
+    localStorage.removeItem('voltixPendingCoinPurchase');
+    showToast('A damaged pending payment record was cleared. Contact support if you were charged.');
+    return [];
+  }
+}
+function savePendingCoinPurchase(purchase){
+  const records = readPendingCoinPurchases().filter(item => item.reference !== purchase.reference);
+  records.push(purchase);
+  // Keep a bounded recovery queue; never silently overwrite another unresolved reference.
+  if(records.length > 20) {
+    showToast('Too many unresolved payments. Contact support before starting another purchase.');
+    throw new Error('Too many unresolved payment references');
+  }
+  localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify(records));
+}
+function removePendingCoinPurchase(reference){
+  const records = readPendingCoinPurchases().filter(item => item.reference !== reference);
+  if(records.length) localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify(records));
+  else localStorage.removeItem('voltixPendingCoinPurchase');
+}
 async function recoverPendingPurchase(){
-  const pending = localStorage.getItem('voltixPendingCoinPurchase');
-  if(!pending || !currentUser) return;
-  const { reference, coins, priceGHC } = JSON.parse(pending);
-  showToast('Checking your last payment...');
-  await completeCoinPurchase(reference, coins, priceGHC);
-   }
+  if(!currentUser) return;
+  const pending = readPendingCoinPurchases();
+  if(!pending.length) return;
+  // New records are scoped to the Firebase shopper identity. Older records
+  // without identity metadata remain server-verified for backward compatibility.
+  const owned = pending.filter(purchase =>
+    (!purchase.shopperUid || purchase.shopperUid === currentUser.uid) &&
+    (!purchase.phone || purchase.phone === currentUser.phone)
+  );
+  if(owned.length !== pending.length && !owned.length){
+    showToast('Some pending payments belong to another shopper account. Sign in to the account that started those payments.');
+    return;
+  }
+  if(owned.length !== pending.length){
+    showToast('Checking payments for this shopper account. Other account references were skipped.');
+  } else {
+    showToast('Checking your pending payments...');
+  }
+  for(const purchase of owned){
+    await completeCoinPurchase(purchase.reference, purchase.coins, purchase.priceGHC);
+  }
+}
 async function claimFreeSpinIfEligible(){
   if(!currentUser) return;
   try{
@@ -355,51 +402,78 @@ document.getElementById('cancelBuyCoinsBtn').addEventListener('click', function(
   document.getElementById('buyCoinsModal').classList.remove('active');
 });
 
-document.getElementById('payNowBtn').addEventListener('click', function(){
+document.getElementById('payNowBtn').addEventListener('click', async function(){
   if(!currentUser) return;
   const btn = this;
   btn.disabled = true;
-  btn.textContent = 'Processing...';
-
+  btn.textContent = 'Checking wallet...';
   const reference = 'COINS-' + Math.floor((Math.random()*9000000)+1000000);
-
-  // Save this BEFORE opening Paystack — if the page reloads mid-payment
-  // (common with Mobile Money's USSD/OTP flow), we can still recover.
-  localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify({
-    reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price
-  }));
-
-  const stuckTimer = setTimeout(()=>{
-    btn.disabled = false;
-    btn.textContent = '💳 Pay Now';
-  }, 15000);
-
-  let handler;
-  try{
-    handler = PaystackPop.setup({
-      key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
-      email: currentUser.phone + '@voltix.com',
-      amount: Math.round(selectedCoinPack.price * 100),
-      currency: 'GHS',
-      ref: reference,
-      onClose: function(){
-        clearTimeout(stuckTimer);
-        btn.disabled = false;
-        btn.textContent = '💳 Pay Now';
-      },
-      onSuccess: async function(transaction){
-        clearTimeout(stuckTimer);
-        await completeCoinPurchase(transaction.reference, selectedCoinPack.coins, selectedCoinPack.price);
-        btn.disabled = false;
-        btn.textContent = '💳 Pay Now';
-      }
+  try {
+    const authHeaders = await getShopperAuthHeaders();
+    // Record the purchase with the backend BEFORE opening Paystack. The server
+    // checks wallet ownership here, so a locked wallet cannot take payment.
+    const createRes = await fetch(BUY_COINS_URL, {
+      method:'POST', headers:{'Content-Type':'application/json', ...authHeaders},
+      body: JSON.stringify({
+        phone: currentUser.phone, coins: selectedCoinPack.coins,
+        priceGHC: selectedCoinPack.price, ref: reference,
+        spinRefCode: localStorage.getItem('voltixSpinRefCode'), name: currentUser.name
+      })
     });
-    handler.openIframe();
+    const createData = await createRes.json();
+    if(!createRes.ok) {
+      const messages = {
+        LEGACY_WALLET_RECOVERY_REQUIRED: 'Your wallet needs ownership recovery before you can buy coins. Contact support.',
+        WALLET_OWNED_BY_ANOTHER_ACCOUNT: 'This wallet is linked to another account. Contact support.'
+      };
+      throw new Error(messages[createData.code] || createData.error || 'Could not prepare purchase');
+    }
+    // Bind recovery to the same Firebase shopper UID and phone that prepared checkout.
+    savePendingCoinPurchase({
+      reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price,
+      shopperUid: currentUser.uid, phone: currentUser.phone
+    });
+    btn.textContent = 'Opening secure payment...';
+    const stuckTimer = setTimeout(()=>{
+      btn.disabled = false;
+      btn.textContent = '💳 Pay Now';
+    }, 15000);
+    let handler;
+    try{
+      handler = PaystackPop.setup({
+        key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
+        email: currentUser.phone + '@voltix.com',
+        amount: Math.round(selectedCoinPack.price * 100),
+        currency: 'GHS',
+        ref: reference,
+        onClose: function(){
+          clearTimeout(stuckTimer);
+          // Do not clear the pending reference here: closing the checkout is
+          // not proof that the provider did not complete the charge. Recovery
+          // verifies the reference with the backend before removing it.
+          btn.disabled = false;
+          btn.textContent = '💳 Pay Now';
+        },
+        onSuccess: async function(transaction){
+          clearTimeout(stuckTimer);
+          if(!transaction || transaction.reference !== reference){
+            showToast('Payment reference mismatch. Contact support with reference ' + reference);
+          } else {
+            await completeCoinPurchase(reference, selectedCoinPack.coins, selectedCoinPack.price);
+          }
+          btn.disabled = false;
+          btn.textContent = '💳 Pay Now';
+        }
+      });
+      handler.openIframe();
+    } catch(err){
+      clearTimeout(stuckTimer);
+      throw err;
+    }
   } catch(err){
-    clearTimeout(stuckTimer);
     btn.disabled = false;
     btn.textContent = '💳 Pay Now';
-    showToast('Could not open payment window — check your key configuration');
+    showToast(err.message || 'Could not prepare payment. Please try again.');
   }
 });
 
@@ -424,17 +498,31 @@ async function completeCoinPurchase(reference, coins, priceGHC){
     });
     const verifyData = await verifyRes.json();
 
-    document.getElementById('buyCoinsModal').classList.remove('active');
-    localStorage.removeItem('voltixPendingCoinPurchase');
-
-    if(verifyRes.ok){
-      showToast(`${coins} coins added! Balance: ${verifyData.coins}`);
-    } else {
-      showToast('Payment received but crediting failed — contact support with reference ' + reference);
+    if(!verifyRes.ok){
+      // Ownership conflicts after a successful charge are routed to the
+      // durable backend recovery queue. Keep the local reference as well.
+      if(verifyData.status === 'recovery_required' ||
+         verifyData.code === 'WALLET_OWNED_BY_ANOTHER_ACCOUNT' ||
+         verifyData.code === 'LEGACY_WALLET_RECOVERY_REQUIRED') {
+        showToast('Payment received. Wallet ownership review is required. Contact support with reference: ' + reference);
+      } else if(verifyData.code === 'NOT_SUCCESSFUL') {
+        // Paystack may report an unsuccessful attempt before a later successful
+        // status for the same reference. Retain every unresolved reference.
+        showToast('Payment is not confirmed yet. The reference is saved for another check: ' + reference);
+      } else {
+        showToast('Payment is not yet confirmed. Your reference is saved for recovery: ' + reference);
+      }
+      return;
     }
+
+    document.getElementById('buyCoinsModal').classList.remove('active');
+    removePendingCoinPurchase(reference);
+    showToast(`${coins} coins added! Balance: ${verifyData.coins}`);
     loadCoinBalance();
   } catch(err){
-    showToast('Something went wrong — contact support with reference ' + reference);
+    // Do not discard a pending reference on network, authentication, or
+    // backend errors. recoverPendingPurchase() can safely retry this ref.
+    showToast('Payment check could not finish. Your reference is saved for recovery: ' + reference);
   }
   }
 

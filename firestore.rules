@@ -68,7 +68,11 @@ service cloud.firestore {
       allow update: if request.auth != null;
     }
     match /wallets/{phone} {
-      allow read: if request.auth != null;
+      // Wallet documents are phone-keyed, so authentication alone is not
+      // sufficient. Only the recorded Firebase owner or an admin may read.
+      // Legacy documents without ownerUid remain admin-only until recovered.
+      allow read: if isAdmin() ||
+        (request.auth != null && resource.data.get('ownerUid', '') == request.auth.uid);
       allow write: if false;
     }
     match /spinWinners/{id} {
