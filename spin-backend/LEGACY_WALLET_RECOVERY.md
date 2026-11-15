@@ -53,7 +53,7 @@ The signed Paystack webhook may return HTTP 200 only after this durable recovery
 4. If ownership cannot be established or conflicts remain, do not transfer the wallet or credit coins. Escalate for a refund through the payment provider using the normal finance approval process. Record the refund reference and outcome in the recovery case.
 5. Close the case only after the credit or refund is independently verified. Preserve the audit trail.
 
-**Important:** This PR creates the durable recovery queue and customer-facing reference retention. It does not implement the restricted admin credit/refund resolution operation. Until that operation and its audit controls exist, recovery cases require manual investigation and no automated coin credit.
+**Important:** The restricted admin credit operation is implemented at `POST /api/admin/resolve-payment-recovery` and is covered by backend regression tests. It only credits after Paystack and original wallet ownership are reverified. Refund execution remains outside this API and must follow the separate finance/provider workflow.
 
 ## Referral rewards
 
