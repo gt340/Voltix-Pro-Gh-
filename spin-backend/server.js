@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
 const shopperWallet = require('./shopper-wallet');
+const { handleAdminWebhookReconciliation } = require('./admin-reconciliation');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -357,23 +358,7 @@ app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
 // Manual, bounded recovery for durable receipts left unmatched after provider retries
 // expire. No public trigger, cron secret, or automatic production schedule is added.
 app.post('/api/admin/reconcile-payment-webhooks', async (req,res)=>{
-  const adminUid = await getAdminUid(req);
-  if(!adminUid) return res.status(403).json({ error:'Admin authorization required' });
-  const requestedLimit = Number(req.body && req.body.limit);
-  const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 50)) : 25;
-  try{
-    const summary = await payments.reconcileWebhookInbox(payDeps, { limit });
-    await db.collection('paymentWebhookReconciliationRuns').add({
-      adminUid,
-      limit,
-      ...summary,
-      createdAt: Date.now()
-    });
-    res.status(200).json({ status:'completed', ...summary });
-  } catch(err){
-    console.error('payment webhook reconciliation failed:', err.message);
-    res.status(500).json({ error:'Could not reconcile payment webhook inbox' });
-  }
+  return handleAdminWebhookReconciliation({ req, res, getAdminUid, payments, payDeps, db });
 });
 
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
