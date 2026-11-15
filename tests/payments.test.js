@@ -213,6 +213,67 @@ test('SPIN webhook inbox: duplicate unmatched deliveries are idempotent and late
   assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'PROCESSED');
 });
 
+test('SPIN webhook reconciler: admin batch processes matched receipts and retains unmatched receipts', async () => {
+  const db = new FakeFirestore();
+  const matchedRef = 'COINS-RECON0001';
+  const unmatchedRef = 'COINS-RECON0002';
+  const deps = mkDeps(db, {
+    [matchedRef]: paid(1000),
+    [unmatchedRef]: paid(1000),
+  });
+  const makeWebhook = async (ref) => {
+    const raw = Buffer.from(JSON.stringify({
+      event: 'charge.success',
+      data: { reference: ref, amount: 1000, currency: 'GHS', status: 'success' }
+    }));
+    const signature = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+    return spin.handleWebhook(deps, { rawBody: raw, signature });
+  };
+
+  assert.equal((await makeWebhook(matchedRef)).http, 500);
+  assert.equal((await makeWebhook(unmatchedRef)).http, 500);
+  await db.collection('coinPurchases').doc(matchedRef).create({
+    phone: PHONE,
+    shopperUid: SHOPPER.uid,
+    requestedPackageId: 'PACKAGE_100',
+    status: 'pending',
+  });
+
+  const summary = await spin.reconcileWebhookInbox(deps, { limit: 10 });
+  assert.deepEqual(summary, {
+    scanned: 2, processed: 1, unmatched: 1, recoveryRequired: 0,
+    requiresReview: 0, retryable: 0, failed: 0,
+  });
+  assert.equal(walletCoins(db), 100);
+  assert.equal(db.read('paymentWebhookInbox/' + matchedRef).status, 'PROCESSED');
+  assert.equal(db.read('paymentWebhookInbox/' + unmatchedRef).status, 'RECEIVED_UNMATCHED');
+  assert.equal(deps.paystackVerify.calls.filter((ref) => ref === matchedRef).length, 1);
+  assert.equal(deps.paystackVerify.calls.includes(unmatchedRef), false);
+});
+
+test('SPIN webhook reconciler: batch limit is enforced and repeated runs remain idempotent', async () => {
+  const db = new FakeFirestore();
+  const refs = ['COINS-RECON0011', 'COINS-RECON0012', 'COINS-RECON0013'];
+  const deps = mkDeps(db, {});
+  for (const ref of refs) {
+    await spin.persistWebhookReceipt(db, ref, {
+      event: 'charge.success',
+      data: { reference: ref, amount: 1000, currency: 'GHS', status: 'success' },
+    }, 1700000000000);
+  }
+
+  const first = await spin.reconcileWebhookInbox(deps, { limit: 2 });
+  assert.equal(first.scanned, 2);
+  assert.equal(first.unmatched, 2);
+  const second = await spin.reconcileWebhookInbox(deps, { limit: 1 });
+  assert.equal(second.scanned, 1);
+  assert.equal(second.unmatched, 1);
+  assert.equal(walletCoins(db), 0);
+  assert.equal(db.read('paymentWebhookInbox/' + refs[0]).status, 'RECEIVED_UNMATCHED');
+  assert.equal(db.read('paymentWebhookInbox/' + refs[1]).status, 'RECEIVED_UNMATCHED');
+  assert.equal(db.read('paymentWebhookInbox/' + refs[2]).status, 'RECEIVED_UNMATCHED');
+});
+
 test('SPIN webhook inbox: terminal Paystack amount mismatch is retained for review without credit', async () => {
   const db = new FakeFirestore(); const ref = 'COINS-INBOX0003';
   const deps = mkDeps(db, { [ref]: paid(2250) });
