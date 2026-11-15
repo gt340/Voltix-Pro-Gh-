@@ -222,6 +222,10 @@ test('SPIN webhook inbox: terminal Paystack amount mismatch is retained for revi
   assert.equal(db.read('paymentWebhookInbox/' + ref).resultCode, 'AMOUNT_MISMATCH');
   assert.equal(db.read('coinPurchases/' + ref).status, 'pending');
   assert.equal(walletCoins(db), 0);
+  const verificationCalls = deps.paystackVerify.calls.length;
+  await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(deps.paystackVerify.calls.length, verificationCalls);
+  assert.equal(walletCoins(db), 0);
 });
 
 test('SPIN webhook inbox: durable receipt write failure is not acknowledged', async () => {
