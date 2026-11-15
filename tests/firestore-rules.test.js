@@ -106,5 +106,11 @@ test('payment webhook inbox and reconciliation audit remain server-only, includi
     await assertFails(setDoc(doc(db, 'paymentRecoveryCases/REF0000001'), {
       status: 'RESOLVED'
     }));
+    await assertFails(getDoc(doc(db, 'adminOperationLimits/paymentWebhookReconciliation_admin-user')));
+    await assertFails(setDoc(doc(db, 'adminOperationLimits/paymentWebhookReconciliation_admin-user'), {
+      operation: 'paymentWebhookReconciliation',
+      adminUid: 'admin-user',
+      lastStartedAt: 1700000000000
+    }));
   }
 });
