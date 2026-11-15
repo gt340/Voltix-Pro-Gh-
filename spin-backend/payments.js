@@ -238,6 +238,18 @@ async function handleBuyCoins(deps, body, shopper) {
     }
     requested = packageId;
   }
+  // Reject locked/legacy wallets before a customer is sent to Paystack.
+  // A missing wallet is valid: the first successful credit creates it with this UID.
+  const walletSnap = await db.collection('wallets').doc(phone).get();
+  if (walletSnap.exists) {
+    const wallet = walletSnap.data() || {};
+    if (typeof wallet.ownerUid !== 'string' || !wallet.ownerUid) {
+      return { http: 409, json: { error: 'Wallet ownership recovery is required before payment', code: 'LEGACY_WALLET_RECOVERY_REQUIRED' } };
+    }
+    if (wallet.ownerUid !== shopper.uid) {
+      return { http: 409, json: { error: 'This wallet belongs to another account', code: 'WALLET_OWNED_BY_ANOTHER_ACCOUNT' } };
+    }
+  }
   const purchaseRef = db.collection('coinPurchases').doc(ref);
   const record = {
     phone,
