@@ -264,7 +264,10 @@ async function creditSpinPurchase(deps, reference) {
     }, { merge: true });
   });
   if (walletOwnershipFailure) {
-    await markRecoveryRequired(db, reference, token, purchase, walletOwnershipFailure, now());
+    const queued = await markRecoveryRequired(db, reference, token, purchase, walletOwnershipFailure, now());
+    if (!queued) {
+      return { http: 409, code: 'IN_PROGRESS', transient: true, json: { status: 'processing' } };
+    }
     return {
       http: 409,
       code: 'RECOVERY_REQUIRED',
