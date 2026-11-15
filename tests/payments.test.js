@@ -208,6 +208,26 @@ test('SPIN: a reference that already paid for balls cannot be reused for coins',
   assert.equal(walletCoins(db), 0);
 });
 
+test('SPIN referral: simultaneous first purchases award one referral bonus only', async () => {
+  const db = new FakeFirestore();
+  db.seed('wallets/0244111222', { ownerUid: 'referrer-concurrent', coins: 10, name: 'Kofi' });
+  db.seed('spinReferralCodes/VLXCONC123', { phone: '0244111222', ownerUid: 'referrer-concurrent' });
+  const refs = ['COINS-CONC0001', 'COINS-CONC0002'];
+  const deps = mkDeps(db, {
+    [refs[0]]: paid(1000),
+    [refs[1]]: paid(1000),
+  });
+  await Promise.all(refs.map((ref) => buy(deps, ref, { spinRefCode: 'VLXCONC123' })));
+  const results = await Promise.all(refs.map((ref) => verifyPurchase(deps, ref)));
+  assert.ok(results.every((result) => result.http === 200));
+  assert.equal(walletCoins(db), 200);
+  assert.equal(db.read('wallets/0244111222').coins, 50);
+  const rewards = await db.collection('spinReferrals')
+    .where('referredPhone', '==', PHONE).where('status', '==', 'rewarded').get();
+  assert.equal(rewards.size, 1);
+  assert.equal(rewards.docs[0].data().coinsAwarded, 40);
+});
+
 test('SPIN: existing balances untouched; only the buyer wallet changes; referral bonus pays once', async () => {
   const db = new FakeFirestore();
   db.seed('wallets/' + PHONE, { ownerUid: SHOPPER.uid, coins: 37, totalSpend: 0 });
