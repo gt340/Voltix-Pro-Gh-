@@ -16,22 +16,31 @@ async function handleAdminWebhookReconciliation({ req, res, getAdminUid, payment
     return res.status(500).json({ error: 'Could not create reconciliation audit record' });
   }
 
+  let summary;
   try {
-    const summary = await payments.reconcileWebhookInbox(payDeps, { limit });
-    await runRef.update({ ...summary, status: 'COMPLETED', completedAt: now() });
-    return res.status(200).json({ status: 'completed', ...summary });
-  } catch (err) {
-    // Preserve a durable RUNNING record if finalization itself fails. This is
-    // preferable to claiming a completed audit when the write did not persist.
+    summary = await payments.reconcileWebhookInbox(payDeps, { limit });
+  } catch (_) {
+    // Only a reconciliation failure is marked FAILED. If the work succeeded but
+    // the completion write fails, keep RUNNING: the outcome is not fully audited.
     try {
       await runRef.update({
         status: 'FAILED',
-        failure: 'RECONCILIATION_OR_AUDIT_FINALIZATION_FAILED',
+        failure: 'RECONCILIATION_FAILED',
         failedAt: now()
       });
     } catch (_) {}
     return res.status(500).json({ error: 'Could not reconcile payment webhook inbox' });
   }
+
+  try {
+    await runRef.update({ ...summary, status: 'COMPLETED', completedAt: now() });
+  } catch (_) {
+    // Receipts may already have been processed. Do not mislabel that run FAILED;
+    // RUNNING explicitly signals that audit finalization needs operator review.
+    return res.status(500).json({ error: 'Reconciliation completed but audit finalization failed' });
+  }
+
+  return res.status(200).json({ status: 'completed', ...summary });
 }
 
 module.exports = { handleAdminWebhookReconciliation };
