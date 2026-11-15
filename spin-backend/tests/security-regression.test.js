@@ -46,8 +46,11 @@ test('spin balance deduction and daily cap are enforced in one transaction', () 
 });
 
 test('winner fulfillment requires a verified Firebase admin identity', () => {
-  assert.match(server, /admin\.auth\(\)\.verifyIdToken/);
-  assert.match(server, /db\.collection\('admins'\)\.doc\(decoded\.uid\)/);
+  const adminAuth = fs.readFileSync(path.join(__dirname, '..', 'admin-auth.js'), 'utf8');
+  assert.match(server, /resolveAdminUid\(req,/);
+  assert.match(adminAuth, /verifyIdToken\(match\[1\]\)/);
+  assert.match(adminAuth, /db\.collection\('admins'\)\.doc\(decoded\.uid\)/);
+  assert.match(adminAuth, /return adminDoc\.exists \? decoded\.uid : null/);
   const start = server.indexOf("app.post('/api/mark-winner-fulfilled'");
   const end = server.indexOf('// ---------- SPIN ----------', start);
   const block = server.slice(start, end);
