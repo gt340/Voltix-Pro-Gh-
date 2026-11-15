@@ -85,3 +85,26 @@ test('client writes to wallets are denied even for owner and admin', async () =>
   await assertFails(deleteDoc(doc(ownerDb, 'wallets/0240000000')));
   await assertFails(updateDoc(doc(adminDb, 'wallets/0240000000'), { coins: 999 }));
 });
+
+test('payment webhook inbox and reconciliation audit remain server-only, including for admins', async () => {
+  const shopperDb = testEnv.authenticatedContext('shopper-owner').firestore();
+  const adminDb = testEnv.authenticatedContext('admin-user').firestore();
+  const anonymousDb = testEnv.unauthenticatedContext().firestore();
+
+  for (const db of [shopperDb, adminDb, anonymousDb]) {
+    await assertFails(getDoc(doc(db, 'paymentWebhookInbox/REF0000001')));
+    await assertFails(setDoc(doc(db, 'paymentWebhookInbox/REF0000001'), {
+      status: 'PROCESSED',
+      signatureVerified: true
+    }));
+    await assertFails(getDoc(doc(db, 'paymentWebhookReconciliationRuns/run-1')));
+    await assertFails(setDoc(doc(db, 'paymentWebhookReconciliationRuns/run-1'), {
+      adminUid: 'admin-user',
+      status: 'COMPLETED'
+    }));
+    await assertFails(getDoc(doc(db, 'paymentRecoveryCases/REF0000001')));
+    await assertFails(setDoc(doc(db, 'paymentRecoveryCases/REF0000001'), {
+      status: 'RESOLVED'
+    }));
+  }
+});
