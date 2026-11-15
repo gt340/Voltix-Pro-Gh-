@@ -419,3 +419,33 @@ test('SECURITY: ownership failure can be retried after wallet recovery without d
   await verifyPurchase(deps, ref);
   assert.equal(walletCoins(db), 109);
 });
+
+
+test('SECURITY: coin purchase is rejected before payment for a wallet owned by another UID', async () => {
+  const db = new FakeFirestore();
+  db.seed('wallets/' + PHONE, { ownerUid: 'different-shopper', coins: 25 });
+  const deps = mkDeps(db, {});
+  const r = await buy(deps, 'COINS-PRE0001');
+  assert.equal(r.http, 409);
+  assert.equal(r.json.code, 'WALLET_OWNED_BY_ANOTHER_ACCOUNT');
+  assert.equal(db.read('coinPurchases/COINS-PRE0001'), undefined);
+});
+
+test('SECURITY: coin purchase is rejected before payment for an unowned legacy wallet', async () => {
+  const db = new FakeFirestore();
+  db.seed('wallets/' + PHONE, { coins: 31 });
+  const deps = mkDeps(db, {});
+  const r = await buy(deps, 'COINS-PRE0002');
+  assert.equal(r.http, 409);
+  assert.equal(r.json.code, 'LEGACY_WALLET_RECOVERY_REQUIRED');
+  assert.equal(db.read('coinPurchases/COINS-PRE0002'), undefined);
+});
+
+test('SECURITY: new shopper with no wallet can prepare a coin purchase', async () => {
+  const db = new FakeFirestore();
+  const deps = mkDeps(db, {});
+  const r = await buy(deps, 'COINS-PRE0003');
+  assert.equal(r.http, 200);
+  assert.equal(r.json.status, 'pending');
+  assert.equal(db.read('coinPurchases/COINS-PRE0003').shopperUid, SHOPPER.uid);
+});
