@@ -47,6 +47,14 @@ test('admin webhook reconciliation writes RUNNING audit before bounded processin
   assert.equal(f.record.processed, 1);
 });
 
+test('admin webhook reconciliation defaults to five receipts', async () => {
+  const f = fixture(); const res = response();
+  await handleAdminWebhookReconciliation({ req: { body: {} }, res, ...f, payDeps: {}, now: () => 100 });
+  assert.equal(res.code, 200);
+  assert.equal(f.calls[0][1].limit, 5);
+  assert.deepEqual(f.calls[1][1], { limit: 5 });
+});
+
 test('admin webhook reconciliation does not process receipts when initial audit creation fails', async () => {
   const f = fixture({ createError: new Error('audit unavailable') }); const res = response();
   await handleAdminWebhookReconciliation({ req: { body: {} }, res, ...f, payDeps: {}, now: () => 100 });
