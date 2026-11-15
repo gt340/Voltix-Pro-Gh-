@@ -46,6 +46,11 @@ async function claimReference(db, reference, purpose, nowMs) {
       return { state: 'PURPOSE_MISMATCH', existingPurpose: prev.purpose };
     }
     if (prev && prev.status === 'SUCCESS') return { state: 'ALREADY_PROCESSED' };
+    // A paid purchase blocked by an ownership conflict is durably queued for
+    // manual resolution. Do not automatically reclaim it on every webhook.
+    if (prev && prev.status === 'RECOVERY_REQUIRED') {
+      return { state: 'RECOVERY_REQUIRED', recoveryCode: prev.recoveryCode };
+    }
     if (prev && prev.status === 'PROCESSING' && prev.leaseExpiresAt > nowMs) return { state: 'IN_PROGRESS' };
     tx.set(evRef, {
       status: 'PROCESSING', purpose, leaseToken: token, leaseExpiresAt: nowMs + LEASE_MS,
@@ -63,6 +68,40 @@ async function failReference(db, reference, token, code, details, nowMs) {
     if (!snap.exists || snap.data().leaseToken !== token || snap.data().status !== 'PROCESSING') return;
     tx.set(evRef, { status: 'FAILED', failureCode: code, details: details || null, leaseExpiresAt: 0, updatedAt: nowMs }, { merge: true });
   });
+}
+
+// Persist ownership-blocked successful payments for controlled support resolution.
+// This is terminal for automated processing: webhooks may be acknowledged because
+// the durable recovery case, purchase state, and event state are committed together.
+async function markRecoveryRequired(db, reference, token, purchase, code, nowMs) {
+  const evRef = db.collection('paymentEvents').doc(reference);
+  const purchaseRef = db.collection('coinPurchases').doc(reference);
+  const caseRef = db.collection('paymentRecoveryCases').doc(reference);
+  let marked = false;
+  await db.runTransaction(async (tx) => {
+    const evSnap = await tx.get(evRef);
+    const purchaseSnap = await tx.get(purchaseRef);
+    if (!evSnap.exists || evSnap.data().status !== 'PROCESSING' ||
+        evSnap.data().leaseToken !== token || !purchaseSnap.exists) return;
+    const current = purchaseSnap.data() || {};
+    tx.set(evRef, {
+      status: 'RECOVERY_REQUIRED', recoveryCode: code,
+      leaseExpiresAt: 0, updatedAt: nowMs,
+    }, { merge: true });
+    tx.set(purchaseRef, {
+      status: 'recovery_required', recoveryCode: code, recoveryRequiredAt: nowMs,
+      updatedAt: nowMs,
+    }, { merge: true });
+    tx.set(caseRef, {
+      reference, purpose: 'spinCoins', status: 'OPEN', reason: code,
+      phone: current.phone || purchase.phone || null,
+      shopperUid: current.shopperUid || purchase.shopperUid || null,
+      requestedPackageId: current.requestedPackageId || null,
+      createdAt: nowMs, updatedAt: nowMs,
+    }, { merge: true });
+    marked = true;
+  });
+  return marked;
 }
 
 // ---------- credit ----------
@@ -110,6 +149,13 @@ async function creditSpinPurchase(deps, reference) {
   }
   if (claim.state === 'ALREADY_PROCESSED') {
     return { http: 200, json: { status: 'already_confirmed', coins: await walletOf() } };
+  }
+  if (claim.state === 'RECOVERY_REQUIRED') {
+    return { http: 409, code: 'RECOVERY_REQUIRED', json: {
+      error: 'Payment was received but wallet ownership needs support review',
+      code: claim.recoveryCode || 'WALLET_OWNERSHIP_RECOVERY_REQUIRED',
+      status: 'recovery_required'
+    } };
   }
   if (claim.state === 'IN_PROGRESS') return { http: 409, code: 'IN_PROGRESS', json: { status: 'processing' } };
   const token = claim.token;
@@ -218,11 +264,15 @@ async function creditSpinPurchase(deps, reference) {
     }, { merge: true });
   });
   if (walletOwnershipFailure) {
-    await failReference(db, reference, token, walletOwnershipFailure, null, now());
+    await markRecoveryRequired(db, reference, token, purchase, walletOwnershipFailure, now());
     return {
       http: 409,
-      code: walletOwnershipFailure,
-      json: { error: 'Wallet ownership must be recovered before crediting this purchase', code: walletOwnershipFailure }
+      code: 'RECOVERY_REQUIRED',
+      json: {
+        error: 'Payment was received but wallet ownership needs support review',
+        code: walletOwnershipFailure,
+        status: 'recovery_required'
+      }
     };
   }
   if (lostLease) return { http: 409, code: 'IN_PROGRESS', json: { status: 'processing' } };
@@ -335,7 +385,7 @@ async function handleWebhook(deps, { rawBody, signature }) {
 }
 
 module.exports = {
-  SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, creditSpinPurchase,
+  SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, markRecoveryRequired, creditSpinPurchase,
   handleBuyCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
   isValidReference, isValidPhone,
 };
