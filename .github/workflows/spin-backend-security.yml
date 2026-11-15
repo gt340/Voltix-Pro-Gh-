@@ -15,6 +15,7 @@ on:
       - 'tests/payments.test.js'
       - 'tests/shopper-wallet.test.js'
       - 'spin-backend/**'
+      - 'spin.html'
       - '.github/workflows/spin-backend-security.yml'
 
 jobs:
