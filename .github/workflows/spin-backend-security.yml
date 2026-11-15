@@ -38,6 +38,16 @@ jobs:
       - name: Install root test dependencies
         working-directory: .
         run: npm install --no-audit --no-fund
+      - name: Generate reproducible root npm lockfile
+        working-directory: .
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Upload generated root npm lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: root-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 3
       - name: Run Firestore rules against emulator
         working-directory: .
         run: npm run test:rules
