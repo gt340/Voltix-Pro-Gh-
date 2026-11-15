@@ -59,6 +59,23 @@ The signed Paystack webhook may return HTTP 200 only after this durable recovery
 
 Legacy referral codes or referrer wallets without a verified matching `ownerUid` are not eligible for automatic referral rewards. Recovery may restore future eligibility only after the wallet and code ownership checks above. Do not back-pay historical referral bonuses automatically.
 
+## Restricted admin credit resolution
+
+The backend exposes `POST /api/admin/resolve-payment-recovery`. It requires a Firebase ID token in the Bearer header and a matching document at `admins/{uid}`. The administrator UID is taken from the verified token; a request-body UID is never trusted.
+
+Request body:
+
+```json
+{
+  "reference": "the original Paystack reference",
+  "resolutionId": "a unique 12-80 character audit identifier"
+}
+```
+
+The operation is credit-only. Before writing, it independently verifies the Paystack transaction and requires a successful GHS payment, a supported exact package amount, matching shopper phone, matching original purchase UID, an OPEN recovery case, a RECOVERY_REQUIRED coin-payment event, and a wallet whose `ownerUid` already matches the original shopper UID. It then atomically credits the package coins, marks the purchase/event/case resolved, and writes an immutable-style audit record at `paymentRecoveryAudit/{resolutionId}`.
+
+The operation does not transfer wallet ownership, does not award referral bonuses, and does not call a refund API. If the original shopper's wallet ownership cannot be proven, it refuses the credit and leaves the case OPEN. Refunds remain a separate finance/support action and must be independently recorded before closing a case as refunded. Reusing a resolution ID or resolving an already-closed case is rejected.
+
 ## Safety requirements
 
 - No public or client-callable ownership-transfer endpoint.
