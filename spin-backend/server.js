@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
 const shopperWallet = require('./shopper-wallet');
-const { handleAdminWebhookReconciliation } = require('./admin-reconciliation');
+const { registerAdminWebhookReconciliationRoute } = require('./admin-reconciliation-route');
 const { resolveAdminUid } = require('./admin-auth');
 
 admin.initializeApp({
@@ -352,9 +352,7 @@ app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
 // ---------- ADMIN PAYMENT WEBHOOK RECONCILIATION ----------
 // Manual, bounded recovery for durable receipts left unmatched after provider retries
 // expire. No public trigger, cron secret, or automatic production schedule is added.
-app.post('/api/admin/reconcile-payment-webhooks', async (req,res)=>{
-  return handleAdminWebhookReconciliation({ req, res, getAdminUid, payments, payDeps, db });
-});
+registerAdminWebhookReconciliationRoute(app, { getAdminUid, payments, payDeps, db });
 
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
 // function with the webhook, so a purchase can only ever be credited once. ----------
