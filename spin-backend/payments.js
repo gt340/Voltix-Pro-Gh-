@@ -624,7 +624,7 @@ async function reconcileWebhookInbox(deps, options) {
     .orderBy('updatedAt', 'asc')
     .limit(limit)
     .get();
-  const candidates = pending.docs.filter((snap) => snap && isValidReference(snap.id));
+  const candidates = pending.docs;
   const summary = {
     scanned: candidates.length,
     processed: 0,
@@ -636,14 +636,26 @@ async function reconcileWebhookInbox(deps, options) {
   };
   for (const snap of candidates) {
     try {
-      const result = await processWebhookReceipt(deps, snap.id);
-      if (!result) summary.failed++;
-      else if (result.outcome === 'PROCESSED') summary.processed++;
-      else if (result.outcome === 'UNMATCHED') summary.unmatched++;
-      else if (result.outcome === 'RECOVERY_REQUIRED') summary.recoveryRequired++;
-      else if (result.outcome === 'REQUIRES_REVIEW') summary.requiresReview++;
-      else if (result.http >= 500 || result.outcome === 'PROCESSING') summary.retryable++;
-      else summary.failed++;
+      if (!snap || !isValidReference(snap.id)) {
+        // Quarantine malformed rows so they cannot permanently occupy the
+        // oldest slots and starve valid receipts in later bounded batches.
+        await inbox.doc(snap.id).set({
+          status: 'REQUIRES_REVIEW',
+          resultCode: 'INVALID_INBOX_REFERENCE',
+          processedAt: (deps.now || Date.now)(),
+          updatedAt: (deps.now || Date.now)(),
+        }, { merge: true });
+        summary.requiresReview++;
+      } else {
+        const result = await processWebhookReceipt(deps, snap.id);
+        if (!result) summary.failed++;
+        else if (result.outcome === 'PROCESSED') summary.processed++;
+        else if (result.outcome === 'UNMATCHED') summary.unmatched++;
+        else if (result.outcome === 'RECOVERY_REQUIRED') summary.recoveryRequired++;
+        else if (result.outcome === 'REQUIRES_REVIEW') summary.requiresReview++;
+        else if (result.http >= 500 || result.outcome === 'PROCESSING') summary.retryable++;
+        else summary.failed++;
+      }
     } catch (_) {
       // Continue the batch; a later run can safely retry this durable receipt.
       summary.failed++;
