@@ -251,6 +251,68 @@ test('SPIN webhook reconciler: admin batch processes matched receipts and retain
   assert.equal(deps.paystackVerify.calls.includes(unmatchedRef), false);
 });
 
+test('SPIN webhook reconciler: malformed inbox rows are quarantined and cannot starve valid receipts', async () => {
+  const db = new FakeFirestore();
+  const deps = mkDeps(db, {});
+  db.seed('paymentWebhookInbox/not a valid reference!', {
+    status: 'RECEIVED_UNMATCHED', updatedAt: 1, signatureVerified: true
+  });
+  await spin.persistWebhookReceipt(db, 'COINS-VALID0001', {
+    event: 'charge.success',
+    data: { reference: 'COINS-VALID0001', amount: 1000, currency: 'GHS', status: 'success' },
+  }, 2);
+
+  const first = await spin.reconcileWebhookInbox(deps, { limit: 1 });
+  assert.equal(first.scanned, 1);
+  assert.equal(first.requiresReview, 1);
+  assert.equal(db.read('paymentWebhookInbox/not a valid reference!').status, 'REQUIRES_REVIEW');
+  assert.equal(db.read('paymentWebhookInbox/not a valid reference!').resultCode, 'INVALID_INBOX_REFERENCE');
+
+  const second = await spin.reconcileWebhookInbox(deps, { limit: 1 });
+  assert.equal(second.scanned, 1);
+  assert.equal(second.unmatched, 1);
+  assert.equal(db.read('paymentWebhookInbox/COINS-VALID0001').status, 'RECEIVED_UNMATCHED');
+});
+
+test('SPIN webhook reconciler: concurrent admin batches contend on the payment lease and credit once', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-CONCUR001';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  await spin.persistWebhookReceipt(db, ref, {
+    event: 'charge.success',
+    data: { reference: ref, amount: 1000, currency: 'GHS', status: 'success' },
+  }, deps.now());
+
+  const verify = deps.paystackVerify;
+  let enteredResolve;
+  const entered = new Promise((resolve) => { enteredResolve = resolve; });
+  let releaseResolve;
+  const gate = new Promise((resolve) => { releaseResolve = resolve; });
+  let verifyCalls = 0;
+  deps.paystackVerify = async (reference) => {
+    verifyCalls++;
+    enteredResolve();
+    await gate;
+    return verify(reference);
+  };
+
+  const firstRunPromise = spin.reconcileWebhookInbox(deps, { limit: 1 });
+  await entered;
+  const secondRun = await spin.reconcileWebhookInbox(deps, { limit: 1 });
+  assert.equal(secondRun.scanned, 1);
+  assert.equal(secondRun.retryable, 1);
+  assert.equal(walletCoins(db), 0);
+
+  releaseResolve();
+  const firstRun = await firstRunPromise;
+  assert.equal(firstRun.processed, 1);
+  assert.equal(verifyCalls, 1);
+  assert.equal(walletCoins(db), 100);
+  assert.equal(db.read('paymentEvents/' + ref).status, 'SUCCESS');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'PROCESSED');
+});
+
 test('SPIN webhook reconciler: batch limit is enforced and repeated runs remain idempotent', async () => {
   const db = new FakeFirestore();
   const refs = ['COINS-RECON0011', 'COINS-RECON0012', 'COINS-RECON0013'];
