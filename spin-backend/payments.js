@@ -554,6 +554,14 @@ async function processWebhookReceipt(deps, reference) {
   const receiptRef = deps.db.collection('paymentWebhookInbox').doc(reference);
   const receiptSnap = await receiptRef.get();
   if (!receiptSnap.exists) return null;
+  const receipt = receiptSnap.data() || {};
+  if (receipt.status === 'PROCESSED') return { http: 200, outcome: 'PROCESSED' };
+  if (receipt.status === 'RECOVERY_REQUIRED') {
+    return { http: 200, outcome: 'RECOVERY_REQUIRED', json: { status: 'recovery_required', code: receipt.resultCode || 'WALLET_OWNERSHIP_RECOVERY_REQUIRED' } };
+  }
+  if (receipt.status === 'REQUIRES_REVIEW') {
+    return { http: 200, outcome: 'REQUIRES_REVIEW', json: { status: 'requires_review', code: receipt.resultCode || 'PAYMENT_VALIDATION_FAILED' } };
+  }
 
   const purchaseSnap = await deps.db.collection('coinPurchases').doc(reference).get();
   if (!purchaseSnap.exists) {
