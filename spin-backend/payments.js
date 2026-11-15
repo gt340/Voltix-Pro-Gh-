@@ -535,10 +535,12 @@ async function persistWebhookReceipt(db, reference, event, nowMs) {
       event: 'charge.success',
       signatureVerified: true,
       status: terminal ? previous.status : 'RECEIVED',
-      amountPesewas: Number.isSafeInteger(amount) ? amount : null,
-      currency: typeof data.currency === 'string' ? data.currency : null,
-      providerStatus: typeof data.status === 'string' ? data.status : null,
-      paidAt: typeof data.paid_at === 'string' ? data.paid_at : null,
+      // Preserve the first signed payload metadata for audit; duplicate deliveries
+      // must not rewrite the original receipt envelope.
+      amountPesewas: previous && previous.amountPesewas != null ? previous.amountPesewas : (Number.isSafeInteger(amount) ? amount : null),
+      currency: previous && previous.currency || (typeof data.currency === 'string' ? data.currency : null),
+      providerStatus: previous && previous.providerStatus || (typeof data.status === 'string' ? data.status : null),
+      paidAt: previous && previous.paidAt || (typeof data.paid_at === 'string' ? data.paid_at : null),
       deliveryCount: (previous && Number(previous.deliveryCount) || 0) + 1,
       firstReceivedAt: previous && previous.firstReceivedAt || nowMs,
       lastReceivedAt: nowMs,
@@ -555,12 +557,12 @@ async function processWebhookReceipt(deps, reference) {
   const receiptSnap = await receiptRef.get();
   if (!receiptSnap.exists) return null;
   const receipt = receiptSnap.data() || {};
-  if (receipt.status === 'PROCESSED') return { http: 200, outcome: 'PROCESSED' };
+  if (receipt.status === 'PROCESSED') return { http: 200, text: 'OK', outcome: 'PROCESSED' };
   if (receipt.status === 'RECOVERY_REQUIRED') {
-    return { http: 200, outcome: 'RECOVERY_REQUIRED', json: { status: 'recovery_required', code: receipt.resultCode || 'WALLET_OWNERSHIP_RECOVERY_REQUIRED' } };
+    return { http: 200, text: 'OK', outcome: 'RECOVERY_REQUIRED', json: { status: 'recovery_required', code: receipt.resultCode || 'WALLET_OWNERSHIP_RECOVERY_REQUIRED' } };
   }
   if (receipt.status === 'REQUIRES_REVIEW') {
-    return { http: 200, outcome: 'REQUIRES_REVIEW', json: { status: 'requires_review', code: receipt.resultCode || 'PAYMENT_VALIDATION_FAILED' } };
+    return { http: 200, text: 'OK', outcome: 'REQUIRES_REVIEW', json: { status: 'requires_review', code: receipt.resultCode || 'PAYMENT_VALIDATION_FAILED' } };
   }
 
   const purchaseSnap = await deps.db.collection('coinPurchases').doc(reference).get();
@@ -570,7 +572,7 @@ async function processWebhookReceipt(deps, reference) {
       unmatchedAt: (deps.now || Date.now)(),
       updatedAt: (deps.now || Date.now)(),
     }, { merge: true });
-    return { http: 200, outcome: 'UNMATCHED' };
+    return { http: 200, text: 'OK', outcome: 'UNMATCHED' };
   }
 
   const result = await creditSpinPurchase(deps, reference);
@@ -586,7 +588,7 @@ async function processWebhookReceipt(deps, reference) {
       processedAt: (deps.now || Date.now)(),
       updatedAt: (deps.now || Date.now)(),
     }, { merge: true });
-    return { http: 200, outcome: 'RECOVERY_REQUIRED', json: result.json };
+    return { http: 200, text: 'OK', outcome: 'RECOVERY_REQUIRED', json: result.json };
   }
   if (result.http === 200) {
     await receiptRef.set({
@@ -594,7 +596,7 @@ async function processWebhookReceipt(deps, reference) {
       processedAt: (deps.now || Date.now)(),
       updatedAt: (deps.now || Date.now)(),
     }, { merge: true });
-    return { http: 200, outcome: 'PROCESSED', json: result.json };
+    return { http: 200, text: 'OK', outcome: 'PROCESSED', json: result.json };
   }
   // Terminal validation failures are retained for investigation and are not
   // retried forever. They never grant coins.
@@ -604,7 +606,7 @@ async function processWebhookReceipt(deps, reference) {
     processedAt: (deps.now || Date.now)(),
     updatedAt: (deps.now || Date.now)(),
   }, { merge: true });
-  return { http: 200, outcome: 'REQUIRES_REVIEW', json: result.json };
+  return { http: 200, text: 'OK', outcome: 'REQUIRES_REVIEW', json: result.json };
 }
 
 async function handleWebhook(deps, { rawBody, signature }) {
