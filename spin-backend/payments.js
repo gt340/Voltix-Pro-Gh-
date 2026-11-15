@@ -619,15 +619,23 @@ async function reconcileWebhookInbox(deps, options) {
   const requested = Number(options && options.limit);
   const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 50)) : 25;
   const inbox = deps.db.collection('paymentWebhookInbox');
-  const [received, unmatched] = await Promise.all([
-    inbox.where('status', '==', 'RECEIVED').limit(limit).get(),
+  const [unmatched, received] = await Promise.all([
     inbox.where('status', '==', 'RECEIVED_UNMATCHED').limit(limit).get(),
+    inbox.where('status', '==', 'RECEIVED').limit(limit).get(),
   ]);
   const byReference = new Map();
-  for (const snap of received.docs.concat(unmatched.docs)) {
-    if (snap && isValidReference(snap.id)) byReference.set(snap.id, snap);
+  const candidates = [];
+  // Interleave states so a backlog of one state cannot permanently starve the other.
+  for (let i = 0; candidates.length < limit && (i < unmatched.docs.length || i < received.docs.length); i++) {
+    for (const group of [unmatched.docs, received.docs]) {
+      const snap = group[i];
+      if (snap && isValidReference(snap.id) && !byReference.has(snap.id)) {
+        byReference.set(snap.id, snap);
+        candidates.push(snap);
+        if (candidates.length >= limit) break;
+      }
+    }
   }
-  const candidates = Array.from(byReference.values()).slice(0, limit);
   const summary = {
     scanned: candidates.length,
     processed: 0,
