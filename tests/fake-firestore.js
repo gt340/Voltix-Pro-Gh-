@@ -43,11 +43,12 @@ class FakeFirestore {
 }
 
 class Collection {
-  constructor(db, name) { this.db = db; this.name = name; this.filters = []; this.maxResults = null; }
+  constructor(db, name) { this.db = db; this.name = name; this.filters = []; this.maxResults = null; this.sortField = null; this.sortDirection = 'asc'; }
   doc(id) { return new DocRef(this.db, this.name, id || 'auto' + (++this.db.autoId)); }
   async add(data) { const r = this.doc(); r._write(data, false); return r; }
-  where(f, op, v) { const c = new Collection(this.db, this.name); c.filters = [...this.filters, [f, op, v]]; c.maxResults = this.maxResults; return c; }
-  limit(n) { const c = new Collection(this.db, this.name); c.filters = [...this.filters]; c.maxResults = n; return c; }
+  where(f, op, v) { const c = new Collection(this.db, this.name); c.filters = [...this.filters, [f, op, v]]; c.maxResults = this.maxResults; c.sortField = this.sortField; c.sortDirection = this.sortDirection; return c; }
+  limit(n) { const c = new Collection(this.db, this.name); c.filters = [...this.filters]; c.maxResults = n; c.sortField = this.sortField; c.sortDirection = this.sortDirection; return c; }
+  orderBy(field, direction) { const c = new Collection(this.db, this.name); c.filters = [...this.filters]; c.maxResults = this.maxResults; c.sortField = field; c.sortDirection = direction || 'asc'; return c; }
   async get() {
     const docs = [];
     for (const [path, data] of this.db.store) {
@@ -56,6 +57,11 @@ class Collection {
         docs.push({ id: path.slice(this.name.length + 1), data: () => JSON.parse(JSON.stringify(data)) });
       }
     }
+    if (this.sortField) docs.sort((a, b) => {
+      const av = a.data()[this.sortField]; const bv = b.data()[this.sortField];
+      const order = av === bv ? a.id.localeCompare(b.id) : (av < bv ? -1 : 1);
+      return this.sortDirection === 'desc' ? -order : order;
+    });
     const selected = this.maxResults == null ? docs : docs.slice(0, this.maxResults);
     return { empty: selected.length === 0, size: selected.length, docs: selected };
   }
