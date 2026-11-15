@@ -340,6 +340,20 @@ test('SPIN webhook reconciler: batch limit is enforced and repeated runs remain 
     'the oldest untouched receipt must be reached on the next bounded run');
 });
 
+test('SPIN webhook reconciler: requested batch is capped at ten records', async () => {
+  const db = new FakeFirestore();
+  const deps = mkDeps(db, {});
+  for (let i = 1; i <= 12; i++) {
+    const reference = 'COINS-CAP' + String(i).padStart(4, '0');
+    db.seed('paymentWebhookInbox/' + reference, {
+      reference, status: 'RECEIVED_UNMATCHED', signatureVerified: true, updatedAt: i
+    });
+  }
+  const summary = await spin.reconcileWebhookInbox(deps, { limit: 999 });
+  assert.equal(summary.scanned, 10);
+  assert.equal(summary.unmatched, 10);
+});
+
 test('SPIN webhook inbox: terminal Paystack amount mismatch is retained for review without credit', async () => {
   const db = new FakeFirestore(); const ref = 'COINS-INBOX0003';
   const deps = mkDeps(db, { [ref]: paid(2250) });
