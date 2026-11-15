@@ -403,7 +403,6 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
       btn.textContent = '💳 Pay Now';
     }, 15000);
     let handler;
-    let paymentSucceeded = false;
     try{
       handler = PaystackPop.setup({
         key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
@@ -421,7 +420,6 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
         },
         onSuccess: async function(transaction){
           clearTimeout(stuckTimer);
-          paymentSucceeded = true;
           if(!transaction || transaction.reference !== reference){
             showToast('Payment reference mismatch. Contact support with reference ' + reference);
           } else {
