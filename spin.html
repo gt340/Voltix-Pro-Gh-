@@ -257,25 +257,45 @@ document.querySelectorAll('.share-btn').forEach(btn=>{
 });
 
 /* ---------- FREE STARTER SPIN ---------- */
-async function recoverPendingPurchase(){
-  const pending = localStorage.getItem('voltixPendingCoinPurchase');
-  if(!pending || !currentUser) return;
-  let purchase;
+function readPendingCoinPurchases(){
+  const raw = localStorage.getItem('voltixPendingCoinPurchase');
+  if(!raw) return [];
   try {
-    purchase = JSON.parse(pending);
+    const parsed = JSON.parse(raw);
+    // Accept the previous single-record format for backward compatibility.
+    const records = Array.isArray(parsed) ? parsed : [parsed];
+    return records.filter(item => item &&
+      typeof item.reference === 'string' &&
+      /^[A-Za-z0-9_-]{6,64}$/.test(item.reference));
   } catch (_) {
     localStorage.removeItem('voltixPendingCoinPurchase');
     showToast('A damaged pending payment record was cleared. Contact support if you were charged.');
-    return;
+    return [];
   }
-  if(!purchase || typeof purchase.reference !== 'string' ||
-      !/^[A-Za-z0-9_-]{6,64}$/.test(purchase.reference)) {
-    localStorage.removeItem('voltixPendingCoinPurchase');
-    showToast('The saved payment reference is invalid. Contact support if you were charged.');
-    return;
+}
+function savePendingCoinPurchase(purchase){
+  const records = readPendingCoinPurchases().filter(item => item.reference !== purchase.reference);
+  records.push(purchase);
+  // Keep a bounded recovery queue; never silently overwrite another unresolved reference.
+  if(records.length > 20) {
+    showToast('Too many unresolved payments. Contact support before starting another purchase.');
+    throw new Error('Too many unresolved payment references');
   }
-  showToast('Checking your last payment...');
-  await completeCoinPurchase(purchase.reference, purchase.coins, purchase.priceGHC);
+  localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify(records));
+}
+function removePendingCoinPurchase(reference){
+  const records = readPendingCoinPurchases().filter(item => item.reference !== reference);
+  if(records.length) localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify(records));
+  else localStorage.removeItem('voltixPendingCoinPurchase');
+}
+async function recoverPendingPurchase(){
+  if(!currentUser) return;
+  const pending = readPendingCoinPurchases();
+  if(!pending.length) return;
+  showToast('Checking your pending payments...');
+  for(const purchase of pending){
+    await completeCoinPurchase(purchase.reference, purchase.coins, purchase.priceGHC);
+  }
 }
 async function claimFreeSpinIfEligible(){
   if(!currentUser) return;
@@ -394,9 +414,9 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
       };
       throw new Error(messages[createData.code] || createData.error || 'Could not prepare purchase');
     }
-    localStorage.setItem('voltixPendingCoinPurchase', JSON.stringify({
+    savePendingCoinPurchase({
       reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price
-    }));
+    });
     btn.textContent = 'Opening secure payment...';
     const stuckTimer = setTimeout(()=>{
       btn.disabled = false;
@@ -463,11 +483,10 @@ async function completeCoinPurchase(reference, coins, priceGHC){
     const verifyData = await verifyRes.json();
 
     if(!verifyRes.ok){
-      // A definitive non-success means no charge was completed. All other
-      // failures retain the reference so a later page load can retry safely.
+      // Paystack may report an unsuccessful attempt before a later successful
+      // status for the same reference. Retain every unresolved reference.
       if(verifyData.code === 'NOT_SUCCESSFUL') {
-        localStorage.removeItem('voltixPendingCoinPurchase');
-        showToast('Payment was not completed. You can try again.');
+        showToast('Payment is not confirmed yet. The reference is saved for another check: ' + reference);
       } else {
         showToast('Payment is not yet confirmed. Your reference is saved for recovery: ' + reference);
       }
@@ -475,7 +494,7 @@ async function completeCoinPurchase(reference, coins, priceGHC){
     }
 
     document.getElementById('buyCoinsModal').classList.remove('active');
-    localStorage.removeItem('voltixPendingCoinPurchase');
+    removePendingCoinPurchase(reference);
     showToast(`${coins} coins added! Balance: ${verifyData.coins}`);
     loadCoinBalance();
   } catch(err){
