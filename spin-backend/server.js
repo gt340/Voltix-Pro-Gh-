@@ -352,6 +352,30 @@ app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
   }
 });
 
+
+// ---------- ADMIN PAYMENT WEBHOOK RECONCILIATION ----------
+// Manual, bounded recovery for durable receipts left unmatched after provider retries
+// expire. No public trigger, cron secret, or automatic production schedule is added.
+app.post('/api/admin/reconcile-payment-webhooks', async (req,res)=>{
+  const adminUid = await getAdminUid(req);
+  if(!adminUid) return res.status(403).json({ error:'Admin authorization required' });
+  const requestedLimit = Number(req.body && req.body.limit);
+  const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 50)) : 25;
+  try{
+    const summary = await payments.reconcileWebhookInbox(payDeps, { limit });
+    await db.collection('paymentWebhookReconciliationRuns').add({
+      adminUid,
+      limit,
+      ...summary,
+      createdAt: Date.now()
+    });
+    res.status(200).json({ status:'completed', ...summary });
+  } catch(err){
+    console.error('payment webhook reconciliation failed:', err.message);
+    res.status(500).json({ error:'Could not reconcile payment webhook inbox' });
+  }
+});
+
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
 // function with the webhook, so a purchase can only ever be credited once. ----------
 app.post('/api/verify-purchase', async (req,res)=>{
