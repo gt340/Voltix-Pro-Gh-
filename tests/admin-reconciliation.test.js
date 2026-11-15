@@ -59,7 +59,7 @@ test('admin webhook reconciliation marks failed runs when reconciliation throws'
   await handleAdminWebhookReconciliation({ req: { body: { limit: 2 } }, res, ...f, payDeps: {}, now: () => 100 });
   assert.equal(res.code, 500);
   assert.equal(f.record.status, 'FAILED');
-  assert.equal(f.record.failure, 'RECONCILIATION_OR_AUDIT_FINALIZATION_FAILED');
+  assert.equal(f.record.failure, 'RECONCILIATION_FAILED');
 });
 
 test('admin webhook reconciliation does not claim success when final audit update fails', async () => {
