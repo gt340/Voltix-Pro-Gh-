@@ -619,23 +619,12 @@ async function reconcileWebhookInbox(deps, options) {
   const requested = Number(options && options.limit);
   const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 50)) : 25;
   const inbox = deps.db.collection('paymentWebhookInbox');
-  const [unmatched, received] = await Promise.all([
-    inbox.where('status', '==', 'RECEIVED_UNMATCHED').orderBy('updatedAt', 'asc').limit(limit).get(),
-    inbox.where('status', '==', 'RECEIVED').orderBy('updatedAt', 'asc').limit(limit).get(),
-  ]);
-  const byReference = new Map();
-  const candidates = [];
-  // Interleave states so a backlog of one state cannot permanently starve the other.
-  for (let i = 0; candidates.length < limit && (i < unmatched.docs.length || i < received.docs.length); i++) {
-    for (const group of [unmatched.docs, received.docs]) {
-      const snap = group[i];
-      if (snap && isValidReference(snap.id) && !byReference.has(snap.id)) {
-        byReference.set(snap.id, snap);
-        candidates.push(snap);
-        if (candidates.length >= limit) break;
-      }
-    }
-  }
+  const pending = await inbox
+    .where('status', 'in', ['RECEIVED', 'RECEIVED_UNMATCHED'])
+    .orderBy('updatedAt', 'asc')
+    .limit(limit)
+    .get();
+  const candidates = pending.docs.filter((snap) => snap && isValidReference(snap.id));
   const summary = {
     scanned: candidates.length,
     processed: 0,
