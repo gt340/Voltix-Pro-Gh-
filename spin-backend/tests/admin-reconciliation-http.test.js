@@ -10,6 +10,7 @@ const { resolveAdminUid } = require('../admin-auth');
 async function startServer({ tokenUid = 'admin-1', adminExists = true } = {}) {
   const audit = [];
   const paymentCalls = [];
+  let throttleState = null;
   const app = express();
   app.use(express.json());
 
@@ -18,6 +19,7 @@ async function startServer({ tokenUid = 'admin-1', adminExists = true } = {}) {
       if (name === 'admins') {
         return { doc(uid) { return { async get() { return { exists: adminExists && uid === 'admin-1' }; } }; } };
       }
+      if (name === 'adminOperationLimits') return { doc(id) { return { id }; } };
       assert.equal(name, 'paymentWebhookReconciliationRuns');
       return { doc() {
         const record = {};
@@ -28,6 +30,11 @@ async function startServer({ tokenUid = 'admin-1', adminExists = true } = {}) {
       } };
     }
   };
+
+  db.runTransaction = async (callback) => callback({
+    async get() { return { exists: !!throttleState, data: () => throttleState || {} }; },
+    set(_ref, value) { throttleState = value; }
+  });
 
   const getAdminUid = (req) => resolveAdminUid(req, {
     verifyIdToken: async (token) => {
@@ -102,5 +109,22 @@ test('HTTP admin reconciliation verifies admin, clamps batch size, and records c
     assert.equal(app.audit[0].adminUid, 'admin-1');
     assert.equal(app.audit[0].status, 'COMPLETED');
     assert.equal(app.audit[0].limit, 10);
+  } finally { await app.close(); }
+});
+
+
+test('HTTP admin reconciliation enforces durable cooldown on repeated requests', async () => {
+  const app = await startServer();
+  try {
+    const request = () => fetch(app.url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer valid-test-token' },
+      body: JSON.stringify({ limit: 5 })
+    });
+    const first = await request();
+    assert.equal(first.status, 200);
+    const second = await request();
+    assert.equal(second.status, 429);
+    assert.equal(app.paymentCalls.length, 1);
   } finally { await app.close(); }
 });
