@@ -428,6 +428,7 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
       };
       throw new Error(messages[createData.code] || createData.error || 'Could not prepare purchase');
     }
+    // Bind recovery to the same Firebase shopper UID and phone that prepared checkout.
     savePendingCoinPurchase({
       reference, coins: selectedCoinPack.coins, priceGHC: selectedCoinPack.price,
       shopperUid: currentUser.uid, phone: currentUser.phone
