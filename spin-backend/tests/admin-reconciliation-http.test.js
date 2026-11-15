@@ -97,10 +97,10 @@ test('HTTP admin reconciliation verifies admin, clamps batch size, and records c
       status: 'completed', scanned: 2, processed: 1, unmatched: 1,
       recoveryRequired: 0, requiresReview: 0, retryable: 0, failed: 0
     });
-    assert.deepEqual(app.paymentCalls, [{ limit: 50 }]);
+    assert.deepEqual(app.paymentCalls, [{ limit: 10 }]);
     assert.equal(app.audit.length, 1);
     assert.equal(app.audit[0].adminUid, 'admin-1');
     assert.equal(app.audit[0].status, 'COMPLETED');
-    assert.equal(app.audit[0].limit, 50);
+    assert.equal(app.audit[0].limit, 10);
   } finally { await app.close(); }
 });
