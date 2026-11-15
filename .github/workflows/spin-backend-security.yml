@@ -12,6 +12,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'tests/firestore-rules.test.js'
+      - 'tests/firestore-referral-concurrency.test.js'
       - 'tests/payments.test.js'
       - 'tests/shopper-wallet.test.js'
       - 'tests/spin-client-recovery.test.js'
