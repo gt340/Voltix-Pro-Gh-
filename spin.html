@@ -260,10 +260,23 @@ document.querySelectorAll('.share-btn').forEach(btn=>{
 async function recoverPendingPurchase(){
   const pending = localStorage.getItem('voltixPendingCoinPurchase');
   if(!pending || !currentUser) return;
-  const { reference, coins, priceGHC } = JSON.parse(pending);
+  let purchase;
+  try {
+    purchase = JSON.parse(pending);
+  } catch (_) {
+    localStorage.removeItem('voltixPendingCoinPurchase');
+    showToast('A damaged pending payment record was cleared. Contact support if you were charged.');
+    return;
+  }
+  if(!purchase || typeof purchase.reference !== 'string' ||
+      !/^[A-Za-z0-9_-]{6,64}$/.test(purchase.reference)) {
+    localStorage.removeItem('voltixPendingCoinPurchase');
+    showToast('The saved payment reference is invalid. Contact support if you were charged.');
+    return;
+  }
   showToast('Checking your last payment...');
-  await completeCoinPurchase(reference, coins, priceGHC);
-   }
+  await completeCoinPurchase(purchase.reference, purchase.coins, purchase.priceGHC);
+}
 async function claimFreeSpinIfEligible(){
   if(!currentUser) return;
   try{
@@ -390,6 +403,7 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
       btn.textContent = '💳 Pay Now';
     }, 15000);
     let handler;
+    let paymentSucceeded = false;
     try{
       handler = PaystackPop.setup({
         key: 'pk_live_9136ecd40ccc704b3e337e4168138f97186bff96',
@@ -399,12 +413,29 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
         ref: reference,
         onClose: function(){
           clearTimeout(stuckTimer);
+          // A user-closed, unsuccessful checkout should not leave a stale
+          // recovery attempt. Keep the record once Paystack reports success.
+          if(!paymentSucceeded){
+            const saved = localStorage.getItem('voltixPendingCoinPurchase');
+            try {
+              if(saved && JSON.parse(saved).reference === reference) {
+                localStorage.removeItem('voltixPendingCoinPurchase');
+              }
+            } catch (_) {
+              localStorage.removeItem('voltixPendingCoinPurchase');
+            }
+          }
           btn.disabled = false;
           btn.textContent = '💳 Pay Now';
         },
         onSuccess: async function(transaction){
           clearTimeout(stuckTimer);
-          await completeCoinPurchase(transaction.reference, selectedCoinPack.coins, selectedCoinPack.price);
+          paymentSucceeded = true;
+          if(!transaction || transaction.reference !== reference){
+            showToast('Payment reference mismatch. Contact support with reference ' + reference);
+          } else {
+            await completeCoinPurchase(reference, selectedCoinPack.coins, selectedCoinPack.price);
+          }
           btn.disabled = false;
           btn.textContent = '💳 Pay Now';
         }
@@ -442,17 +473,26 @@ async function completeCoinPurchase(reference, coins, priceGHC){
     });
     const verifyData = await verifyRes.json();
 
+    if(!verifyRes.ok){
+      // A definitive non-success means no charge was completed. All other
+      // failures retain the reference so a later page load can retry safely.
+      if(verifyData.code === 'NOT_SUCCESSFUL') {
+        localStorage.removeItem('voltixPendingCoinPurchase');
+        showToast('Payment was not completed. You can try again.');
+      } else {
+        showToast('Payment is not yet confirmed. Your reference is saved for recovery: ' + reference);
+      }
+      return;
+    }
+
     document.getElementById('buyCoinsModal').classList.remove('active');
     localStorage.removeItem('voltixPendingCoinPurchase');
-
-    if(verifyRes.ok){
-      showToast(`${coins} coins added! Balance: ${verifyData.coins}`);
-    } else {
-      showToast('Payment received but crediting failed — contact support with reference ' + reference);
-    }
+    showToast(`${coins} coins added! Balance: ${verifyData.coins}`);
     loadCoinBalance();
   } catch(err){
-    showToast('Something went wrong — contact support with reference ' + reference);
+    // Do not discard a pending reference on network, authentication, or
+    // backend errors. recoverPendingPurchase() can safely retry this ref.
+    showToast('Payment check could not finish. Your reference is saved for recovery: ' + reference);
   }
   }
 
