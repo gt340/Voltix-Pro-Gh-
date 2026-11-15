@@ -41,8 +41,8 @@ test('admin webhook reconciliation writes RUNNING audit before bounded processin
   assert.equal(res.code, 200);
   assert.deepEqual(f.calls.map((call) => call[0]), ['create', 'reconcile', 'update']);
   assert.equal(f.calls[0][1].status, 'RUNNING');
-  assert.equal(f.calls[0][1].limit, 50);
-  assert.deepEqual(f.calls[1][1], { limit: 50 });
+  assert.equal(f.calls[0][1].limit, 10);
+  assert.deepEqual(f.calls[1][1], { limit: 10 });
   assert.equal(f.record.status, 'COMPLETED');
   assert.equal(f.record.processed, 1);
 });
