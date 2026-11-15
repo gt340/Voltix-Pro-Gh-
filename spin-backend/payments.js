@@ -282,6 +282,139 @@ async function creditSpinPurchase(deps, reference) {
   return { http: 200, json: { status: 'confirmed', coins: await walletOf() } };
 }
 
+
+/**
+ * Restricted support resolution for a durable ownership recovery case.
+ * This is deliberately credit-only: refunds remain an external finance action.
+ * The caller must supply an admin UID obtained from a verified Firebase token
+ * and an existing /admins/{uid} document.
+ */
+async function resolveRecoveryCase(deps, input) {
+  const { db, FieldValue } = deps;
+  const now = deps.now || Date.now;
+  const reference = input && input.reference;
+  const resolutionId = input && input.resolutionId;
+  const adminUid = input && input.adminUid;
+  if (!isValidReference(reference) ||
+      typeof resolutionId !== 'string' || !/^[A-Za-z0-9_-]{12,80}$/.test(resolutionId) ||
+      typeof adminUid !== 'string' || !adminUid) {
+    return { http: 400, json: { error: 'Valid reference, resolution ID and administrator required' } };
+  }
+
+  const caseRef = db.collection('paymentRecoveryCases').doc(reference);
+  const purchaseRef = db.collection('coinPurchases').doc(reference);
+  const eventRef = db.collection('paymentEvents').doc(reference);
+  const auditRef = db.collection('paymentRecoveryAudit').doc(resolutionId);
+  const [caseSnap, purchaseSnap, eventSnap, auditSnap] = await Promise.all([
+    caseRef.get(), purchaseRef.get(), eventRef.get(), auditRef.get()
+  ]);
+  if (!caseSnap.exists || !purchaseSnap.exists || !eventSnap.exists) {
+    return { http: 404, json: { error: 'Recovery case or payment records not found' } };
+  }
+  if (auditSnap.exists) {
+    const previous = auditSnap.data() || {};
+    if (previous.reference === reference) {
+      return { http: 409, json: { error: 'This recovery resolution ID has already been used' } };
+    }
+    return { http: 409, json: { error: 'Recovery resolution ID collision' } };
+  }
+  const recovery = caseSnap.data() || {};
+  const purchase = purchaseSnap.data() || {};
+  const event = eventSnap.data() || {};
+  if (recovery.status !== 'OPEN' || purchase.status !== 'recovery_required' ||
+      event.status !== 'RECOVERY_REQUIRED' || event.purpose !== 'spinCoins') {
+    return { http: 409, json: { error: 'Recovery case is not in a resolvable state' } };
+  }
+  if (recovery.phone !== purchase.phone || recovery.shopperUid !== purchase.shopperUid ||
+      typeof purchase.phone !== 'string' || !purchase.phone ||
+      typeof purchase.shopperUid !== 'string' || !purchase.shopperUid) {
+    return { http: 409, json: { error: 'Recovery identity records do not match' } };
+  }
+
+  let verified;
+  try {
+    verified = await deps.paystackVerify(reference);
+  } catch (_) {
+    return { http: 502, json: { error: 'Payment provider verification unavailable; case remains open' } };
+  }
+  const data = verified && verified.found && verified.data;
+  const amount = data && Number(data.amount);
+  const pkg = Number.isInteger(amount) ? PACKAGE_BY_PESEWAS[amount] : null;
+  const email = data && data.customer && data.customer.email;
+  if (!data || (data.reference && data.reference !== reference) ||
+      data.status !== 'success' || data.currency !== 'GHS' || !pkg ||
+      (purchase.requestedPackageId && purchase.requestedPackageId !== pkg.id) ||
+      typeof email !== 'string' ||
+      digitsOf(email.split('@')[0]) !== digitsOf(purchase.phone)) {
+    return { http: 409, json: { error: 'Paystack payment does not match the recovery purchase' } };
+  }
+
+  const walletRef = db.collection('wallets').doc(purchase.phone);
+  const resolvedAt = new Date(now()).toISOString();
+  let outcome = 'RESOLVED';
+  await db.runTransaction(async (tx) => {
+    const [freshCase, freshPurchase, freshEvent, freshWallet, freshAudit] = await Promise.all([
+      tx.get(caseRef), tx.get(purchaseRef), tx.get(eventRef), tx.get(walletRef), tx.get(auditRef)
+    ]);
+    if (freshAudit.exists) { outcome = 'DUPLICATE_RESOLUTION'; return; }
+    if (!freshCase.exists || !freshPurchase.exists || !freshEvent.exists) {
+      outcome = 'RECORDS_CHANGED'; return;
+    }
+    const c = freshCase.data() || {};
+    const p = freshPurchase.data() || {};
+    const e = freshEvent.data() || {};
+    const w = freshWallet.exists ? (freshWallet.data() || {}) : {};
+    if (c.status !== 'OPEN' || p.status !== 'recovery_required' ||
+        e.status !== 'RECOVERY_REQUIRED' || e.purpose !== 'spinCoins' ||
+        p.phone !== purchase.phone || p.shopperUid !== purchase.shopperUid ||
+        c.phone !== purchase.phone || c.shopperUid !== purchase.shopperUid) {
+      outcome = 'RECORDS_CHANGED'; return;
+    }
+    if (!freshWallet.exists || w.ownerUid !== purchase.shopperUid) {
+      outcome = 'WALLET_OWNERSHIP_UNPROVEN'; return;
+    }
+    // Deliberately omit referral rewards: a support replay must not create a
+    // second referral entitlement or back-pay a historical referral.
+    tx.set(walletRef, {
+      coins: FieldValue.increment(pkg.coins),
+      totalSpend: FieldValue.increment(pkg.priceGhs),
+      hasPurchasedBefore: true
+    }, { merge: true });
+    tx.update(purchaseRef, {
+      status: 'confirmed', confirmedAt: resolvedAt, packageId: pkg.id,
+      coinsCredited: pkg.coins, amountPesewas: amount,
+      recoveryResolvedAt: resolvedAt, recoveryResolutionId: resolutionId
+    });
+    tx.set(eventRef, {
+      status: 'SUCCESS', purpose: 'spinCoins', packageId: pkg.id,
+      amountPesewas: amount, credited: pkg.coins,
+      leaseExpiresAt: 0, updatedAt: now(),
+      recoveryResolutionId: resolutionId
+    }, { merge: true });
+    tx.update(caseRef, {
+      status: 'RESOLVED', resolutionAction: 'CREDITED',
+      resolvedBy: adminUid, resolvedAt, resolutionId
+    });
+    tx.set(auditRef, {
+      action: 'CREDITED', reference, resolutionId, adminUid,
+      shopperUid: purchase.shopperUid, phone: purchase.phone,
+      packageId: pkg.id, amountPesewas: amount, coinsCredited: pkg.coins,
+      createdAt: resolvedAt
+    });
+  });
+
+  if (outcome === 'DUPLICATE_RESOLUTION') {
+    return { http: 409, json: { error: 'This recovery case has already been resolved or resolution ID was used' } };
+  }
+  if (outcome === 'WALLET_OWNERSHIP_UNPROVEN') {
+    return { http: 409, json: { error: 'Wallet must be verified as owned by the original shopper before credit' } };
+  }
+  if (outcome !== 'RESOLVED') {
+    return { http: 409, json: { error: 'Recovery records changed; case was not credited' } };
+  }
+  return { http: 200, json: { status: 'resolved', action: 'credited', reference, packageId: pkg.id, coinsCredited: pkg.coins } };
+}
+
 // ---------- endpoint handlers (thin wrappers in server.js call these) ----------
 async function handleBuyCoins(deps, body, shopper) {
   const { db } = deps;
@@ -388,7 +521,7 @@ async function handleWebhook(deps, { rawBody, signature }) {
 }
 
 module.exports = {
-  SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, markRecoveryRequired, creditSpinPurchase,
+  SPIN_PACKAGES, PACKAGE_BY_PESEWAS, claimReference, failReference, markRecoveryRequired, creditSpinPurchase, resolveRecoveryCase,
   handleBuyCoins, handleVerifyPurchase, handleWebhook, verifyWebhookSignature,
   isValidReference, isValidPhone,
 };
