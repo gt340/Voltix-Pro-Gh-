@@ -413,18 +413,9 @@ document.getElementById('payNowBtn').addEventListener('click', async function(){
         ref: reference,
         onClose: function(){
           clearTimeout(stuckTimer);
-          // A user-closed, unsuccessful checkout should not leave a stale
-          // recovery attempt. Keep the record once Paystack reports success.
-          if(!paymentSucceeded){
-            const saved = localStorage.getItem('voltixPendingCoinPurchase');
-            try {
-              if(saved && JSON.parse(saved).reference === reference) {
-                localStorage.removeItem('voltixPendingCoinPurchase');
-              }
-            } catch (_) {
-              localStorage.removeItem('voltixPendingCoinPurchase');
-            }
-          }
+          // Do not clear the pending reference here: closing the checkout is
+          // not proof that the provider did not complete the charge. Recovery
+          // verifies the reference with the backend before removing it.
           btn.disabled = false;
           btn.textContent = '💳 Pay Now';
         },
