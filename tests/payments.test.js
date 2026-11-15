@@ -174,8 +174,9 @@ test('SPIN webhook: verified webhook arriving before purchase is durably reconci
   const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
 
   const webhook = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
-  assert.equal(webhook.http, 200);
+  assert.equal(webhook.http, 500);
   assert.equal(webhook.outcome, 'UNMATCHED');
+  assert.match(webhook.text, /retry later/i);
   assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'RECEIVED_UNMATCHED');
   assert.equal(db.read('paymentWebhookInbox/' + ref).signatureVerified, true);
   assert.equal(walletCoins(db), 0);
@@ -196,8 +197,12 @@ test('SPIN webhook inbox: duplicate unmatched deliveries are idempotent and late
   const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref, amount: 1000, currency: 'GHS', status: 'success' } }));
   const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
 
-  assert.equal((await spin.handleWebhook(deps, { rawBody: raw, signature: sig })).outcome, 'UNMATCHED');
-  assert.equal((await spin.handleWebhook(deps, { rawBody: raw, signature: sig })).outcome, 'UNMATCHED');
+  const firstDelivery = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  const secondDelivery = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(firstDelivery.http, 500);
+  assert.equal(firstDelivery.outcome, 'UNMATCHED');
+  assert.equal(secondDelivery.http, 500);
+  assert.equal(secondDelivery.outcome, 'UNMATCHED');
   assert.equal(db.read('paymentWebhookInbox/' + ref).deliveryCount, 2);
   assert.equal(walletCoins(db), 0);
 
