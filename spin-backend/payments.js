@@ -40,6 +40,11 @@ async function claimReference(db, reference, purpose, nowMs) {
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(evRef);
     const prev = snap.exists ? snap.data() : null;
+    // A reference is globally idempotent, but success in another payment
+    // flow must never be reported as a successful coin purchase.
+    if (prev && prev.purpose && prev.purpose !== purpose) {
+      return { state: 'PURPOSE_MISMATCH', existingPurpose: prev.purpose };
+    }
     if (prev && prev.status === 'SUCCESS') return { state: 'ALREADY_PROCESSED' };
     if (prev && prev.status === 'PROCESSING' && prev.leaseExpiresAt > nowMs) return { state: 'IN_PROGRESS' };
     tx.set(evRef, {
@@ -100,6 +105,9 @@ async function creditSpinPurchase(deps, reference) {
   }
 
   const claim = await claimReference(db, reference, 'spinCoins', now());
+  if (claim.state === 'PURPOSE_MISMATCH') {
+    return { http: 409, code: 'REFERENCE_PURPOSE_MISMATCH', json: { error: 'Reference was used for a different payment type', code: 'REFERENCE_PURPOSE_MISMATCH' } };
+  }
   if (claim.state === 'ALREADY_PROCESSED') {
     return { http: 200, json: { status: 'already_confirmed', coins: await walletOf() } };
   }
