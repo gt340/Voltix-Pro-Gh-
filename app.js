@@ -221,7 +221,8 @@ function shareProductCard(id, e){
     getFirestore, collection, doc, setDoc, addDoc, deleteDoc, getDoc, onSnapshot, getDocs, query, where, runTransaction
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const {
-    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
+    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail,
+    signInWithPhoneNumber, RecaptchaVerifier
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   const {
     getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
@@ -647,6 +648,96 @@ function shareProductCard(id, e){
       catch(err){ throw new Error(`Failed to upload review photo: ${err.message}`); }
     },
 
+    normalizeShopperPhone(phone){
+  const digits = String(phone || '').replace(/\D/g, '');
+      if(digits.startsWith('233') && digits.length === 12) return '0' + digits.slice(3);
+      if(digits.length === 10 && digits.startsWith('0')) return digits;
+      throw new Error('Enter a valid Ghana phone number, e.g. 0241234567.');
+    },
+    async sendShopperPhoneCode(phone, recaptchaContainerId){
+      const digits = this.normalizeShopperPhone(phone);
+      const e164 = '+233' + digits.slice(1);
+      const container = document.getElementById(recaptchaContainerId);
+      if(!container) throw new Error('Phone verification could not start: reCAPTCHA container is missing.');
+
+      // Serialize requests and keep one verifier bound to this exact container.
+      // A verifier from another container, or a verifier whose render failed,
+      // must not be reused on the next attempt.
+      if(window.__voltixPhoneCodeRequest) return window.__voltixPhoneCodeRequest;
+
+      const request = (async()=>{
+        let verifier = window.__voltixRecaptchaVerifier;
+        if(window.__voltixRecaptchaContainerId !== recaptchaContainerId){
+          if(verifier){
+            try{ verifier.clear(); }catch(_){}
+          }
+          verifier = null;
+          window.__voltixRecaptchaVerifier = null;
+          window.__voltixRecaptchaContainerId = null;
+          container.replaceChildren();
+        }
+        if(!verifier){
+          verifier = new RecaptchaVerifier(auth, container, { size:'invisible' });
+          window.__voltixRecaptchaVerifier = verifier;
+          window.__voltixRecaptchaContainerId = recaptchaContainerId;
+        }
+        window.__voltixPhoneConfirmation = null;
+        try{
+          const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
+          window.__voltixPhoneConfirmation = confirmation;
+          return { phone: digits };
+        }catch(err){
+          // Firebase may leave a rendered widget attached after a render/send
+          // failure. Clear both the verifier and its host so retry is clean.
+          try{ verifier.clear(); }catch(_){}
+          if(window.__voltixRecaptchaVerifier === verifier){
+            window.__voltixRecaptchaVerifier = null;
+            window.__voltixRecaptchaContainerId = null;
+          }
+          container.replaceChildren();
+          window.__voltixPhoneConfirmation = null;
+          throw err;
+        }
+      })();
+
+      window.__voltixPhoneCodeRequest = request;
+      try{
+        return await request;
+      }finally{
+        if(window.__voltixPhoneCodeRequest === request) window.__voltixPhoneCodeRequest = null;
+      }
+    },
+    async confirmShopperPhoneCode(code){
+      const confirmation = window.__voltixPhoneConfirmation;
+      if(!confirmation) throw new Error('Request an SMS verification code first.');
+      const credential = await confirmation.confirm(String(code || '').trim());
+      window.__voltixPhoneConfirmation = null;
+      return { uid: credential.user.uid, phone: this.normalizeShopperPhone(credential.user.phoneNumber) };
+    },
+    async getVerifiedShopperIdentity(){
+      let user = auth.currentUser;
+      if(!user){
+        user = await new Promise(resolve=>{
+          let unsubscribe = null;
+          unsubscribe = onAuthStateChanged(auth, nextUser=>{
+            if(unsubscribe) unsubscribe();
+            resolve(nextUser);
+          });
+        });
+      }
+      if(!user || !user.phoneNumber) return null;
+      return { uid:user.uid, phone:this.normalizeShopperPhone(user.phoneNumber) };
+    },
+    async getShopperIdToken(){
+      const identity = await this.getVerifiedShopperIdentity();
+      const user = auth.currentUser;
+      if(!identity || !user || user.uid !== identity.uid) return null;
+      return user.getIdToken();
+    },
+    async shopperLogout(){
+      const user = auth.currentUser;
+      if(user && user.phoneNumber) await signOut(auth);
+    },
     adminLogin(email,pw){ return signInWithEmailAndPassword(auth,email,pw); },
     adminLogout(){ return signOut(auth); },
     watchAdminAuth(cb){ onAuthStateChanged(auth,u=>cb(u)); },
