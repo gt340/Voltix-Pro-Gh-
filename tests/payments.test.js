@@ -455,6 +455,49 @@ test('SECURITY: legacy wallet without ownerUid requires recovery and receives no
   assert.equal(walletCoins(db), 31);
 });
 
+test('SECURITY: a paid purchase blocked by a wallet ownership change becomes a durable recovery case', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-RECOV001';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  // Ownership changes after checkout preflight but before provider verification.
+  db.seed('wallets/' + PHONE, { ownerUid: 'different-account', coins: 17 });
+  const result = await verifyPurchase(deps, ref);
+  assert.equal(result.http, 409);
+  assert.equal(result.code, 'RECOVERY_REQUIRED');
+  assert.equal(result.json.status, 'recovery_required');
+  assert.equal(walletCoins(db), 17);
+  assert.equal(db.read('coinPurchases/' + ref).status, 'recovery_required');
+  assert.equal(db.read('paymentEvents/' + ref).status, 'RECOVERY_REQUIRED');
+  const recovery = db.read('paymentRecoveryCases/' + ref);
+  assert.equal(recovery.status, 'OPEN');
+  assert.equal(recovery.reason, 'WALLET_OWNED_BY_ANOTHER_ACCOUNT');
+  assert.equal(recovery.shopperUid, SHOPPER.uid);
+  assert.equal(recovery.phone, PHONE);
+});
+
+test('SECURITY: ownership-blocked paid purchase is durably queued and webhook can acknowledge it', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-RECOV002';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  db.seed('wallets/' + PHONE, { coins: 12 }); // legacy wallet without ownerUid
+  const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref } }));
+  const sig = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+  const webhook = await spin.handleWebhook(deps, { rawBody: raw, signature: sig });
+  assert.equal(webhook.http, 200);
+  assert.equal(db.read('paymentEvents/' + ref).status, 'RECOVERY_REQUIRED');
+  assert.equal(db.read('coinPurchases/' + ref).status, 'recovery_required');
+  assert.equal(db.read('paymentRecoveryCases/' + ref).status, 'OPEN');
+  // Repeated webhook/verification attempts do not auto-credit or erase the case.
+  assert.equal((await spin.handleWebhook(deps, { rawBody: raw, signature: sig })).http, 200);
+  const retry = await verifyPurchase(deps, ref);
+  assert.equal(retry.http, 409);
+  assert.equal(retry.code, 'RECOVERY_REQUIRED');
+  assert.equal(walletCoins(db), 12);
+  assert.equal(db.read('paymentRecoveryCases/' + ref).status, 'OPEN');
+});
+
 test('SECURITY: purchase without shopperUid requires ownership recovery', async () => {
   const db = new FakeFirestore(); const ref = 'COINS-OWN0004';
   db.seed('coinPurchases/' + ref, { phone: PHONE, coins: 100, status: 'pending' });
