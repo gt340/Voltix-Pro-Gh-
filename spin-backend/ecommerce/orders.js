@@ -290,4 +290,61 @@ async function createOrder(deps, input, uid) {
   }
 }
 
-module.exports = { DELIVERY, moneyToPesewas, normaliseRequest, resolveProductLine, calculateCoupon, createOrder };
+// Called only by a trusted refund/cancellation workflow after the financial
+// reversal has been authorized. The deterministic reversal entry makes retries safe.
+async function reverseReferralDebit(deps, orderId, reason) {
+  const { db } = deps;
+  const now = deps.now || Date.now;
+  if (typeof orderId !== 'string' || !/^[a-f0-9]{32}$/.test(orderId)) {
+    return { ok: false, code: 'INVALID_ORDER_ID' };
+  }
+  if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 120) {
+    return { ok: false, code: 'INVALID_REVERSAL_REASON' };
+  }
+  const orderRef = db.collection('orders').doc(orderId);
+  const debitRef = db.collection('referralLedger').doc(orderId + '_debit');
+  const reversalRef = db.collection('referralLedger').doc(orderId + '_reversal');
+  try {
+    return await db.runTransaction(async tx => {
+      const orderSnap = await tx.get(orderRef);
+      if (!orderSnap.exists) return { ok: false, code: 'ORDER_NOT_FOUND' };
+      const debitSnap = await tx.get(debitRef);
+      if (!debitSnap.exists) return { ok: true, duplicate: false, code: 'NO_REFERRAL_DEBIT' };
+      const reversalSnap = await tx.get(reversalRef);
+      if (reversalSnap.exists) return { ok: true, duplicate: true, code: 'ALREADY_REVERSED' };
+
+      const debit = debitSnap.data();
+      const order = orderSnap.data();
+      if (!Number.isSafeInteger(debit.amountPesewas) || debit.amountPesewas <= 0 ||
+          typeof debit.uid !== 'string' || debit.uid !== order.shopperUid) {
+        return { ok: false, code: 'REFERRAL_LEDGER_INVALID' };
+      }
+      const referrerRef = db.collection('referrers').doc(debit.uid);
+      const referrerSnap = await tx.get(referrerRef);
+      if (!referrerSnap.exists) return { ok: false, code: 'REFERRER_ACCOUNT_NOT_FOUND' };
+      const balancePesewas = moneyToPesewas(referrerSnap.data().balance == null ? 0 : referrerSnap.data().balance);
+      const restoredBalancePesewas = balancePesewas + debit.amountPesewas;
+      if (!Number.isSafeInteger(restoredBalancePesewas)) return { ok: false, code: 'INVALID_REFERRAL_BALANCE' };
+
+      const createdAt = now();
+      tx.set(referrerRef, { balance: restoredBalancePesewas / 100 }, { merge: true });
+      tx.set(reversalRef, {
+        orderId, uid: debit.uid, type: 'CREDIT_REVERSAL', status: 'POSTED',
+        amountPesewas: debit.amountPesewas, currency: 'GHS',
+        balanceAfterPesewas: restoredBalancePesewas,
+        originalEntryId: orderId + '_debit', reason: reason.trim(), createdAt
+      });
+      tx.set(orderRef, {
+        referralCreditReversedPesewas: debit.amountPesewas,
+        referralReversedAt: createdAt,
+        referralReversalReason: reason.trim(),
+        updatedAt: createdAt
+      }, { merge: true });
+      return { ok: true, duplicate: false, amountPesewas: debit.amountPesewas };
+    });
+  } catch (e) {
+    return { ok: false, code: 'REFERRAL_REVERSAL_FAILED', message: e.message };
+  }
+}
+
+module.exports = { DELIVERY, moneyToPesewas, normaliseRequest, resolveProductLine, calculateCoupon, createOrder, reverseReferralDebit };
