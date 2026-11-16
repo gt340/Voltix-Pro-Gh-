@@ -113,7 +113,7 @@ test('orders: guest secret change under the same idempotency key conflicts', asy
   const { db, deps } = setup();
   await createOrder(deps, baseRequest(), null);
   const changedSecret = await createOrder(deps, baseRequest({
-    guestAccessSecret: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+    guestAccessSecret: Buffer.alloc(32, 1).toString('base64url')
   }), null);
   assert.equal(changedSecret.http, 409);
   assert.equal(db.read('products/pods').reservedStock, 2);
