@@ -78,7 +78,7 @@ function resolveProductLine(product, item) {
 function calculateCoupon(coupon, subtotalPesewas, nowMs) {
   if (!coupon || coupon.active === false) throw new Error('COUPON_INVALID');
   if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() < nowMs) throw new Error('COUPON_EXPIRED');
-  if (coupon.maxUses && (Number(coupon.usedCount) || 0) >= Number(coupon.maxUses)) throw new Error('COUPON_EXHAUSTED');
+  if (coupon.maxUses && ((Number(coupon.usedCount) || 0) + (Number(coupon.reservedUses) || 0)) >= Number(coupon.maxUses)) throw new Error('COUPON_EXHAUSTED');
   const minOrder = coupon.minOrder == null ? 0 : moneyToPesewas(coupon.minOrder);
   if (subtotalPesewas < minOrder) throw new Error('COUPON_MINIMUM_NOT_MET');
   const value = Number(coupon.value);
@@ -159,12 +159,12 @@ async function createOrder(deps, input, uid) {
         paymentStatus: 'UNPAID',
         fulfilmentStatus: request.paymentMethod === 'cod' ? 'AWAITING_CONFIRMATION' : 'AWAITING_PAYMENT',
         reservationId, reservationExpiresAt: reservation.expiresAt,
-        couponCode: request.couponCode, createdAt, updatedAt: createdAt,
+        couponCode: request.couponCode, couponReservationStatus: couponRef ? 'RESERVED' : null, createdAt, updatedAt: createdAt,
         idempotencyKey: request.idempotencyKey
       };
       tx.create ? tx.create(orderRefDoc, order) : tx.set(orderRefDoc, order);
       if (guestSecretHash) tx.set(accessRef, { secretHash: guestSecretHash, createdAt, revokedAt: null });
-      if (couponRef) tx.set(couponRef, { usedCount: (Number(couponSnap.data().usedCount) || 0) + 1 }, { merge: true });
+      if (couponRef) tx.set(couponRef, { reservedUses: (Number(couponSnap.data().reservedUses) || 0) + 1 }, { merge: true });
       tx.set(idempotencyRef, { requestHash: request.requestHash, orderId, orderRef, createdAt });
       return { duplicate: false, orderId, orderRef, order };
     });
