@@ -106,6 +106,7 @@ async function reserveInventory(deps, input) {
         const snap = productSnaps.get(item.productId);
         if (!snap || !snap.exists) return { ok: false, code: 'PRODUCT_NOT_FOUND', productId: item.productId };
         let product = updates.get(item.productId) || snap.data();
+        if (product.status && product.status !== 'active') return { ok: false, code: 'PRODUCT_UNAVAILABLE', productId: item.productId };
         let target;
         try { target = getStockTarget(product, item.variantId); }
         catch (e) { return { ok: false, code: e.message, productId: item.productId, variantId: item.variantId }; }
