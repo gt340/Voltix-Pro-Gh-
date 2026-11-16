@@ -84,9 +84,21 @@ function resolveProductLine(product, item) {
 }
 
 function calculateCoupon(coupon, subtotalPesewas, nowMs) {
-  if (!coupon || coupon.active === false) throw new Error('COUPON_INVALID');
-  if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() < nowMs) throw new Error('COUPON_EXPIRED');
-  if (coupon.maxUses && ((Number(coupon.usedCount) || 0) + (Number(coupon.reservedUses) || 0)) >= Number(coupon.maxUses)) throw new Error('COUPON_EXHAUSTED');
+  if (!coupon || coupon.active !== true) throw new Error('COUPON_INVALID');
+  if (coupon.expiresAt) {
+    const expiryMs = new Date(coupon.expiresAt).getTime();
+    if (!Number.isFinite(expiryMs)) throw new Error('COUPON_INVALID');
+    if (expiryMs < nowMs) throw new Error('COUPON_EXPIRED');
+  }
+  const usedCount = coupon.usedCount == null ? 0 : coupon.usedCount;
+  const reservedUses = coupon.reservedUses == null ? 0 : coupon.reservedUses;
+  if (!Number.isSafeInteger(usedCount) || usedCount < 0 || !Number.isSafeInteger(reservedUses) || reservedUses < 0) {
+    throw new Error('COUPON_INVALID');
+  }
+  if (coupon.maxUses != null) {
+    if (!Number.isSafeInteger(coupon.maxUses) || coupon.maxUses <= 0) throw new Error('COUPON_INVALID');
+    if (usedCount + reservedUses >= coupon.maxUses) throw new Error('COUPON_EXHAUSTED');
+  }
   const minOrder = coupon.minOrder == null ? 0 : moneyToPesewas(coupon.minOrder);
   if (subtotalPesewas < minOrder) throw new Error('COUPON_MINIMUM_NOT_MET');
   const value = Number(coupon.value);
