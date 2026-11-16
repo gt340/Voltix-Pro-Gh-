@@ -100,3 +100,23 @@ test('inventory: compensating cancellation releases a fresh hold immediately', a
   assert.equal(db.read('products/pods').reservedStock, 0);
   assert.equal(db.read('products/pods').stock, 3);
 });
+
+test('inventory: malformed reserved-stock counters fail closed', async () => {
+  const db = new FakeFirestore();
+  seedProduct(db, 'pods', 5, { reservedStock: '2' });
+  const r = await inventory.reserveInventory(depsFor(db), {
+    reservationId: rid(12), items: [{ productId: 'pods', quantity: 1 }]
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'RESERVED_STOCK_NOT_CONFIGURED');
+  assert.equal(db.read('products/pods').reservedStock, '2');
+});
+
+test('inventory: Firestore document paths cannot be injected through product IDs', async () => {
+  const db = new FakeFirestore();
+  const r = await inventory.reserveInventory(depsFor(db), {
+    reservationId: rid(13), items: [{ productId: 'products/other', quantity: 1 }]
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'INVALID_ITEMS');
+});
