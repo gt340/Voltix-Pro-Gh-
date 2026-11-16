@@ -24,6 +24,7 @@ Scope: ecommerce checkout, order ownership, inventory reservation, referral acco
 
 ## Target data model
 
+- Inventory WP1 now preserves the existing catalogue fields: product-level `stock`, `lowStockThreshold`, and per-variant `stock`. The backend-only inventory module adds `reservedStock` counters at the same product/variant level. Available stock is `stock - reservedStock`; reservation does not decrement physical stock, while verified commit decrements stock and reservedStock together. Products with missing/unconfigured stock fail closed for reservation. Existing legacy catalogue documents are not automatically assigned stock values.
 - `orders/{orderId}`: schemaVersion, orderRef, customer delivery snapshot, shopper UID when authenticated, item price snapshots, subtotal/delivery/discount/referral/total amounts in pesewas, currency, paymentMethod, paymentStatus, fulfilmentStatus, timestamps, reservation expiry, and idempotency key.
 - `orderAccess/{orderId}`: hash of guest access secret, creation/expiry metadata, and revocation metadata. Never store the raw secret.
 - `inventoryReservations/{reservationId}`: order ID, product/variant quantities, status, expiry, and idempotency metadata.
@@ -83,6 +84,13 @@ Endpoint names are proposed, not yet implemented or exposed.
 13. COD order: remains unpaid until collection confirmation.
 14. Admin status update: non-admin denied; admin action audited.
 15. Interrupted worker/reconciler: retry converges without duplicate financial effects.
+
+## WP1 implementation status
+
+- Added `spin-backend/ecommerce/inventory.js` with transactional reserve, release-after-expiry, and commit operations.
+- Added `tests/ecommerce-inventory.test.js` covering concurrent final-unit reservation, idempotency, variant stock, unconfigured stock, expiry release, commit, and invalid transition timing.
+- Added the inventory regression file to the root `npm test` script.
+- This module is not yet wired into checkout APIs or an expiry worker. It must not be called directly by browsers. The tests have been committed but still require an executed CI run before WP1 can be marked validated.
 
 ## Delivery order
 
