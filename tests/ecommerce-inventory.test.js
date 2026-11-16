@@ -87,3 +87,16 @@ test('inventory: release cannot occur before expiry', async () => {
   await inventory.reserveInventory(deps, { reservationId: rid(10), items: [{ productId: 'pods', quantity: 1 }] });
   assert.equal((await inventory.releaseExpiredReservation(deps, rid(10))).code, 'RESERVATION_NOT_EXPIRED');
 });
+
+test('inventory: compensating cancellation releases a fresh hold immediately', async () => {
+  const db = new FakeFirestore(); seedProduct(db, 'pods', 3);
+  const deps = depsFor(db);
+  await inventory.reserveInventory(deps, { reservationId: rid(11), items: [{ productId: 'pods', quantity: 2 }] });
+  const cancelled = await inventory.cancelReservation(deps, rid(11));
+  const retry = await inventory.cancelReservation(deps, rid(11));
+  assert.equal(cancelled.ok, true);
+  assert.equal(retry.duplicate, true);
+  assert.equal(db.read('inventoryReservations/' + rid(11)).status, 'CANCELLED');
+  assert.equal(db.read('products/pods').reservedStock, 0);
+  assert.equal(db.read('products/pods').stock, 3);
+});
