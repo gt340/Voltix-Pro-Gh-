@@ -24,7 +24,7 @@ Scope: ecommerce checkout, order ownership, inventory reservation, referral acco
 
 ## Target data model
 
-- Inventory WP1 now preserves the existing catalogue fields: product-level `stock`, `lowStockThreshold`, and per-variant `stock`. The backend-only inventory module adds `reservedStock` counters at the same product/variant level. Available stock is `stock - reservedStock`; reservation does not decrement physical stock, while verified commit decrements stock and reservedStock together. Products with missing/unconfigured stock fail closed for reservation. Existing legacy catalogue documents are not automatically assigned stock values.
+- Inventory WP1 now preserves the existing catalogue fields: product-level `stock`, `lowStockThreshold`, and per-variant `stock`. The backend-only inventory module adds `reservedStock` counters at the same product/variant level. Available stock is `stock - reservedStock`; reservation does not decrement physical stock, while verified commit decrements stock and reservedStock together. Products with missing/unconfigured stock or malformed existing reserved-stock counters fail closed for reservation. Existing legacy catalogue documents are not automatically assigned stock values.
 - `orders/{orderId}`: schemaVersion, orderRef, customer delivery snapshot, shopper UID when authenticated, item price snapshots, subtotal/delivery/discount/referral/total amounts in pesewas, currency, paymentMethod, paymentStatus, fulfilmentStatus, timestamps, reservation expiry, and idempotency key.
 - `orderAccess/{orderId}`: hash of guest access secret, creation/expiry metadata, and revocation metadata. Never store the raw secret.
 - `inventoryReservations/{reservationId}`: order ID, product/variant quantities, status, expiry, and idempotency metadata.
@@ -90,7 +90,7 @@ The exact schema and collection names must be reconciled with existing productio
 - Added `spin-backend/ecommerce/inventory.js` with transactional reserve, release-after-expiry, and commit operations.
 - Added `tests/ecommerce-inventory.test.js` covering concurrent final-unit reservation, idempotency, variant stock, unconfigured stock, expiry release, commit, and invalid transition timing.
 - Added the inventory regression file to the root `npm test` script.
-- This module is not yet wired into checkout APIs or an expiry worker. It must not be called directly by browsers. The tests have been committed but still require an executed CI run before WP1 can be marked validated.
+- This module is not yet wired into checkout APIs or an expiry worker. It must not be called directly by browsers. The tests also cover malformed reserved-stock counters and invalid product document paths. They have been committed but still require an executed CI run before WP1 can be marked validated.
 
 ## WP2 implementation status
 
@@ -101,7 +101,7 @@ The exact schema and collection names must be reconciled with existing productio
 - Idempotency records prevent duplicate logical orders and reject a reused key with a changed request. Guest orders must provide a client-generated canonical 256-bit base64url access secret with the idempotency key; only its SHA-256 hash is persisted. Retrying with the same key and secret returns the same secret in the response without persisting plaintext. Authenticated requests may provide a Firebase ID token and are associated with its verified UID.
 - Coupon validation is performed against the server-side coupon document. Capacity is reserved through `reservedUses`, not counted as a completed redemption. A later verified-payment transition must convert the reservation to `usedCount`, and expiry/cancellation processing must release it. That transition and worker are not implemented yet.
 - New orders are explicitly `UNPAID`. COD orders use `AWAITING_CONFIRMATION`; online payments use `AWAITING_PAYMENT`. This API does not initialize Paystack or confirm payment.
-- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules, plus WP1 regression coverage for immediate cancellation of standalone holds, retry-safe guest credentials, concurrent final-unit order creation, and variant-specific pricing/stock.
+- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules, plus WP1 regression coverage for immediate cancellation of standalone holds, malformed counter rejection, and invalid product document paths; WP2 coverage includes retry-safe guest credentials, concurrent final-unit order creation, and variant-specific pricing/stock.
 - Added `.github/workflows/ecommerce-security-tests.yml` to run the root regression suite on pushes to this feature branch and pull requests. No GitHub Actions result has been observed yet; current commit status reports only Vercel preview checks.
 
 WP2 remains **partially implemented** until the test suite is executed and the checkout frontend is migrated to this API. Paystack initialization/verification and coupon-hold commit/release are intentionally deferred to WP4 and the expiry/reconciliation worker.
