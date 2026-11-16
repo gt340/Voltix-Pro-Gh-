@@ -120,7 +120,7 @@ async function createOrder(deps, input, uid) {
   const now = deps.now || Date.now;
   let request;
   try { request = normaliseRequest(input || {}, uid || null); }
-  catch (e) { return { http: 400, json: { error: e.message } }; }
+  catch (e) { return { http: e.message === 'REFERRAL_AUTH_REQUIRED' ? 401 : 400, json: { error: e.message } }; }
 
   const idempotencyRef = db.collection('orderIdempotency').doc(request.idempotencyKey);
   const prior = await idempotencyRef.get();
