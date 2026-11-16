@@ -47,7 +47,7 @@ The exact schema and collection names must be reconciled with existing productio
 - `PATCH /api/admin/orders/:orderId/status`: verify admin identity, validate allowed fulfilment transition, and append audit event.
 - Internal reservation expiry/reconciliation worker: release expired holds and reconcile interrupted payment/referral operations. It must be safe under duplicate execution.
 
-Endpoint names are proposed, not yet implemented or exposed.
+`POST /api/orders` is implemented on the feature branch. Remaining endpoints are proposed and not yet implemented.
 
 ## State and transaction rules
 
@@ -96,12 +96,12 @@ Endpoint names are proposed, not yet implemented or exposed.
 
 - Added `spin-backend/ecommerce/orders.js` and exposed `POST /api/orders` from the existing Express backend.
 - The API accepts product IDs, optional variant IDs, quantities, customer delivery details, payment method, delivery method, coupon code, and an idempotency key. It does not accept client prices or totals as authoritative inputs.
-- Product and variant prices are read from Firestore and converted to integer pesewas. Standard delivery is configured as free; express delivery is GHS 35 and is restricted to Accra city, matching the existing storefront's stated policy. These delivery rates are currently hard-coded policy constants and require business confirmation before release.
+- Product and variant prices are read from Firestore and converted to integer pesewas. Standard delivery is configured as free; express delivery is GHS 35 and is restricted to Accra city, matching the existing storefront's stated policy. These constants preserve the existing storefront policy and must remain server-controlled.
 - Inventory counters, the reservation record, order, guest access hash, coupon-capacity hold, and idempotency record are now written in one Firestore transaction. Product prices and stock are read in that same transaction; failed transactions leave no partial reservation or order.
-- Idempotency records prevent duplicate logical orders and reject a reused key with a changed request. Guest orders receive a 256-bit random access secret; only its SHA-256 hash is persisted. Authenticated requests may provide a Firebase ID token and are associated with its verified UID.
+- Idempotency records prevent duplicate logical orders and reject a reused key with a changed request. Guest orders must provide a client-generated canonical 256-bit base64url access secret with the idempotency key; only its SHA-256 hash is persisted. Retrying with the same key and secret returns the same secret in the response without persisting plaintext. Authenticated requests may provide a Firebase ID token and are associated with its verified UID.
 - Coupon validation is performed against the server-side coupon document. Capacity is reserved through `reservedUses`, not counted as a completed redemption. A later verified-payment transition must convert the reservation to `usedCount`, and expiry/cancellation processing must release it. That transition and worker are not implemented yet.
 - New orders are explicitly `UNPAID`. COD orders use `AWAITING_CONFIRMATION`; online payments use `AWAITING_PAYMENT`. This API does not initialize Paystack or confirm payment.
-- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules, plus WP1 regression coverage for immediate cancellation of standalone holds.
+- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules, plus WP1 regression coverage for immediate cancellation of standalone holds, retry-safe guest credentials, concurrent final-unit order creation, and variant-specific pricing/stock.
 - Added `.github/workflows/ecommerce-security-tests.yml` to run the root regression suite on pushes to this feature branch and pull requests. No GitHub Actions result has been observed yet; current commit status reports only Vercel preview checks.
 
 WP2 remains **partially implemented** until the test suite is executed and the checkout frontend is migrated to this API. Paystack initialization/verification and coupon-hold commit/release are intentionally deferred to WP4 and the expiry/reconciliation worker.
@@ -113,7 +113,7 @@ WP1 inventory/data model; WP2 trusted order API and idempotency; WP3 referral le
 Each work package must include code review, automated tests, and a rollback/recovery note before it is considered complete.
 
 
-## WP2 source audit (implementation not yet started)
+## WP2 source audit and implementation reconciliation
 
 ### Existing checkout contract confirmed
 - Browser cart line shape is `id`, optional `variantId`, `qty`, plus display-only `name`, `price`, `image`, and `lineId`.
@@ -127,7 +127,7 @@ Each work package must include code review, automated tests, and a rollback/reco
 
 ### WP2 implementation gates
 - Catalogue stock values are not provisioned/validated by this source audit. The WP1 inventory module intentionally fails closed when product or selected variant stock is absent. Before enabling checkout integration, run a read-only inventory data audit and classify products with missing, malformed, or negative stock.
-- Product availability/status values need confirmation from actual catalogue documents. The inventory module currently rejects a non-empty status other than `active`; this must be checked against real records before rollout.
+- The admin product editor writes `active` and `out-of-stock` status values; the backend rejects non-empty status values other than `active`. A read-only catalogue audit is still required to detect legacy or unexpected status values before rollout.
 - The backend order API must use the Firebase Admin SDK already initialized in `spin-backend/server.js`, but route handlers must be isolated for unit testing and must not perform provider calls inside Firestore transactions.
 - Existing coupon redemption rules are insufficient as an authority boundary: public reads and anonymous increments are allowed in Firestore. Backend validation and transactional redemption must replace browser writes before rule lockdown.
-- No WP2 order endpoint has been added yet. No live checkout, Paystack payment, production data, or Firestore rules have been changed.
+- The feature-branch `POST /api/orders` endpoint is implemented but not yet wired into the storefront. No live checkout, Paystack payment, production data, or Firestore rules have been changed.
