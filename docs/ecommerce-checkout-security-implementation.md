@@ -90,7 +90,7 @@ The exact schema and collection names must be reconciled with existing productio
 - Added `spin-backend/ecommerce/inventory.js` with transactional reserve, release-after-expiry, and commit operations.
 - Added `tests/ecommerce-inventory.test.js` covering concurrent final-unit reservation, idempotency, variant stock, unconfigured stock, expiry release, commit, and invalid transition timing.
 - Added the inventory regression file to the root `npm test` script.
-- This module is not yet wired into checkout APIs or an expiry worker. It must not be called directly by browsers. The tests also cover malformed reserved-stock counters and invalid product document paths. They have been committed but still require an executed CI run before WP1 can be marked validated.
+- This module is not yet wired into checkout APIs or an expiry worker. It must not be called directly by browsers. The tests also cover malformed reserved-stock counters and invalid product document paths. They are validated by GitHub Actions run 43964450571 (63/63 total regression tests passed on the latest feature-branch commit).
 
 ## WP2 implementation status
 
@@ -102,9 +102,9 @@ The exact schema and collection names must be reconciled with existing productio
 - Coupon validation is performed against the server-side coupon document. Capacity is reserved through `reservedUses`, not counted as a completed redemption. A later verified-payment transition must convert the reservation to `usedCount`, and expiry/cancellation processing must release it. That transition and worker are not implemented yet.
 - New orders are explicitly `UNPAID`. COD orders use `AWAITING_CONFIRMATION`; online payments use `AWAITING_PAYMENT`. This API does not initialize Paystack or confirm payment.
 - Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity and malformed coupon metadata, stock shortage, COD and express-delivery rules, concurrent final-unit order creation, and variant-specific pricing/stock. WP1 tests cover reservation lifecycle, concurrent final-unit reservations, immediate cancellation, malformed reserved-stock counters, and invalid product document paths.
-- Added `.github/workflows/ecommerce-security-tests.yml` to run the root regression suite on pushes to this feature branch and pull requests. No GitHub Actions result has been observed yet; current commit status reports only Vercel preview checks.
+- Added `.github/workflows/ecommerce-security-tests.yml` to run the root regression suite on pushes to this feature branch and pull requests. The suite has executed successfully on commit `9587a4e504dd72883cc578774afde5b0f31c1a81`: 63 tests passed, 0 failed (GitHub Actions run 43964450571).
 
-WP2 remains **partially implemented** until the test suite is executed and the checkout frontend is migrated to this API. Paystack initialization/verification and coupon-hold commit/release are intentionally deferred to WP4 and the expiry/reconciliation worker.
+WP2 backend regression tests are passing, but WP2 remains **partially implemented** until the checkout frontend is migrated to this API and the real Firestore transaction behavior is validated in a staging emulator/project. Paystack initialization/verification and coupon-hold commit/release are intentionally deferred to WP4 and the expiry/reconciliation worker.
 
 ## Delivery order
 
@@ -131,3 +131,12 @@ Each work package must include code review, automated tests, and a rollback/reco
 - The backend order API must use the Firebase Admin SDK already initialized in `spin-backend/server.js`, but route handlers must be isolated for unit testing and must not perform provider calls inside Firestore transactions.
 - Existing coupon redemption rules are insufficient as an authority boundary: public reads and anonymous increments are allowed in Firestore. Backend validation and transactional redemption must replace browser writes before rule lockdown.
 - The feature-branch `POST /api/orders` endpoint is implemented but not yet wired into the storefront. No live checkout, Paystack payment, production data, or Firestore rules have been changed.
+
+## WP3 referral ledger implementation status
+
+- `POST /api/orders` now accepts `referralCreditPesewas` as an integer minor-unit request. Referral balance use is rejected for guests and is bound to the verified Firebase UID; the browser cannot select another referrer's account.
+- The server reads `referrers/{uid}` inside the same Firestore transaction that creates the order, reserves inventory/coupon capacity, and writes idempotency state. It validates available balance and that the requested credit does not exceed the pre-referral order total.
+- The requested referral debit reduces the server-calculated amount due and the referrer's GHS balance atomically. A deterministic `referralLedger/{orderId}_debit` entry records the amount in pesewas, UID, idempotency key, and post-debit balance. Retries return the original order and do not debit again.
+- Added `reverseReferralDebit` as a trusted backend primitive. It restores the original debit once, writes a deterministic `_reversal` ledger entry, and records reversal metadata on the order. It is not exposed as a public route and must only be called by a trusted cancellation/refund/expiry workflow after that workflow has established that reversal is authorized.
+- Added tests for authenticated debit, guest rejection, UID ownership, insufficient balance, idempotency, concurrent spending, reversal, and duplicate reversal. GitHub Actions run 43964450571 passed 63/63 tests.
+- WP3 is **partially implemented**, not end-to-end complete: the expiry/reconciliation worker and verified-payment/cancellation workflow do not yet invoke the reversal primitive; ledger Firestore rules and staging Firestore transaction validation remain outstanding. The current storefront still performs its legacy client-side referral debit and has not been migrated.
