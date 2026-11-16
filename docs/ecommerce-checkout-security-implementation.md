@@ -97,14 +97,14 @@ Endpoint names are proposed, not yet implemented or exposed.
 - Added `spin-backend/ecommerce/orders.js` and exposed `POST /api/orders` from the existing Express backend.
 - The API accepts product IDs, optional variant IDs, quantities, customer delivery details, payment method, delivery method, coupon code, and an idempotency key. It does not accept client prices or totals as authoritative inputs.
 - Product and variant prices are read from Firestore and converted to integer pesewas. Standard delivery is configured as free; express delivery is GHS 35 and is restricted to Accra city, matching the existing storefront's stated policy. These delivery rates are currently hard-coded policy constants and require business confirmation before release.
-- Inventory is reserved using the WP1 service. If order creation fails after a reservation, a compensating cancellation releases the hold immediately. A process crash between the reservation transaction and order transaction can still leave a temporary hold until expiry; this is a known gap against the final atomicity requirement.
+- Inventory counters, the reservation record, order, guest access hash, coupon-capacity hold, and idempotency record are now written in one Firestore transaction. Product prices and stock are read in that same transaction; failed transactions leave no partial reservation or order.
 - Idempotency records prevent duplicate logical orders and reject a reused key with a changed request. Guest orders receive a 256-bit random access secret; only its SHA-256 hash is persisted. Authenticated requests may provide a Firebase ID token and are associated with its verified UID.
 - Coupon validation is performed against the server-side coupon document. Capacity is reserved through `reservedUses`, not counted as a completed redemption. A later verified-payment transition must convert the reservation to `usedCount`, and expiry/cancellation processing must release it. That transition and worker are not implemented yet.
 - New orders are explicitly `UNPAID`. COD orders use `AWAITING_CONFIRMATION`; online payments use `AWAITING_PAYMENT`. This API does not initialize Paystack or confirm payment.
-- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules, plus a WP1 regression test for immediate compensating reservation cancellation.
+- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules, plus WP1 regression coverage for immediate cancellation of standalone holds.
 - Added `.github/workflows/ecommerce-security-tests.yml` to run the root regression suite on pushes to this feature branch and pull requests. No GitHub Actions result has been observed yet; current commit status reports only Vercel preview checks.
 
-WP2 remains **partially implemented** until the test suite is executed, the checkout frontend is migrated to this API, reservation/order crash recovery is covered, and payment/coupon transitions are integrated in later work packages.
+WP2 remains **partially implemented** until the test suite is executed and the checkout frontend is migrated to this API. Paystack initialization/verification and coupon-hold commit/release are intentionally deferred to WP4 and the expiry/reconciliation worker.
 
 ## Delivery order
 
