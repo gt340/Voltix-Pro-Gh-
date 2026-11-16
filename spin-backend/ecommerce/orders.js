@@ -46,9 +46,17 @@ function normaliseRequest(input, uid) {
   const items = inventory.normaliseItems(input.items);
   const couponCode = input.couponCode == null || input.couponCode === '' ? null : String(input.couponCode).trim().toUpperCase();
   if (couponCode && !/^[A-Z0-9_-]{3,32}$/.test(couponCode)) throw new Error('INVALID_COUPON_CODE');
-  const canonical = { uid: uid || null, customer: { name, phone, region, city, address }, deliveryMethod, paymentMethod, items, couponCode };
+  let guestAccessSecret = null;
+  if (!uid) {
+    guestAccessSecret = input.guestAccessSecret;
+    if (typeof guestAccessSecret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(guestAccessSecret) || Buffer.from(guestAccessSecret, 'base64url').length !== 32) {
+      throw new Error('INVALID_GUEST_ACCESS_SECRET');
+    }
+  }
+  const guestAccessSecretHash = guestAccessSecret ? crypto.createHash('sha256').update(guestAccessSecret).digest('hex') : null;
+  const canonical = { uid: uid || null, customer: { name, phone, region, city, address }, deliveryMethod, paymentMethod, items, couponCode, guestAccessSecretHash };
   const requestHash = crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
-  return { ...canonical, idempotencyKey, requestHash };
+  return { ...canonical, guestAccessSecret, idempotencyKey, requestHash };
 }
 
 function resolveProductLine(product, item) {
@@ -102,14 +110,14 @@ async function createOrder(deps, input, uid) {
   if (prior.exists) {
     const saved = prior.data();
     if (saved.requestHash !== request.requestHash) return { http: 409, json: { error: 'IDEMPOTENCY_CONFLICT' } };
-    return { http: 200, json: { status: 'existing', orderId: saved.orderId, orderRef: saved.orderRef } };
+    return { http: 200, json: { status: 'existing', orderId: saved.orderId, orderRef: saved.orderRef, guestAccessSecret: request.guestAccessSecret } };
   }
 
   const reservationId = 'inv_' + crypto.randomBytes(16).toString('hex');
   const orderId = crypto.randomBytes(16).toString('hex');
   const orderRef = 'VX-' + crypto.randomBytes(5).toString('hex').toUpperCase();
-  const guestSecret = request.uid ? null : crypto.randomBytes(32).toString('base64url');
-  const guestSecretHash = guestSecret ? crypto.createHash('sha256').update(guestSecret).digest('hex') : null;
+  const guestSecret = request.uid ? null : request.guestAccessSecret;
+  const guestSecretHash = request.guestAccessSecretHash;
   const orderRefDoc = db.collection('orders').doc(orderId);
   const accessRef = db.collection('orderAccess').doc(orderId);
   const reservationRef = db.collection('inventoryReservations').doc(reservationId);
@@ -194,7 +202,7 @@ async function createOrder(deps, input, uid) {
 
     if (result.conflict) return { http: 409, json: { error: 'IDEMPOTENCY_CONFLICT' } };
     if (result.duplicate) {
-      return { http: 200, json: { status: 'existing', orderId: result.orderId, orderRef: result.orderRef } };
+      return { http: 200, json: { status: 'existing', orderId: result.orderId, orderRef: result.orderRef, guestAccessSecret: request.guestAccessSecret } };
     }
     return {
       http: 201,
@@ -213,7 +221,7 @@ async function createOrder(deps, input, uid) {
       const committed = await idempotencyRef.get();
       if (committed.exists && committed.data().requestHash === request.requestHash) {
         const saved = committed.data();
-        return { http: 200, json: { status: 'existing', orderId: saved.orderId, orderRef: saved.orderRef } };
+        return { http: 200, json: { status: 'existing', orderId: saved.orderId, orderRef: saved.orderRef, guestAccessSecret: request.guestAccessSecret } };
       }
     } catch (readError) {
       // The transaction remains atomic; report a retryable failure below.
@@ -222,7 +230,7 @@ async function createOrder(deps, input, uid) {
       'PRODUCT_NOT_FOUND','PRODUCT_UNAVAILABLE','VARIANT_NOT_FOUND','STOCK_NOT_CONFIGURED',
       'INSUFFICIENT_STOCK','INVALID_PRICE','COUPON_INVALID','COUPON_EXPIRED',
       'COUPON_EXHAUSTED','COUPON_MINIMUM_NOT_MET','INVALID_TOTAL',
-      'EXPRESS_DELIVERY_AREA_RESTRICTED'
+      'EXPRESS_DELIVERY_AREA_RESTRICTED','INVALID_GUEST_ACCESS_SECRET'
     ];
     if (known.includes(e.message)) {
       return { http: e.message === 'INSUFFICIENT_STOCK' ? 409 : 400, json: { error: e.message } };
