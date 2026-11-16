@@ -198,10 +198,16 @@ async function commitReservation(deps, reservationId) {
   return transitionReservation(deps, reservationId, 'COMMITTED');
 }
 
+// Compensating release used only when order creation fails after a hold was made.
+async function cancelReservation(deps, reservationId) {
+  return transitionReservation(deps, reservationId, 'CANCELLED');
+}
+
 module.exports = {
   DEFAULT_RESERVATION_TTL_MS,
   normaliseItems,
   reserveInventory,
   releaseExpiredReservation,
-  commitReservation
+  commitReservation,
+  cancelReservation
 };
