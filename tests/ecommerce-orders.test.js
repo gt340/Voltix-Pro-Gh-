@@ -62,7 +62,8 @@ test('orders: coupon discount is recalculated from server catalogue price', asyn
   const r = await createOrder(deps, baseRequest({ couponCode: 'save10' }), null);
   assert.equal(r.http, 201);
   assert.equal(r.json.totalPesewas, 9000);
-  assert.equal(db.read('coupons/SAVE10').usedCount, 1);
+  assert.equal(db.read('coupons/SAVE10').usedCount, 0);
+  assert.equal(db.read('coupons/SAVE10').reservedUses, 1);
 });
 
 test('orders: coupon last-use limit is enforced', async () => {
