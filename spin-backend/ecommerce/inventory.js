@@ -206,6 +206,8 @@ async function cancelReservation(deps, reservationId) {
 module.exports = {
   DEFAULT_RESERVATION_TTL_MS,
   normaliseItems,
+  getStockTarget,
+  withReservedStock,
   reserveInventory,
   releaseExpiredReservation,
   commitReservation,
