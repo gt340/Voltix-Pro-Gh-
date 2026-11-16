@@ -149,6 +149,66 @@ test('orders: variant checkout uses variant price and variant stock', async () =
   assert.equal(product.variants[1].reservedStock, 0);
 });
 
+test('orders: authenticated referral balance is debited atomically and recorded in pesewas', async () => {
+  const { db, deps } = setup();
+  db.seed('referrers/shopper-1', { code: 'REF123', balance: 30, totalEarned: 30 });
+  const r = await createOrder(deps, baseRequest({ referralCreditPesewas: 2500 }), 'shopper-1');
+  assert.equal(r.http, 201);
+  assert.equal(r.json.totalPesewas, 7500);
+  assert.equal(r.json.referralCreditPesewas, 2500);
+  assert.equal(db.read('orders/' + r.json.orderId).referralCreditPesewas, 2500);
+  assert.equal(db.read('referrers/shopper-1').balance, 5);
+  const ledger = db.read('referralLedger/' + r.json.orderId + '_debit');
+  assert.equal(ledger.type, 'DEBIT');
+  assert.equal(ledger.amountPesewas, 2500);
+  assert.equal(ledger.uid, 'shopper-1');
+});
+
+test('orders: referral balance cannot be used by a guest or another shopper', async () => {
+  const { db, deps } = setup();
+  db.seed('referrers/shopper-1', { code: 'REF123', balance: 30 });
+  const guest = await createOrder(deps, baseRequest({ referralCreditPesewas: 1000 }), null);
+  const other = await createOrder(deps, baseRequest({ referralCreditPesewas: 1000 }), 'shopper-2');
+  assert.equal(guest.http, 401);
+  assert.equal(guest.json.error, 'REFERRAL_AUTH_REQUIRED');
+  assert.equal(other.http, 400);
+  assert.equal(other.json.error, 'REFERRER_ACCOUNT_NOT_FOUND');
+  assert.equal(db.read('referrers/shopper-1').balance, 30);
+});
+
+test('orders: referral debit is idempotent and insufficient balances fail without order creation', async () => {
+  const { db, deps } = setup();
+  db.seed('referrers/shopper-1', { balance: 30 });
+  const request = baseRequest({ referralCreditPesewas: 2500 });
+  const first = await createOrder(deps, request, 'shopper-1');
+  const retry = await createOrder(deps, request, 'shopper-1');
+  assert.equal(first.http, 201);
+  assert.equal(retry.http, 200);
+  assert.equal(retry.json.orderId, first.json.orderId);
+  assert.equal(db.read('referrers/shopper-1').balance, 5);
+  const tooMuch = await createOrder(deps, baseRequest({
+    idempotencyKey: 'checkout_referral_0002', referralCreditPesewas: 6000
+  }), 'shopper-1');
+  assert.equal(tooMuch.http, 409);
+  assert.equal(tooMuch.json.error, 'INSUFFICIENT_REFERRAL_BALANCE');
+  assert.equal(db.read('referrers/shopper-1').balance, 5);
+});
+
+test('orders: concurrent referral checkouts cannot overspend one balance', async () => {
+  const { db, deps } = setup();
+  db.seed('referrers/shopper-1', { balance: 30 });
+  const a = createOrder(deps, baseRequest({
+    idempotencyKey: 'checkout_referral_a001', referralCreditPesewas: 2000
+  }), 'shopper-1');
+  const b = createOrder(deps, baseRequest({
+    idempotencyKey: 'checkout_referral_b001', referralCreditPesewas: 2000
+  }), 'shopper-1');
+  const results = await Promise.all([a, b]);
+  assert.equal(results.filter(x => x.http === 201).length, 1);
+  assert.equal(results.filter(x => x.http === 409).length, 1);
+  assert.equal(db.read('referrers/shopper-1').balance, 10);
+});
+
 test('orders: inactive, malformed-expiry and corrupt-use-count coupons fail closed', async () => {
   for (const [code, coupon] of [
     ['INACTIVE', { type: 'percent', value: 10, active: false }],
