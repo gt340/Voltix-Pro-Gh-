@@ -1,0 +1,24 @@
+name: Spin Backend Security Tests
+
+on:
+  push:
+    branches:
+      - phase2b2/spin-backend-hardening
+  pull_request:
+    paths:
+      - 'spin-backend/**'
+      - '.github/workflows/spin-backend-security.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: spin-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --check server.js
+      - run: npm test
