@@ -189,7 +189,7 @@ async function createOrder(deps, input, uid) {
     };
   } catch (e) {
     await inventory.cancelReservation(deps, reservationId);
-    const known = ['PRODUCT_NOT_FOUND','PRODUCT_UNAVAILABLE','VARIANT_NOT_FOUND','INVALID_PRICE','COUPON_INVALID','COUPON_EXPIRED','COUPON_EXHAUSTED','COUPON_MINIMUM_NOT_MET','INVALID_TOTAL'];
+    const known = ['PRODUCT_NOT_FOUND','PRODUCT_UNAVAILABLE','VARIANT_NOT_FOUND','INVALID_PRICE','COUPON_INVALID','COUPON_EXPIRED','COUPON_EXHAUSTED','COUPON_MINIMUM_NOT_MET','INVALID_TOTAL','EXPRESS_DELIVERY_AREA_RESTRICTED'];
     if (known.includes(e.message)) return { http: 400, json: { error: e.message } };
     return { http: 500, json: { error: 'ORDER_CREATION_FAILED' } };
   }
