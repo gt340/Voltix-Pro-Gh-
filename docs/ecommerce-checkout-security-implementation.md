@@ -97,3 +97,23 @@ Endpoint names are proposed, not yet implemented or exposed.
 WP1 inventory/data model; WP2 trusted order API and idempotency; WP3 referral ledger and atomic debit; WP4 Paystack initialization/verification/webhook integration; WP5 guest tracking; WP6 admin APIs; WP7 frontend migration; WP8 Firestore rules lockdown and legacy migration; WP9 staging acceptance and release report.
 
 Each work package must include code review, automated tests, and a rollback/recovery note before it is considered complete.
+
+
+## WP2 source audit (implementation not yet started)
+
+### Existing checkout contract confirmed
+- Browser cart line shape is `id`, optional `variantId`, `qty`, plus display-only `name`, `price`, `image`, and `lineId`.
+- The authoritative catalogue is Firestore `products/{productId}`. Existing client code reads `product.price` and, for variants, `variant.price`; the cart's `price` is therefore not authoritative.
+- Variant selection is represented by `variantId`; the checkout request must send product ID, variant ID, and quantity only for pricing/inventory decisions.
+- Existing delivery options are `standard` (GHS 0) and `express` (GHS 35, Accra only). These must be revalidated server-side; the browser's stored `voltixCheckoutSummary` is untrusted.
+- Existing coupon fields used by the UI are `code`, `active`, `expiresAt`, `maxUses`, `usedCount`, `minOrder`, `type` (`fixed` or percentage), and `value`. The backend must re-read the coupon and calculate the discount; browser `discount` and `total` are untrusted.
+- Existing referral balance records are `referrers/{uid}` with `code` and `balance`. The checkout currently looks up by code and debits in a separate browser transaction. WP3 must replace that path with an authenticated UID-bound atomic ledger operation.
+- Existing checkout directly creates a browser Paystack reference, passes a browser-calculated amount, and treats the inline success callback as payment confirmation. This path must be removed during WP4 frontend migration, not merely wrapped with a new order API.
+- Existing order writes are browser-side `VDB.saveOrder`; admin order listing subscribes to the whole `orders` collection. Both require migration before WP8 rules lockdown.
+
+### WP2 implementation gates
+- Catalogue stock values are not provisioned/validated by this source audit. The WP1 inventory module intentionally fails closed when product or selected variant stock is absent. Before enabling checkout integration, run a read-only inventory data audit and classify products with missing, malformed, or negative stock.
+- Product availability/status values need confirmation from actual catalogue documents. The inventory module currently rejects a non-empty status other than `active`; this must be checked against real records before rollout.
+- The backend order API must use the Firebase Admin SDK already initialized in `spin-backend/server.js`, but route handlers must be isolated for unit testing and must not perform provider calls inside Firestore transactions.
+- Existing coupon redemption rules are insufficient as an authority boundary: public reads and anonymous increments are allowed in Firestore. Backend validation and transactional redemption must replace browser writes before rule lockdown.
+- No WP2 order endpoint has been added yet. No live checkout, Paystack payment, production data, or Firestore rules have been changed.
