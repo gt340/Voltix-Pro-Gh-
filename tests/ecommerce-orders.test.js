@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { FakeFirestore } = require('./fake-firestore');
-const { createOrder } = require('../spin-backend/ecommerce/orders');
+const { createOrder, reverseReferralDebit } = require('../spin-backend/ecommerce/orders');
 
 const NOW = 1700000000000;
 const baseRequest = (overrides = {}) => ({
@@ -207,6 +207,30 @@ test('orders: concurrent referral checkouts cannot overspend one balance', async
   assert.equal(results.filter(x => x.http === 201).length, 1);
   assert.equal(results.filter(x => x.http === 409).length, 1);
   assert.equal(db.read('referrers/shopper-1').balance, 10);
+});
+
+test('referrals: reversal restores balance and writes one immutable reversal entry', async () => {
+  const { db, deps } = setup();
+  db.seed('referrers/shopper-1', { balance: 30 });
+  const created = await createOrder(deps, baseRequest({ referralCreditPesewas: 2500 }), 'shopper-1');
+  assert.equal(created.http, 201);
+  const first = await reverseReferralDebit(deps, created.json.orderId, 'Order refund approved');
+  const retry = await reverseReferralDebit(deps, created.json.orderId, 'Order refund approved');
+  assert.equal(first.ok, true);
+  assert.equal(first.amountPesewas, 2500);
+  assert.equal(retry.ok, true);
+  assert.equal(retry.duplicate, true);
+  assert.equal(db.read('referrers/shopper-1').balance, 30);
+  assert.equal(db.read('referralLedger/' + created.json.orderId + '_reversal').type, 'CREDIT_REVERSAL');
+  assert.equal(db.read('orders/' + created.json.orderId).referralCreditReversedPesewas, 2500);
+});
+
+test('referrals: reversal without a debit is a safe no-op', async () => {
+  const { db, deps } = setup();
+  const created = await createOrder(deps, baseRequest(), null);
+  const result = await reverseReferralDebit(deps, created.json.orderId, 'Cancellation');
+  assert.equal(result.ok, true);
+  assert.equal(result.code, 'NO_REFERRAL_DEBIT');
 });
 
 test('orders: inactive, malformed-expiry and corrupt-use-count coupons fail closed', async () => {
