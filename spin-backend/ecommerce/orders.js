@@ -34,7 +34,7 @@ function normaliseRequest(input, uid) {
   const deliveryMethod = input.deliveryMethod || 'standard';
   if (!Object.prototype.hasOwnProperty.call(DELIVERY, deliveryMethod)) throw new Error('INVALID_DELIVERY_METHOD');
   if (deliveryMethod === 'express' && !/accra/i.test(city) && !/greater accra/i.test(region)) {
-    throw new Error('EXPRESS_DELIVERY_ACC​​RA_ONLY');
+    throw new Error('EXPRESS_DELIVERY_AREA_RESTRICTED');
   }
   const paymentMethod = input.paymentMethod;
   if (!['momo', 'card', 'cod'].includes(paymentMethod)) throw new Error('INVALID_PAYMENT_METHOD');
