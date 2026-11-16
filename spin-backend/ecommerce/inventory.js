@@ -17,7 +17,7 @@ function normaliseItems(items) {
     const productId = String(item && item.productId || '').trim();
     const variantId = item && item.variantId != null ? String(item.variantId).trim() : null;
     const quantity = Number(item && item.quantity);
-    if (!productId || productId.length > 128) throw new Error('Invalid productId');
+    if (!productId || productId.length > 128 || productId.includes('/')) throw new Error('Invalid productId');
     if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 99) throw new Error('Quantity must be an integer from 1 to 99');
     if (variantId !== null && (!variantId || variantId.length > 128)) throw new Error('Invalid variantId');
     const key = productId + '::' + (variantId || '');
@@ -44,7 +44,8 @@ function getStockTarget(product, variantId) {
     if (!Number.isSafeInteger(product.stock) || product.stock < 0) {
       throw new Error('STOCK_NOT_CONFIGURED');
     }
-    return { stock: product.stock, reservedStock: Number.isSafeInteger(product.reservedStock) && product.reservedStock >= 0 ? product.reservedStock : 0 };
+    if (product.reservedStock !== undefined && (!Number.isSafeInteger(product.reservedStock) || product.reservedStock < 0)) throw new Error('RESERVED_STOCK_NOT_CONFIGURED');
+    return { stock: product.stock, reservedStock: product.reservedStock === undefined ? 0 : product.reservedStock };
   }
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const index = variants.findIndex(v => String(v.id) === variantId);
@@ -53,9 +54,10 @@ function getStockTarget(product, variantId) {
   if (!Number.isSafeInteger(variant.stock) || variant.stock < 0) {
     throw new Error('STOCK_NOT_CONFIGURED');
   }
+  if (variant.reservedStock !== undefined && (!Number.isSafeInteger(variant.reservedStock) || variant.reservedStock < 0)) throw new Error('RESERVED_STOCK_NOT_CONFIGURED');
   return {
     stock: variant.stock,
-    reservedStock: Number.isSafeInteger(variant.reservedStock) && variant.reservedStock >= 0 ? variant.reservedStock : 0,
+    reservedStock: variant.reservedStock === undefined ? 0 : variant.reservedStock,
     variants,
     index
   };
