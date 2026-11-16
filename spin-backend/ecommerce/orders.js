@@ -49,7 +49,7 @@ function normaliseRequest(input, uid) {
   let guestAccessSecret = null;
   if (!uid) {
     guestAccessSecret = input.guestAccessSecret;
-    if (typeof guestAccessSecret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(guestAccessSecret) || Buffer.from(guestAccessSecret, 'base64url').length !== 32) {
+    if (typeof guestAccessSecret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(guestAccessSecret) || Buffer.from(guestAccessSecret, 'base64url').length !== 32 || Buffer.from(guestAccessSecret, 'base64url').toString('base64url') !== guestAccessSecret) {
       throw new Error('INVALID_GUEST_ACCESS_SECRET');
     }
   }
