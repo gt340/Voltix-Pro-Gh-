@@ -44,6 +44,11 @@ function normaliseRequest(input, uid) {
   }
   if (!Array.isArray(input.items) || input.items.length === 0 || input.items.length > 50) throw new Error('INVALID_ITEMS');
   const items = inventory.normaliseItems(input.items);
+  const referralCreditPesewas = input.referralCreditPesewas == null ? 0 : input.referralCreditPesewas;
+  if (!Number.isSafeInteger(referralCreditPesewas) || referralCreditPesewas < 0 || referralCreditPesewas > 100000000) {
+    throw new Error('INVALID_REFERRAL_CREDIT');
+  }
+  if (referralCreditPesewas > 0 && !uid) throw new Error('REFERRAL_AUTH_REQUIRED');
   const couponCode = input.couponCode == null || input.couponCode === '' ? null : String(input.couponCode).trim().toUpperCase();
   if (couponCode && !/^[A-Z0-9_-]{3,32}$/.test(couponCode)) throw new Error('INVALID_COUPON_CODE');
   let guestAccessSecret = null;
@@ -54,7 +59,7 @@ function normaliseRequest(input, uid) {
     }
   }
   const guestAccessSecretHash = guestAccessSecret ? crypto.createHash('sha256').update(guestAccessSecret).digest('hex') : null;
-  const canonical = { uid: uid || null, customer: { name, phone, region, city, address }, deliveryMethod, paymentMethod, items, couponCode, guestAccessSecretHash };
+  const canonical = { uid: uid || null, customer: { name, phone, region, city, address }, deliveryMethod, paymentMethod, items, couponCode, referralCreditPesewas, guestAccessSecretHash };
   const requestHash = crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
   return { ...canonical, guestAccessSecret, idempotencyKey, requestHash };
 }
@@ -134,6 +139,12 @@ async function createOrder(deps, input, uid) {
   const accessRef = db.collection('orderAccess').doc(orderId);
   const reservationRef = db.collection('inventoryReservations').doc(reservationId);
   const couponRef = request.couponCode ? db.collection('coupons').doc(request.couponCode) : null;
+  const referrerRef = request.referralCreditPesewas > 0
+    ? db.collection('referrers').doc(request.uid)
+    : null;
+  const referralDebitRef = request.referralCreditPesewas > 0
+    ? db.collection('referralLedger').doc(orderId + '_debit')
+    : null;
 
   try {
     const result = await db.runTransaction(async tx => {
@@ -157,6 +168,7 @@ async function createOrder(deps, input, uid) {
         }
       }
       const couponSnap = couponRef ? await tx.get(couponRef) : null;
+      const referrerSnap = referrerRef ? await tx.get(referrerRef) : null;
 
       const productUpdates = new Map();
       const lines = [];
@@ -177,8 +189,21 @@ async function createOrder(deps, input, uid) {
       const discountPesewas = couponRef
         ? calculateCoupon(couponSnap && couponSnap.exists ? couponSnap.data() : null, subtotalPesewas, now())
         : 0;
-      const totalPesewas = Math.max(0, subtotalPesewas - discountPesewas) + deliveryPesewas;
-      if (!Number.isSafeInteger(totalPesewas)) throw new Error('INVALID_TOTAL');
+      const totalBeforeReferralPesewas = Math.max(0, subtotalPesewas - discountPesewas) + deliveryPesewas;
+      if (!Number.isSafeInteger(totalBeforeReferralPesewas)) throw new Error('INVALID_TOTAL');
+      let referralCreditPesewas = 0;
+      let nextReferralBalancePesewas = null;
+      if (request.referralCreditPesewas > 0) {
+        if (!referrerSnap || !referrerSnap.exists) throw new Error('REFERRER_ACCOUNT_NOT_FOUND');
+        const referrer = referrerSnap.data();
+        const currentBalancePesewas = moneyToPesewas(referrer.balance == null ? 0 : referrer.balance);
+        if (request.referralCreditPesewas > currentBalancePesewas) throw new Error('INSUFFICIENT_REFERRAL_BALANCE');
+        if (request.referralCreditPesewas > totalBeforeReferralPesewas) throw new Error('REFERRAL_CREDIT_EXCEEDS_ORDER');
+        referralCreditPesewas = request.referralCreditPesewas;
+        nextReferralBalancePesewas = currentBalancePesewas - referralCreditPesewas;
+      }
+      const totalPesewas = totalBeforeReferralPesewas - referralCreditPesewas;
+      if (!Number.isSafeInteger(totalPesewas) || totalPesewas < 0) throw new Error('INVALID_TOTAL');
 
       const createdAt = now();
       const reservation = {
@@ -190,7 +215,7 @@ async function createOrder(deps, input, uid) {
       const order = {
         schemaVersion: 1, orderId, orderRef, shopperUid: request.uid,
         customer: request.customer, items: lines,
-        subtotalPesewas, discountPesewas, deliveryPesewas, totalPesewas, currency: 'GHS',
+        subtotalPesewas, discountPesewas, deliveryPesewas, referralCreditPesewas, totalPesewas, currency: 'GHS',
         deliveryMethod: request.deliveryMethod, paymentMethod: request.paymentMethod,
         paymentStatus: 'UNPAID',
         fulfilmentStatus: request.paymentMethod === 'cod' ? 'AWAITING_CONFIRMATION' : 'AWAITING_PAYMENT',
@@ -208,6 +233,15 @@ async function createOrder(deps, input, uid) {
       if (couponRef) {
         tx.set(couponRef, { reservedUses: (Number(couponSnap.data().reservedUses) || 0) + 1 }, { merge: true });
       }
+      if (referrerRef) {
+        tx.set(referrerRef, { balance: nextReferralBalancePesewas / 100 }, { merge: true });
+        tx.set(referralDebitRef, {
+          orderId, uid: request.uid, type: 'DEBIT', status: 'POSTED',
+          amountPesewas: referralCreditPesewas, currency: 'GHS',
+          balanceAfterPesewas: nextReferralBalancePesewas,
+          idempotencyKey: request.idempotencyKey, createdAt
+        });
+      }
       tx.set(idempotencyRef, { requestHash: request.requestHash, orderId, orderRef, createdAt });
       return { duplicate: false, orderId, orderRef, order };
     });
@@ -221,6 +255,7 @@ async function createOrder(deps, input, uid) {
       json: {
         status: 'created', orderId, orderRef,
         totalPesewas: result.order.totalPesewas,
+        referralCreditPesewas: result.order.referralCreditPesewas,
         currency: 'GHS', paymentStatus: result.order.paymentStatus,
         reservationExpiresAt: result.order.reservationExpiresAt,
         guestAccessSecret: guestSecret
@@ -242,10 +277,14 @@ async function createOrder(deps, input, uid) {
       'PRODUCT_NOT_FOUND','PRODUCT_UNAVAILABLE','VARIANT_NOT_FOUND','STOCK_NOT_CONFIGURED','RESERVED_STOCK_NOT_CONFIGURED',
       'INSUFFICIENT_STOCK','INVALID_PRICE','COUPON_INVALID','COUPON_EXPIRED',
       'COUPON_EXHAUSTED','COUPON_MINIMUM_NOT_MET','INVALID_TOTAL',
+      'INVALID_REFERRAL_CREDIT','REFERRER_ACCOUNT_NOT_FOUND','REFERRAL_CREDIT_EXCEEDS_ORDER',
+      'INSUFFICIENT_REFERRAL_BALANCE','REFERRAL_AUTH_REQUIRED',
       'EXPRESS_DELIVERY_AREA_RESTRICTED','INVALID_GUEST_ACCESS_SECRET'
     ];
     if (known.includes(e.message)) {
-      return { http: e.message === 'INSUFFICIENT_STOCK' ? 409 : 400, json: { error: e.message } };
+      const status = e.message === 'INSUFFICIENT_STOCK' || e.message === 'INSUFFICIENT_REFERRAL_BALANCE' ? 409
+        : e.message === 'REFERRAL_AUTH_REQUIRED' ? 401 : 400;
+      return { http: status, json: { error: e.message } };
     }
     return { http: 500, json: { error: 'ORDER_CREATION_FAILED' } };
   }
