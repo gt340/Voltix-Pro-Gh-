@@ -101,7 +101,8 @@ Endpoint names are proposed, not yet implemented or exposed.
 - Idempotency records prevent duplicate logical orders and reject a reused key with a changed request. Guest orders receive a 256-bit random access secret; only its SHA-256 hash is persisted. Authenticated requests may provide a Firebase ID token and are associated with its verified UID.
 - Coupon validation is performed against the server-side coupon document. Capacity is reserved through `reservedUses`, not counted as a completed redemption. A later verified-payment transition must convert the reservation to `usedCount`, and expiry/cancellation processing must release it. That transition and worker are not implemented yet.
 - New orders are explicitly `UNPAID`. COD orders use `AWAITING_CONFIRMATION`; online payments use `AWAITING_PAYMENT`. This API does not initialize Paystack or confirm payment.
-- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules. The tests have not yet been executed in CI or a local runtime.
+- Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity, stock shortage, COD and express-delivery rules, plus a WP1 regression test for immediate compensating reservation cancellation.
+- Added `.github/workflows/ecommerce-security-tests.yml` to run the root regression suite on pushes to this feature branch and pull requests. No GitHub Actions result has been observed yet; current commit status reports only Vercel preview checks.
 
 WP2 remains **partially implemented** until the test suite is executed, the checkout frontend is migrated to this API, reservation/order crash recovery is covered, and payment/coupon transitions are integrated in later work packages.
 
