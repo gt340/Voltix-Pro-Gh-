@@ -31,7 +31,7 @@ test('orders: calculates product total from Firestore, not client price', async 
   assert.equal(db.read('products/pods').reservedStock, 2);
 });
 
-test('orders: guest secret is returned once and only its hash is persisted', async () => {
+test('orders: guest secret is returned and only its hash is persisted', async () => {
   const { db, deps } = setup();
   const r = await createOrder(deps, baseRequest(), null);
   assert.equal(typeof r.json.guestAccessSecret, 'string');
@@ -83,7 +83,7 @@ test('orders: stock shortage rejects checkout', async () => {
   assert.equal(db.read('products/pods').reservedStock, 0);
 });
 
-test('orders: COD remains unpaid and express delivery is limited to Greater Accra', async () => {
+test('orders: COD remains unpaid and express delivery is limited to Accra', async () => {
   const { db, deps } = setup();
   const r = await createOrder(deps, baseRequest({ paymentMethod: 'cod', deliveryMethod: 'express' }), null);
   assert.equal(r.http, 201);
@@ -117,4 +117,34 @@ test('orders: guest secret change under the same idempotency key conflicts', asy
   }), null);
   assert.equal(changedSecret.http, 409);
   assert.equal(db.read('products/pods').reservedStock, 2);
+});
+
+test('orders: concurrent checkouts cannot oversell the final unit', async () => {
+  const { db, deps } = setup();
+  db.seed('products/pods', { name: 'Premium Pods', price: 50, stock: 1, reservedStock: 0, status: 'active' });
+  const a = createOrder(deps, baseRequest({ idempotencyKey: 'checkout_concurrent_001', items: [{ productId: 'pods', quantity: 1 }] }), null);
+  const b = createOrder(deps, baseRequest({ idempotencyKey: 'checkout_concurrent_002', items: [{ productId: 'pods', quantity: 1 }] }), null);
+  const results = await Promise.all([a, b]);
+  assert.equal(results.filter(x => x.http === 201).length, 1);
+  assert.equal(results.filter(x => x.http === 409).length, 1);
+  assert.equal(db.read('products/pods').reservedStock, 1);
+});
+
+test('orders: variant checkout uses variant price and variant stock', async () => {
+  const { db, deps } = setup();
+  db.seed('products/pods', {
+    name: 'Premium Pods', price: 50, stock: null, status: 'active',
+    variants: [
+      { id: 'black', name: 'Black', price: 60, stock: 2, reservedStock: 0 },
+      { id: 'white', name: 'White', price: 55, stock: 1, reservedStock: 0 }
+    ]
+  });
+  const r = await createOrder(deps, baseRequest({
+    items: [{ productId: 'pods', variantId: 'black', quantity: 1 }]
+  }), null);
+  assert.equal(r.http, 201);
+  assert.equal(r.json.totalPesewas, 6000);
+  const product = db.read('products/pods');
+  assert.equal(product.variants[0].reservedStock, 1);
+  assert.equal(product.variants[1].reservedStock, 0);
 });
