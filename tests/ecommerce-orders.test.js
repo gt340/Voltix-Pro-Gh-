@@ -148,3 +148,18 @@ test('orders: variant checkout uses variant price and variant stock', async () =
   assert.equal(product.variants[0].reservedStock, 1);
   assert.equal(product.variants[1].reservedStock, 0);
 });
+
+test('orders: inactive, malformed-expiry and corrupt-use-count coupons fail closed', async () => {
+  for (const [code, coupon] of [
+    ['INACTIVE', { type: 'percent', value: 10, active: false }],
+    ['BADDATE', { type: 'percent', value: 10, active: true, expiresAt: 'not-a-date' }],
+    ['BADCOUNT', { type: 'percent', value: 10, active: true, usedCount: '2' }]
+  ]) {
+    const { db, deps } = setup();
+    db.seed('coupons/' + code, coupon);
+    const r = await createOrder(deps, baseRequest({ couponCode: code }), null);
+    assert.equal(r.http, 400, code);
+    assert.equal(r.json.error, 'COUPON_INVALID', code);
+    assert.equal(db.read('products/pods').reservedStock, 0, code);
+  }
+});
