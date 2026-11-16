@@ -106,28 +106,28 @@ async function createOrder(deps, input, uid) {
   }
 
   const reservationId = 'inv_' + crypto.randomBytes(16).toString('hex');
-  const reserved = await inventory.reserveInventory(deps, { reservationId, items: request.items });
-  if (!reserved.ok) {
-    const status = reserved.code === 'INSUFFICIENT_STOCK' ? 409 : 400;
-    return { http: status, json: { error: reserved.code, productId: reserved.productId || undefined } };
-  }
-
   const orderId = crypto.randomBytes(16).toString('hex');
   const orderRef = 'VX-' + crypto.randomBytes(5).toString('hex').toUpperCase();
   const guestSecret = request.uid ? null : crypto.randomBytes(32).toString('base64url');
   const guestSecretHash = guestSecret ? crypto.createHash('sha256').update(guestSecret).digest('hex') : null;
   const orderRefDoc = db.collection('orders').doc(orderId);
   const accessRef = db.collection('orderAccess').doc(orderId);
+  const reservationRef = db.collection('inventoryReservations').doc(reservationId);
   const couponRef = request.couponCode ? db.collection('coupons').doc(request.couponCode) : null;
 
   try {
     const result = await db.runTransaction(async tx => {
+      // All reads happen before any writes. Inventory, order, coupon capacity and
+      // idempotency are committed together as one Firestore transaction.
       const idemSnap = await tx.get(idempotencyRef);
       if (idemSnap.exists) {
         const existing = idemSnap.data();
         if (existing.requestHash !== request.requestHash) return { conflict: true };
         return { duplicate: true, orderId: existing.orderId, orderRef: existing.orderRef };
       }
+
+      const reservationSnap = await tx.get(reservationRef);
+      if (reservationSnap.exists) throw new Error('RESERVATION_ID_COLLISION');
 
       const productSnaps = new Map();
       for (const item of request.items) {
@@ -138,19 +138,35 @@ async function createOrder(deps, input, uid) {
       }
       const couponSnap = couponRef ? await tx.get(couponRef) : null;
 
-      const lines = request.items.map(item => {
-        const snap = productSnaps.get(item.productId).snap;
-        if (!snap.exists) throw new Error('PRODUCT_NOT_FOUND');
-        return resolveProductLine(snap.data(), item);
-      });
+      const productUpdates = new Map();
+      const lines = [];
+      for (const item of request.items) {
+        const entry = productSnaps.get(item.productId);
+        if (!entry.snap.exists) throw new Error('PRODUCT_NOT_FOUND');
+        let product = productUpdates.get(item.productId) || entry.snap.data();
+        const line = resolveProductLine(product, item);
+        const target = inventory.getStockTarget(product, item.variantId);
+        if (target.stock - target.reservedStock < item.quantity) throw new Error('INSUFFICIENT_STOCK');
+        product = inventory.withReservedStock(product, target, target.reservedStock + item.quantity);
+        productUpdates.set(item.productId, product);
+        lines.push(line);
+      }
+
       const subtotalPesewas = lines.reduce((sum, line) => sum + line.lineTotalPesewas, 0);
       const deliveryPesewas = DELIVERY[request.deliveryMethod].pesewas;
-      const discountPesewas = couponRef ? calculateCoupon(couponSnap && couponSnap.exists ? couponSnap.data() : null, subtotalPesewas, now()) : 0;
+      const discountPesewas = couponRef
+        ? calculateCoupon(couponSnap && couponSnap.exists ? couponSnap.data() : null, subtotalPesewas, now())
+        : 0;
       const totalPesewas = Math.max(0, subtotalPesewas - discountPesewas) + deliveryPesewas;
       if (!Number.isSafeInteger(totalPesewas)) throw new Error('INVALID_TOTAL');
 
       const createdAt = now();
-      const reservation = reserved.reservation;
+      const reservation = {
+        reservationId, orderId, items: request.items,
+        status: 'RESERVED', createdAt,
+        expiresAt: createdAt + inventory.DEFAULT_RESERVATION_TTL_MS,
+        updatedAt: createdAt
+      };
       const order = {
         schemaVersion: 1, orderId, orderRef, shopperUid: request.uid,
         customer: request.customer, items: lines,
@@ -159,22 +175,25 @@ async function createOrder(deps, input, uid) {
         paymentStatus: 'UNPAID',
         fulfilmentStatus: request.paymentMethod === 'cod' ? 'AWAITING_CONFIRMATION' : 'AWAITING_PAYMENT',
         reservationId, reservationExpiresAt: reservation.expiresAt,
-        couponCode: request.couponCode, couponReservationStatus: couponRef ? 'RESERVED' : null, createdAt, updatedAt: createdAt,
-        idempotencyKey: request.idempotencyKey
+        couponCode: request.couponCode, couponReservationStatus: couponRef ? 'RESERVED' : null,
+        createdAt, updatedAt: createdAt, idempotencyKey: request.idempotencyKey
       };
+
+      for (const [productId, product] of productUpdates) {
+        tx.set(productSnaps.get(productId).ref, product, { merge: true });
+      }
+      tx.set(reservationRef, reservation);
       tx.create ? tx.create(orderRefDoc, order) : tx.set(orderRefDoc, order);
       if (guestSecretHash) tx.set(accessRef, { secretHash: guestSecretHash, createdAt, revokedAt: null });
-      if (couponRef) tx.set(couponRef, { reservedUses: (Number(couponSnap.data().reservedUses) || 0) + 1 }, { merge: true });
+      if (couponRef) {
+        tx.set(couponRef, { reservedUses: (Number(couponSnap.data().reservedUses) || 0) + 1 }, { merge: true });
+      }
       tx.set(idempotencyRef, { requestHash: request.requestHash, orderId, orderRef, createdAt });
       return { duplicate: false, orderId, orderRef, order };
     });
 
-    if (result.conflict) {
-      await inventory.cancelReservation(deps, reservationId);
-      return { http: 409, json: { error: 'IDEMPOTENCY_CONFLICT' } };
-    }
+    if (result.conflict) return { http: 409, json: { error: 'IDEMPOTENCY_CONFLICT' } };
     if (result.duplicate) {
-      await inventory.cancelReservation(deps, reservationId);
       return { http: 200, json: { status: 'existing', orderId: result.orderId, orderRef: result.orderRef } };
     }
     return {
@@ -189,8 +208,7 @@ async function createOrder(deps, input, uid) {
     };
   } catch (e) {
     // A transaction may have committed even if the caller observed a transport error.
-    // Re-check the idempotency record before compensating, or we could release stock
-    // for an order that was actually persisted.
+    // Re-check the idempotency record before returning failure.
     try {
       const committed = await idempotencyRef.get();
       if (committed.exists && committed.data().requestHash === request.requestHash) {
@@ -198,11 +216,17 @@ async function createOrder(deps, input, uid) {
         return { http: 200, json: { status: 'existing', orderId: saved.orderId, orderRef: saved.orderRef } };
       }
     } catch (readError) {
-      // Fall through to the reservation's normal expiry if recovery lookup is unavailable.
+      // The transaction remains atomic; report a retryable failure below.
     }
-    await inventory.cancelReservation(deps, reservationId);
-    const known = ['PRODUCT_NOT_FOUND','PRODUCT_UNAVAILABLE','VARIANT_NOT_FOUND','INVALID_PRICE','COUPON_INVALID','COUPON_EXPIRED','COUPON_EXHAUSTED','COUPON_MINIMUM_NOT_MET','INVALID_TOTAL','EXPRESS_DELIVERY_AREA_RESTRICTED'];
-    if (known.includes(e.message)) return { http: 400, json: { error: e.message } };
+    const known = [
+      'PRODUCT_NOT_FOUND','PRODUCT_UNAVAILABLE','VARIANT_NOT_FOUND','STOCK_NOT_CONFIGURED',
+      'INSUFFICIENT_STOCK','INVALID_PRICE','COUPON_INVALID','COUPON_EXPIRED',
+      'COUPON_EXHAUSTED','COUPON_MINIMUM_NOT_MET','INVALID_TOTAL',
+      'EXPRESS_DELIVERY_AREA_RESTRICTED'
+    ];
+    if (known.includes(e.message)) {
+      return { http: e.message === 'INSUFFICIENT_STOCK' ? 409 : 400, json: { error: e.message } };
+    }
     return { http: 500, json: { error: 'ORDER_CREATION_FAILED' } };
   }
 }
