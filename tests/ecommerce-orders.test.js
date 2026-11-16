@@ -7,6 +7,7 @@ const { createOrder } = require('../spin-backend/ecommerce/orders');
 const NOW = 1700000000000;
 const baseRequest = (overrides = {}) => ({
   idempotencyKey: 'checkout_request_0001',
+  guestAccessSecret: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   customer: { name: 'Test Buyer', phone: '0241234567', region: 'Greater Accra', city: 'Accra', address: 'Test Street, Accra' },
   items: [{ productId: 'pods', quantity: 2 }],
   deliveryMethod: 'standard',
@@ -39,12 +40,13 @@ test('orders: guest secret is returned once and only its hash is persisted', asy
   assert.equal(JSON.stringify(access).includes(r.json.guestAccessSecret), false);
 });
 
-test('orders: same idempotency key and payload returns the original order without a second hold', async () => {
+test('orders: same idempotency key and guest secret returns the original order without a second hold', async () => {
   const { db, deps } = setup();
   const first = await createOrder(deps, baseRequest(), null);
   const second = await createOrder(deps, baseRequest(), null);
   assert.equal(second.http, 200);
   assert.equal(second.json.orderId, first.json.orderId);
+  assert.equal(second.json.guestAccessSecret, first.json.guestAccessSecret);
   assert.equal(db.read('products/pods').reservedStock, 2);
 });
 
@@ -95,4 +97,24 @@ test('orders: COD remains unpaid and express delivery is limited to Greater Accr
     deliveryMethod: 'express'
   }), null);
   assert.equal(denied.http, 400);
+});
+
+test('orders: guest access secret is mandatory and must be 256-bit base64url', async () => {
+  const { deps } = setup();
+  const missing = await createOrder(deps, baseRequest({ guestAccessSecret: undefined }), null);
+  const weak = await createOrder(deps, baseRequest({ guestAccessSecret: 'guessable-secret' }), null);
+  assert.equal(missing.http, 400);
+  assert.equal(missing.json.error, 'INVALID_GUEST_ACCESS_SECRET');
+  assert.equal(weak.http, 400);
+  assert.equal(weak.json.error, 'INVALID_GUEST_ACCESS_SECRET');
+});
+
+test('orders: guest secret change under the same idempotency key conflicts', async () => {
+  const { db, deps } = setup();
+  await createOrder(deps, baseRequest(), null);
+  const changedSecret = await createOrder(deps, baseRequest({
+    guestAccessSecret: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+  }), null);
+  assert.equal(changedSecret.http, 409);
+  assert.equal(db.read('products/pods').reservedStock, 2);
 });
