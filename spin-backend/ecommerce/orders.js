@@ -33,7 +33,7 @@ function normaliseRequest(input, uid) {
   const address = cleanText(customer.address, 300, 'address');
   const deliveryMethod = input.deliveryMethod || 'standard';
   if (!Object.prototype.hasOwnProperty.call(DELIVERY, deliveryMethod)) throw new Error('INVALID_DELIVERY_METHOD');
-  if (deliveryMethod === 'express' && !/accra/i.test(city) && !/greater accra/i.test(region)) {
+  if (deliveryMethod === 'express' && !/accra/i.test(city)) {
     throw new Error('EXPRESS_DELIVERY_AREA_RESTRICTED');
   }
   const paymentMethod = input.paymentMethod;
@@ -188,6 +188,18 @@ async function createOrder(deps, input, uid) {
       }
     };
   } catch (e) {
+    // A transaction may have committed even if the caller observed a transport error.
+    // Re-check the idempotency record before compensating, or we could release stock
+    // for an order that was actually persisted.
+    try {
+      const committed = await idempotencyRef.get();
+      if (committed.exists && committed.data().requestHash === request.requestHash) {
+        const saved = committed.data();
+        return { http: 200, json: { status: 'existing', orderId: saved.orderId, orderRef: saved.orderRef } };
+      }
+    } catch (readError) {
+      // Fall through to the reservation's normal expiry if recovery lookup is unavailable.
+    }
     await inventory.cancelReservation(deps, reservationId);
     const known = ['PRODUCT_NOT_FOUND','PRODUCT_UNAVAILABLE','VARIANT_NOT_FOUND','INVALID_PRICE','COUPON_INVALID','COUPON_EXPIRED','COUPON_EXHAUSTED','COUPON_MINIMUM_NOT_MET','INVALID_TOTAL','EXPRESS_DELIVERY_AREA_RESTRICTED'];
     if (known.includes(e.message)) return { http: 400, json: { error: e.message } };
