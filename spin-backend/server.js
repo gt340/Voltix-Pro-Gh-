@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
+const ecommerceOrders = require('./ecommerce/orders');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -40,6 +41,33 @@ const payDeps = {
   paystackSecret: PAYSTACK_SECRET_KEY,
   now: () => Date.now()
 };
+
+// ---------- ECOMMERCE ORDERS (server-authoritative; no payment confirmation here) ----------
+app.post('/api/orders', async (req,res)=>{
+  try{
+    let uid = null;
+    const authHeader = req.headers.authorization || '';
+    if(authHeader){
+      const match = /^Bearer\s+(.+)$/i.exec(authHeader);
+      if(!match) return res.status(401).json({ error:'Invalid authorization header' });
+      try{
+        const decoded = await admin.auth().verifyIdToken(match[1]);
+        uid = decoded.uid;
+      } catch(err){
+        return res.status(401).json({ error:'Invalid or expired identity token' });
+      }
+    }
+    const body = { ...(req.body || {}) };
+    if(!body.idempotencyKey && req.headers['idempotency-key']){
+      body.idempotencyKey = String(req.headers['idempotency-key']);
+    }
+    const result = await ecommerceOrders.createOrder(payDeps, body, uid);
+    return res.status(result.http).json(result.json);
+  } catch(err){
+    console.error('ecommerce order creation failed:', err.message);
+    return res.status(500).json({ error:'Order creation failed' });
+  }
+});
 
 // ---------- EARPOD SPEND TIERS ----------
 const EARPOD_TIERS = [
