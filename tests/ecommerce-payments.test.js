@@ -9,6 +9,7 @@ const { initialisePaystackPayment, verifyPaystackOrderPayment, handlePaystackWeb
 const NOW = 1700000000000;
 const request = (overrides = {}) => ({
   idempotencyKey: 'paystack_order_test_001',
+  guestAccessSecret: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   customer: { name: 'Test Buyer', phone: '0241234567', region: 'Greater Accra', city: 'Accra', address: 'Test Street' },
   items: [{ productId: 'pods', quantity: 2 }],
   deliveryMethod: 'standard', paymentMethod: 'momo', ...overrides
@@ -129,7 +130,7 @@ test('ecommerce payments: amount, currency and order metadata mismatches never c
     const result = await verifyPaystackOrderPayment(deps, {
       orderId: order.json.orderId, reference: initialized.json.reference
     }, 'shopper-1');
-    assert.equal(result.http, 409);
+    assert.equal(result.http, patch.currency ? 400 : 409);
     assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'UNPAID');
     assert.equal(db.read('products/pods').stock, 5);
     assert.equal(db.read('products/pods').reservedStock, 2);
@@ -145,6 +146,9 @@ test('ecommerce payments: a reference cannot be verified against another order',
   } });
   const initialized = await initialisePaystackPayment(deps, {
     orderId: one.json.orderId, email: 'buyer@example.com'
+  }, 'shopper-1');
+  await initialisePaystackPayment(deps, {
+    orderId: two.json.orderId, email: 'buyer@example.com'
   }, 'shopper-1');
   const result = await verifyPaystackOrderPayment(deps, {
     orderId: two.json.orderId, reference: initialized.json.reference
@@ -234,6 +238,7 @@ test('ecommerce payments: invalid webhook signature cannot change order or inven
 
 test('ecommerce payments: COD, missing email and wrong shopper are rejected', async () => {
   const { deps } = setup();
+  deps.paystackInitialize = async value => ({ status: true, data: { reference: value.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'x' } });
   const cod = await create(deps, { paymentMethod: 'cod' }, 'shopper-1');
   const online = await create(deps, { idempotencyKey: 'paystack_order_test_003' }, 'shopper-1');
   assert.equal((await initialisePaystackPayment(deps, { orderId: cod.json.orderId, email: 'buyer@example.com' }, 'shopper-1')).http, 400);
