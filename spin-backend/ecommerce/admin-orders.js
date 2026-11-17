@@ -9,6 +9,52 @@ const NEXT_FULFILMENT = Object.freeze({
   SHIPPED: 'DELIVERED'
 });
 
+const PAGE_SIZE = 50;
+
+function encodeCursor(createdAt, orderId) {
+  return Buffer.from(JSON.stringify({ createdAt, orderId }), 'utf8').toString('base64url');
+}
+
+function decodeCursor(value) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || value.length > 256) throw new Error('INVALID_CURSOR');
+  let parsed;
+  try { parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')); }
+  catch (e) { throw new Error('INVALID_CURSOR'); }
+  if (!parsed || !Number.isSafeInteger(parsed.createdAt) ||
+      typeof parsed.orderId !== 'string' || !ORDER_ID_RE.test(parsed.orderId)) {
+    throw new Error('INVALID_CURSOR');
+  }
+  return parsed;
+}
+
+async function listAdminOrders(deps, input) {
+  let cursor;
+  try { cursor = decodeCursor(input && input.cursor); }
+  catch (e) { return { http: 400, json: { error: 'INVALID_CURSOR' } }; }
+  try {
+    let query = deps.db.collection('orders')
+      .orderBy('createdAt', 'desc')
+      .orderBy('orderId', 'desc');
+    if (cursor) query = query.startAfter(cursor.createdAt, cursor.orderId);
+    const snap = await query.limit(PAGE_SIZE + 1).get();
+    const docs = snap.docs || [];
+    const hasMore = docs.length > PAGE_SIZE;
+    const page = docs.slice(0, PAGE_SIZE);
+    const orders = page.map(doc => publicOrder(doc.data()));
+    const last = page[page.length - 1];
+    return {
+      http: 200,
+      json: {
+        status: 'ok', orders, pageSize: PAGE_SIZE, hasMore,
+        nextCursor: hasMore && last ? encodeCursor(last.data().createdAt, last.data().orderId) : null
+      }
+    };
+  } catch (e) {
+    return { http: 500, json: { error: 'ADMIN_ORDER_LIST_FAILED' } };
+  }
+}
+
 async function getAdminOrder(deps, orderId) {
   if (typeof orderId !== 'string' || !ORDER_ID_RE.test(orderId)) {
     return { http: 400, json: { error: 'INVALID_ORDER_ID' } };
@@ -100,4 +146,4 @@ async function updateFulfilmentStatus(deps, orderId, input, actorUid) {
   }
 }
 
-module.exports = { getAdminOrder, updateFulfilmentStatus, NEXT_FULFILMENT };
+module.exports = { listAdminOrders, getAdminOrder, updateFulfilmentStatus, NEXT_FULFILMENT, PAGE_SIZE, encodeCursor, decodeCursor };
