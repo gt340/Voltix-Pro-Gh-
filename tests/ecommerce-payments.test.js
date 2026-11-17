@@ -225,6 +225,28 @@ test('ecommerce payments: signed Paystack webhook verifies server-side and is id
   assert.equal(db.read('paymentWebhookEvents/' + crypto.createHash('sha256').update(rawBody).digest('hex')).status, 'PROCESSED');
 });
 
+test('ecommerce payments: trusted webhook can settle an authenticated shopper order', async () => {
+  const { db, deps } = setup();
+  const order = await create(deps, {}, 'shopper-1');
+  deps.paystackSecret = 'test_webhook_secret';
+  deps.paystackInitialize = async value => ({ status: true, data: {
+    reference: value.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'x'
+  } });
+  const initialized = await initialisePaystackPayment(deps, {
+    orderId: order.json.orderId, email: 'buyer@example.com'
+  }, 'shopper-1');
+  deps.paystackVerify = async reference => ({ found: true, data: {
+    reference, status: 'success', currency: 'GHS', amount: 10000,
+    metadata: { orderId: order.json.orderId, purpose: 'voltix_ecommerce_order' }
+  } });
+  const rawBody = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: initialized.json.reference } }));
+  const signature = crypto.createHmac('sha512', deps.paystackSecret).update(rawBody).digest('hex');
+  const result = await handlePaystackWebhook(deps, { rawBody, signature });
+  assert.equal(result.http, 200);
+  assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'PAID');
+  assert.equal(db.read('products/pods').stock, 3);
+});
+
 test('ecommerce payments: invalid webhook signature cannot change order or inventory', async () => {
   const { db, deps } = setup();
   const order = await create(deps, {}, 'shopper-1');
