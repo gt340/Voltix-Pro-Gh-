@@ -249,6 +249,7 @@ async function runExpiryWorker(deps, options = {}) {
       if (!orderSnap.exists) { summary.failed++; continue; }
       const order = orderSnap.data();
       if (['PAID', 'PAID_REQUIRES_REVIEW'].includes(order.paymentStatus)) {
+        await deferReservation(deps, doc.id, REVIEW_RETRY_DELAY_MS);
         summary.review++;
         continue;
       }
@@ -256,7 +257,9 @@ async function runExpiryWorker(deps, options = {}) {
       const payment = paymentSnap.exists ? paymentSnap.data() : null;
       const decision = await reconcilePaymentBeforeExpiry(deps, order, payment);
       if (!decision.safeToRelease) {
-        if (decision.reason === 'PAYMENT_SETTLED_OR_REVIEW' || decision.reason === 'PAYMENT_ALREADY_SETTLED_OR_REVIEW') summary.review++;
+        const settled = decision.reason === 'PAYMENT_SETTLED_OR_REVIEW' || decision.reason === 'PAYMENT_ALREADY_SETTLED_OR_REVIEW';
+        await deferReservation(deps, doc.id, settled ? REVIEW_RETRY_DELAY_MS : PAYMENT_RETRY_DELAY_MS);
+        if (settled) summary.review++;
         else summary.pendingPayment++;
         continue;
       }
