@@ -84,6 +84,9 @@ test('expiry worker does not release stock while Paystack status is pending or u
   assert.equal(result.pendingPayment, 1);
   assert.equal(db.read('products/pods').reservedStock, 2);
   assert.equal(db.read('orders/' + created.json.orderId).checkoutStatus, undefined);
+  assert.ok(db.read('inventoryReservations/' + created.order.reservationId).nextReconcileAt > deps.now());
+  const immediateRetry = await runExpiryWorker(deps);
+  assert.equal(immediateRetry.scanned, 0);
 });
 
 test('expiry worker never releases stock after a late successful Paystack charge', async () => {
