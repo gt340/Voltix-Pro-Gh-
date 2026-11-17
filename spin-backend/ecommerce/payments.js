@@ -204,7 +204,7 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   if (!orderSnap.exists || !paymentSnap.exists) return { http: 404, json: { error: 'PAYMENT_NOT_FOUND' } };
   const order = orderSnap.data();
   const payment = paymentSnap.data();
-  if (order.shopperUid && order.shopperUid !== uid) return { http: 403, json: { error: 'ORDER_FORBIDDEN' } };
+  if (!trustedWebhook && order.shopperUid && order.shopperUid !== uid) return { http: 403, json: { error: 'ORDER_FORBIDDEN' } };
   if (!trustedWebhook && !order.shopperUid) {
     const accessSnap = await db.collection('orderAccess').doc(orderId).get();
     if (!accessSnap.exists || !guestSecretMatches(input.guestAccessSecret, accessSnap.data().secretHash)) return { http: 403, json: { error: 'ORDER_FORBIDDEN' } };
