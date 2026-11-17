@@ -55,6 +55,12 @@ async function listAdminOrders(deps, input) {
   }
 }
 
+async function isAdminUid(deps, uid) {
+  if (typeof uid !== 'string' || !uid) return false;
+  const snap = await deps.db.collection('admins').doc(uid).get();
+  return snap.exists;
+}
+
 async function getAdminOrder(deps, orderId) {
   if (typeof orderId !== 'string' || !ORDER_ID_RE.test(orderId)) {
     return { http: 400, json: { error: 'INVALID_ORDER_ID' } };
@@ -146,4 +152,4 @@ async function updateFulfilmentStatus(deps, orderId, input, actorUid) {
   }
 }
 
-module.exports = { listAdminOrders, getAdminOrder, updateFulfilmentStatus, NEXT_FULFILMENT, PAGE_SIZE, encodeCursor, decodeCursor };
+module.exports = { isAdminUid, listAdminOrders, getAdminOrder, updateFulfilmentStatus, NEXT_FULFILMENT, PAGE_SIZE, encodeCursor, decodeCursor };
