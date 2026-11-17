@@ -88,7 +88,7 @@ test('expiry worker does not release stock while Paystack status is pending or u
 
 test('expiry worker never releases stock after a late successful Paystack charge', async () => {
   const { db, deps } = setup();
-  const created = await createExpiredOrder(deps, { couponCode: null, referralCreditPesewas: 0 });
+  const created = await createExpiredOrder(deps, { couponCode: null, referralCreditPesewas: 0 }, false);
   deps.paystackInitialize = async payload => ({ status: true, data: {
     reference: payload.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'test'
   } });
