@@ -53,6 +53,18 @@ test('expiry worker releases abandoned reservation, coupon hold and referral deb
   assert.equal(db.read('referralLedger/' + orderId + '_reversal').amountPesewas, 1000);
 });
 
+test('expiry worker fails closed when referral balance has fractional pesewas', async () => {
+  const { db, deps } = setup();
+  const created = await createExpiredOrder(deps);
+  db.seed('referrers/shopper-1', { balance: 20.001 });
+  const result = await runExpiryWorker(deps);
+  assert.equal(result.failed, 1);
+  assert.equal(db.read('products/pods').reservedStock, 2);
+  assert.equal(db.read('coupons/SAVE10').reservedUses, 1);
+  assert.equal(db.read('inventoryReservations/' + created.order.reservationId).status, 'RESERVED');
+  assert.equal(db.read('referralLedger/' + created.json.orderId + '_reversal'), undefined);
+});
+
 test('expiry worker is idempotent on repeated runs', async () => {
   const { db, deps } = setup();
   const created = await createExpiredOrder(deps);
