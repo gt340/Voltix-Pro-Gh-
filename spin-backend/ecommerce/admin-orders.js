@@ -89,7 +89,7 @@ async function updateFulfilmentStatus(deps, orderId, input, actorUid) {
   if (typeof orderId !== 'string' || !ORDER_ID_RE.test(orderId)) {
     return { http: 400, json: { error: 'INVALID_ORDER_ID' } };
   }
-  if (!Object.prototype.hasOwnProperty.call(NEXT_FULFILMENT, nextStatus)) {
+  if (!Object.values(NEXT_FULFILMENT).includes(nextStatus)) {
     return { http: 400, json: { error: 'INVALID_FULFILMENT_STATUS' } };
   }
   if (typeof actorUid !== 'string' || !actorUid) {
