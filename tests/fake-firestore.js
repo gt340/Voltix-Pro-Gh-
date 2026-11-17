@@ -43,10 +43,30 @@ class FakeFirestore {
 }
 
 class Collection {
-  constructor(db, name) { this.db = db; this.name = name; this.filters = []; }
+  constructor(db, name) {
+    this.db = db; this.name = name; this.filters = [];
+    this.orderBys = []; this.maxDocs = null; this.cursorValues = null;
+  }
   doc(id) { return new DocRef(this.db, this.name, id || 'auto' + (++this.db.autoId)); }
   async add(data) { const r = this.doc(); r._write(data, false); return r; }
-  where(f, op, v) { const c = new Collection(this.db, this.name); c.filters = [...this.filters, [f, op, v]]; return c; }
+  where(f, op, v) {
+    const c = this._copy(); c.filters = [...this.filters, [f, op, v]]; return c;
+  }
+  orderBy(field, direction) {
+    const c = this._copy(); c.orderBys = [...this.orderBys, [field, direction || 'asc']]; return c;
+  }
+  limit(n) {
+    const c = this._copy(); c.maxDocs = n; return c;
+  }
+  startAfter(...values) {
+    const c = this._copy(); c.cursorValues = values; return c;
+  }
+  _copy() {
+    const c = new Collection(this.db, this.name);
+    c.filters = [...this.filters]; c.orderBys = [...this.orderBys];
+    c.maxDocs = this.maxDocs; c.cursorValues = this.cursorValues;
+    return c;
+  }
   async get() {
     const docs = [];
     for (const [path, data] of this.db.store) {
@@ -55,7 +75,33 @@ class Collection {
         docs.push({ id: path.slice(this.name.length + 1), data: () => JSON.parse(JSON.stringify(data)) });
       }
     }
-    return { empty: docs.length === 0, size: docs.length, docs };
+    const compare = (a, b) => {
+      for (const [field, direction] of this.orderBys) {
+        const av = field === '__name__' ? a.id : a.data()[field];
+        const bv = field === '__name__' ? b.id : b.data()[field];
+        if (av === bv) continue;
+        const result = av < bv ? -1 : 1;
+        return direction === 'desc' ? -result : result;
+      }
+      return 0;
+    };
+    if (this.orderBys.length) docs.sort(compare);
+    let page = docs;
+    if (this.cursorValues && this.orderBys.length === this.cursorValues.length) {
+      page = page.filter(doc => {
+        for (let i = 0; i < this.orderBys.length; i++) {
+          const [field, direction] = this.orderBys[i];
+          const actual = field === '__name__' ? doc.id : doc.data()[field];
+          const cursor = this.cursorValues[i];
+          if (actual === cursor) continue;
+          const result = actual < cursor ? -1 : 1;
+          return (direction === 'desc' ? -result : result) > 0;
+        }
+        return false;
+      });
+    }
+    if (Number.isSafeInteger(this.maxDocs)) page = page.slice(0, this.maxDocs);
+    return { empty: page.length === 0, size: page.length, docs: page };
   }
 }
 
