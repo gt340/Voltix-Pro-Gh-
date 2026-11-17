@@ -7,6 +7,7 @@ const payments = require('./payments');
 const ecommerceOrders = require('./ecommerce/orders');
 const ecommercePayments = require('./ecommerce/payments');
 const ecommerceLookup = require('./ecommerce/lookup');
+const ecommerceAdminOrders = require('./ecommerce/admin-orders');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -132,6 +133,41 @@ app.post('/api/orders/lookup', async (req, res) => {
   } catch (err) {
     console.error('ecommerce order lookup failed:', err.message);
     return res.status(500).json({ error: 'Order lookup failed' });
+  }
+});
+
+async function requireEcommerceAdmin(req, res) {
+  const uid = await ecommerceIdentity(req, res);
+  if (uid === false) return false;
+  if (!uid) { res.status(401).json({ error: 'ADMIN_AUTH_REQUIRED' }); return false; }
+  const adminSnap = await db.collection('admins').doc(uid).get();
+  if (!adminSnap.exists) { res.status(403).json({ error: 'ADMIN_FORBIDDEN' }); return false; }
+  return uid;
+}
+
+app.get('/api/admin/orders/:orderId', async (req, res) => {
+  try {
+    const adminUid = await requireEcommerceAdmin(req, res);
+    if (!adminUid) return;
+    const result = await ecommerceAdminOrders.getAdminOrder(payDeps, req.params.orderId);
+    return res.status(result.http).json(result.json);
+  } catch (err) {
+    console.error('admin ecommerce order read failed:', err.message);
+    return res.status(500).json({ error: 'Admin order read failed' });
+  }
+});
+
+app.patch('/api/admin/orders/:orderId/fulfilment', async (req, res) => {
+  try {
+    const adminUid = await requireEcommerceAdmin(req, res);
+    if (!adminUid) return;
+    const result = await ecommerceAdminOrders.updateFulfilmentStatus(
+      payDeps, req.params.orderId, req.body || {}, adminUid
+    );
+    return res.status(result.http).json(result.json);
+  } catch (err) {
+    console.error('admin ecommerce fulfilment update failed:', err.message);
+    return res.status(500).json({ error: 'Admin order update failed' });
   }
 });
 
