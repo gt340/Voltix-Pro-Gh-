@@ -47,7 +47,7 @@ The exact schema and collection names must be reconciled with existing productio
 - `PATCH /api/admin/orders/:orderId/status`: verify admin identity, validate allowed fulfilment transition, and append audit event.
 - Internal reservation expiry/reconciliation worker: release expired holds and reconcile interrupted payment/referral operations. It must be safe under duplicate execution.
 
-`POST /api/orders`, Paystack initialization, payment verification, and the shared signed Paystack webhook dispatcher are implemented on the feature branch. Guest order lookup, admin order APIs, and the expiry/reconciliation worker remain outstanding.
+`POST /api/orders`, Paystack initialization, payment verification, and the shared signed Paystack webhook dispatcher are implemented on the feature branch. Admin order APIs and the expiry/reconciliation worker remain outstanding; the secure guest/authenticated lookup API is now implemented, but the tracking UI still needs migration.
 
 ## State and transaction rules
 
@@ -150,5 +150,14 @@ Each work package must include code review, automated tests, and a rollback/reco
 - Full referral-credit coverage settles without calling Paystack or requiring an email. Partial referral coverage initializes Paystack for only the remaining balance.
 - The existing `/api/paystack-webhook` endpoint now dispatches matching ecommerce payment references to a separate signed-webhook handler while preserving the existing Spin webhook path. Ecommerce webhook receipts are persisted by a SHA-256 payload ID; webhook processing re-verifies the transaction with Paystack rather than trusting webhook amount fields.
 - A successful provider charge that cannot be safely bound to the order or committed to inventory is marked `PAID_REQUIRES_REVIEW`; it is not silently treated as unpaid or fulfilled. Such cases require reconciliation/refund handling.
-- Regression coverage includes server-generated references, exact amount/currency, authenticated and guest authorization, full/partial referral coverage, payment/order binding, inventory and coupon commit, signed/invalid webhooks, duplicate webhook handling, and mismatched successful charges. GitHub Actions run 44165727537 passed 77/77 tests; backend syntax checks also passed. A definitively failed provider attempt is marked `FAILED` so the next checkout attempt receives a fresh server-generated reference.
+- Regression coverage includes server-generated references, exact amount/currency, authenticated and guest authorization, full/partial referral coverage, payment/order binding, inventory and coupon commit, signed/invalid webhooks, duplicate webhook handling, and mismatched successful charges. GitHub Actions run 44166157732 passed 82/82 tests; backend syntax checks also passed. A definitively failed provider attempt is marked `FAILED` so the next checkout attempt receives a fresh server-generated reference.
 - WP4 is **partially implemented and test-validated**, not production-ready. No real Paystack sandbox transaction or staging Firestore emulator/project test has been run. The storefront still uses its legacy client-side Paystack flow and has not been migrated. Expiry/reconciliation, refund automation, and payment operations monitoring remain outstanding.
+
+## WP5 guest order lookup status
+
+- Added `spin-backend/ecommerce/lookup.js` and `POST /api/orders/lookup`.
+- Authenticated orders require the verified Firebase UID that owns the order. Guest orders require the original 256-bit access secret and a timing-safe comparison against the stored SHA-256 hash.
+- Lookup requires the cryptographically random 128-bit `orderId`; order reference, phone number, email, or a guessed short reference cannot authorize access.
+- The API returns a deliberately limited order projection: delivery/customer details, item snapshots, amounts, payment status, fulfilment status, and timestamps. It excludes shopper UID, idempotency key, inventory reservation ID, guest secret hash, Paystack reference/access code, and internal payment metadata.
+- Tests cover correct guest secret, missing/wrong guest secret, authenticated owner access, cross-shopper denial, short-reference/phone non-authorization, unknown/malformed IDs, and sensitive-field exclusion. The full suite passed 82/82 in GitHub Actions run 44166157732.
+- WP5 backend lookup is implemented and test-validated. The current `track-order.html` still searches localStorage and reads order status through broad client-side Firestore queries; the tracking UI and account order history have not been migrated. That frontend migration remains WP7 and must use order ID plus guest secret for guests, never order reference or phone as an authentication factor.
