@@ -226,3 +226,16 @@ The current storefront is not safe to switch to the new API until the operationa
 - A reservation with an unresolved Paystack reference is deliberately retained rather than released. These cases need operational monitoring and manual review; safety is preferred over freeing stock prematurely.
 - Expired reservations are scheduled through `nextReconcileAt`. Ambiguous or pending Paystack results are deferred for five minutes; already-settled/manual-review cases are deferred for one hour. This prevents a small batch of unresolved old payments from monopolizing every worker run. The query uses `status == RESERVED` plus `nextReconcileAt <= now`, ordered by `nextReconcileAt`; create the corresponding Firestore composite index (`status`, `nextReconcileAt`) if required.
 - COD orders currently expire through the same 15-minute reservation policy. COD remains disabled in the migrated checkout until its separate collection and failed-delivery workflow is implemented.
+
+
+## Vercel environment isolation audit — 2026-11-17
+
+Read-only Vercel environment-variable metadata inspection was performed with values kept encrypted (no secrets were decrypted or displayed).
+
+- Project `spin-backend`: `FIREBASE_SERVICE_ACCOUNT` and `PAYSTACK_SECRET_KEY` are currently targeted to both `production` and `preview`. This means preview backend deployments may receive production Firebase and Paystack credentials.
+- Project `voltix-pro-gh`: those same two secret names are targeted to `production` only; no preview target was listed for these variables.
+- No branch-specific Preview overrides were listed for `feature/ecommerce-checkout-security`.
+- This is a confirmed environment-scope configuration risk, not evidence that a preview deployment has used the credentials or performed a production write.
+- Do not run checkout or payment tests against the current preview backend. Do not connect the preview storefront to the production API.
+- Before staging validation, remove the Production credential variables from the Preview target on `spin-backend` while preserving their Production target, then add separate staging Firebase credentials and Paystack test credentials to a dedicated Preview/custom environment. Existing preview deployments may retain the environment snapshot they were built with; inspect and retire/redeploy them after the scope change.
+- These Vercel settings were not changed during this implementation because environment configuration changes require separate explicit approval. Production variables were not decrypted.
