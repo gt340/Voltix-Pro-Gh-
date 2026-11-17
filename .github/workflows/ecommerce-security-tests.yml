@@ -26,6 +26,6 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Check backend syntax
-        run: node --check spin-backend/server.js && node --check spin-backend/ecommerce/payments.js
+        run: node --check spin-backend/server.js && node --check spin-backend/ecommerce/payments.js && node --check spin-backend/ecommerce/expiry-worker.js
       - name: Run regression suite
         run: npm test
