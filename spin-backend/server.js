@@ -8,6 +8,7 @@ const ecommerceOrders = require('./ecommerce/orders');
 const ecommercePayments = require('./ecommerce/payments');
 const ecommerceLookup = require('./ecommerce/lookup');
 const ecommerceAdminOrders = require('./ecommerce/admin-orders');
+const ecommerceExpiryWorker = require('./ecommerce/expiry-worker');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -121,6 +122,27 @@ app.post('/api/orders/:orderId/payments/verify', async (req, res) => {
   } catch (err) {
     console.error('ecommerce Paystack verification failed:', err.message);
     return res.status(500).json({ error: 'Payment verification failed' });
+  }
+});
+
+// ---------- INTERNAL ECOMMERCE EXPIRY WORKER ----------
+// Configure ECOMMERCE_EXPIRY_CRON_SECRET in the backend environment and call
+// this endpoint from a scheduler. No schedule is activated by this code change.
+app.post('/api/internal/ecommerce/expire-reservations', async (req, res) => {
+  const expected = process.env.ECOMMERCE_EXPIRY_CRON_SECRET;
+  const supplied = String(req.headers.authorization || '').replace(/^Bearer\\s+/i, '');
+  if (!expected) return res.status(503).json({ error: 'EXPIRY_WORKER_NOT_CONFIGURED' });
+  if (!ecommerceExpiryWorker.timingSafeSecretEqual(expected, supplied)) {
+    return res.status(401).json({ error: 'UNAUTHORIZED' });
+  }
+  try {
+    const result = await ecommerceExpiryWorker.runExpiryWorker(payDeps, {
+      batchSize: req.body && req.body.batchSize
+    });
+    return res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    console.error('ecommerce expiry worker failed:', err.message);
+    return res.status(500).json({ error: 'EXPIRY_WORKER_FAILED' });
   }
 });
 
