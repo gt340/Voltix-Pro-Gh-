@@ -170,12 +170,10 @@ async function finalizeExpiredOrder(deps, reservationId, reason) {
         }
       }
 
-      for (const [productId, product] of updatedProducts) {
-        tx.set(productDocs.get(productId).ref, product, { merge: true });
-      }
-      if (couponRef && order.couponReservationStatus === 'RESERVED') {
-        tx.set(couponRef, { reservedUses: couponSnap.data().reservedUses - 1 }, { merge: true });
-      }
+      // Validate every compensating financial mutation before queuing ANY writes.
+      // Firestore commits queued writes when a transaction callback returns normally,
+      // even if its return value represents an application-level error.
+      let referralRestore = null;
       if (referrerRef && debitSnap.exists && !reversalSnap.exists) {
         const debit = debitSnap.data();
         const balance = referrerSnap.data().balance == null ? 0 : referrerSnap.data().balance;
@@ -184,6 +182,18 @@ async function finalizeExpiredOrder(deps, reservationId, reason) {
         catch (error) { return { ok: false, code: 'INVALID_REFERRAL_BALANCE' }; }
         const restored = balancePesewas + debit.amountPesewas;
         if (!Number.isSafeInteger(restored)) return { ok: false, code: 'INVALID_REFERRAL_BALANCE' };
+        referralRestore = { debit, restored };
+      }
+
+      // All validation is complete. Only now queue the atomic writes.
+      for (const [productId, product] of updatedProducts) {
+        tx.set(productDocs.get(productId).ref, product, { merge: true });
+      }
+      if (couponRef && order.couponReservationStatus === 'RESERVED') {
+        tx.set(couponRef, { reservedUses: couponSnap.data().reservedUses - 1 }, { merge: true });
+      }
+      if (referralRestore) {
+        const { debit, restored } = referralRestore;
         tx.set(referrerRef, { balance: restored / 100 }, { merge: true });
         tx.set(reversalRef, {
           orderId: reservation.orderId, uid: debit.uid, type: 'CREDIT_REVERSAL',
