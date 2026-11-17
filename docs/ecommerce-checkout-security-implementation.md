@@ -172,3 +172,37 @@ Each work package must include code review, automated tests, and a rollback/reco
 - Admin order detail returns a restricted payment summary for operations but never exposes guest access hashes, guest secrets, access codes, idempotency keys, or inventory reservation IDs.
 - Tests cover server-side admin allowlist lookup, pagination and cursor validation, order detail redaction, paid-order transitions, skipped/duplicate transitions, COD/unpaid denial, audit reasons, and immutable audit actor attribution. GitHub Actions run 44167100702 passed 90/90 tests; backend syntax checks passed.
 - WP6 core admin read and fulfilment APIs are implemented and test-validated. The existing admin UI still reads orders directly from Firestore and must be migrated in WP7 before Firestore order reads/writes are locked down in WP8. No Firestore rules have been changed.
+
+
+## WP7 frontend migration gate — audit result (2026-11-17)
+
+The current storefront is not safe to switch to the new API until the operational dependencies below are closed. The migration is intentionally not started in this commit.
+
+### Confirmed legacy paths that must be removed
+
+- `checkout.html` calculates the payable amount in the browser, creates a Paystack reference in JavaScript, embeds the live public key, and treats the browser's `onSuccess` callback as payment confirmation.
+- `completeOrder()` writes the order directly to Firestore through `VDB.saveOrder()`, deducts referral credit asynchronously through `VDB.spendReferralBalance()`, increments coupon usage asynchronously, stores the order as authoritative in localStorage, and sends an order-confirmed WhatsApp message before server verification.
+- `track-order.html` authenticates tracking by a guessable short reference against localStorage. It also calls `VDB.getOrdersByPhone()`, which currently reads the entire Firestore `orders` collection and filters by phone in the browser.
+- `orders.html` and the admin UI still rely on localStorage and direct Firestore order reads/updates. Those reads and writes must move to the new authenticated APIs before Firestore order rules are tightened.
+
+### Operational blockers before checkout cutover
+
+1. **Reservation expiry worker is missing.** Inventory and coupon holds have a 15-minute expiry timestamp, but no scheduled worker currently releases expired reservations, decrements coupon `reservedUses`, or reverses referral debits. A frontend cutover before this worker exists can strand inventory and referral balance after abandoned checkouts.
+2. **COD lifecycle is not implemented.** COD orders are created as unpaid and `AWAITING_CONFIRMATION`; the paid-order fulfilment API deliberately refuses to advance them. Do not expose COD on the migrated checkout until an explicit confirmation, inventory-commit, collection and failed-delivery policy exists.
+3. **API environment separation is not complete.** The Vercel production project domain is `spin-backend-delta.vercel.app`. Feature-branch pushes have generated READY preview deployments for both linked Vercel projects, but those preview URLs are commit-specific. A feature-preview storefront must not call the production API or touch production Firestore/payment data. Add an explicit staging API configuration and staging Firebase/Paystack credentials before end-to-end preview testing.
+4. **Firebase client identity accessor is not yet exposed through `VDB`.** The frontend needs a method that returns the current Firebase user's UID and fresh ID token without trusting the cached `voltixUser` localStorage profile.
+5. **No real staging integration test has been run.** The 90/90 GitHub Actions result uses the repository's Firestore test double. It proves the Node regression tests and syntax checks pass, not that Firestore transaction semantics, indexes, Firebase Auth, Paystack sandbox or webhook delivery work in staging.
+
+### Next safe implementation sequence
+
+- Implement an idempotent expiry/reconciliation worker with bounded batches, retryable leases and tests for inventory release, coupon hold release, referral debit reversal, duplicate execution and late successful Paystack charges.
+- Define isolated staging API and Firebase/Paystack credentials; do not copy production secrets into preview environments.
+- Expose a minimal Firebase ID-token accessor in `VDB`, then migrate checkout to server-calculated orders and server-side Paystack initialization/verification. Keep COD disabled until its workflow is implemented.
+- Migrate guest tracking to order ID + 256-bit access secret; migrate signed-in order history and admin order operations to the authenticated APIs.
+- Only after staging acceptance, propose Firestore rule lockdown and a separate production release plan.
+
+### CI and preview status
+
+- Latest GitHub Actions run: `44167262862`, commit `61054f5a3ac1c1f6e64420bab5bebe5da5c1c547`, completed successfully: 90 tests passed, 0 failed; backend syntax check passed.
+- Both Vercel checks report success. Branch pushes have produced READY preview deployments; these are preview builds, not production promotion. No merge or production promotion was performed.
+- Feature branch remains 91 commits ahead of `main`, 0 behind. No Firestore rules or production data were changed.
