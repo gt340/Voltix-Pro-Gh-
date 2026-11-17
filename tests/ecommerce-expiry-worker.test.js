@@ -1,7 +1,6 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('crypto');
 const { FakeFirestore } = require('./fake-firestore');
 const { createOrder } = require('../spin-backend/ecommerce/orders');
 const { initialisePaystackPayment } = require('../spin-backend/ecommerce/payments');
@@ -27,11 +26,11 @@ function request(overrides = {}) {
     ...overrides
   };
 }
-async function createExpiredOrder(deps, input = {}) {
+async function createExpiredOrder(deps, input = {}, expireNow = true) {
   const created = await createOrder(deps, request(input), 'shopper-1');
   assert.equal(created.http, 201);
   const order = deps.db.read('orders/' + created.json.orderId);
-  deps.now = () => order.reservationExpiresAt + 1;
+  if (expireNow) deps.now = () => order.reservationExpiresAt + 1;
   return { ...created, order };
 }
 
@@ -68,7 +67,7 @@ test('expiry worker is idempotent on repeated runs', async () => {
 
 test('expiry worker does not release stock while Paystack status is pending or unknown', async () => {
   const { db, deps } = setup();
-  const created = await createExpiredOrder(deps, { couponCode: null, referralCreditPesewas: 0 });
+  const created = await createExpiredOrder(deps, { couponCode: null, referralCreditPesewas: 0 }, false);
   deps.paystackInitialize = async payload => ({ status: true, data: {
     reference: payload.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'test'
   } });
@@ -76,6 +75,7 @@ test('expiry worker does not release stock while Paystack status is pending or u
     orderId: created.json.orderId, email: 'buyer@example.com', guestAccessSecret: created.json.guestAccessSecret
   }, null);
   assert.equal(init.http, 200);
+  deps.now = () => created.order.reservationExpiresAt + 1;
   deps.paystackVerify = async reference => ({ found: true, data: {
     reference, status: 'pending', currency: 'GHS', amount: created.json.totalPesewas,
     metadata: { orderId: created.json.orderId, purpose: 'voltix_ecommerce_order' }
@@ -116,6 +116,7 @@ test('expiry worker releases only after provider confirms a definitive failure',
   await initialisePaystackPayment(deps, {
     orderId: created.json.orderId, email: 'buyer@example.com', guestAccessSecret: created.json.guestAccessSecret
   }, null);
+  deps.now = () => created.order.reservationExpiresAt + 1;
   deps.paystackVerify = async reference => ({ found: true, data: {
     reference, status: 'failed', currency: 'GHS', amount: created.json.totalPesewas,
     metadata: { orderId: created.json.orderId, purpose: 'voltix_ecommerce_order' }
