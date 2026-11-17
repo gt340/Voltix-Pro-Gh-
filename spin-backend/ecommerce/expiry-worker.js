@@ -8,7 +8,6 @@ const ecommercePayments = require('./payments');
 
 const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 100;
-const RETRY_DELAY_MS = 60 * 1000;
 
 function validOrderId(value) {
   return typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
@@ -129,9 +128,13 @@ async function finalizeExpiredOrder(deps, reservationId, reason) {
       const reversalSnap = await tx.get(reversalRef);
       let referrerRef = null;
       let referrerSnap = null;
-      if (debitSnap.exists && !reversalSnap.exists) {
+      if (Number(order.referralCreditPesewas || 0) > 0 && !debitSnap.exists) {
+        return { ok: false, code: 'REFERRAL_DEBIT_MISSING' };
+      }
+      if (debitSnap.exists) {
         const debit = debitSnap.data();
         if (!Number.isSafeInteger(debit.amountPesewas) || debit.amountPesewas <= 0 ||
+            debit.amountPesewas !== order.referralCreditPesewas ||
             typeof debit.uid !== 'string' || debit.uid !== order.shopperUid) {
           return { ok: false, code: 'REFERRAL_LEDGER_INVALID' };
         }
@@ -153,6 +156,9 @@ async function finalizeExpiredOrder(deps, reservationId, reason) {
           inventory.withReservedStock(current, target, target.reservedStock - item.quantity));
       }
 
+      if (couponRef && order.couponReservationStatus !== 'RESERVED') {
+        return { ok: false, code: 'COUPON_RESERVATION_STATE_INVALID' };
+      }
       if (couponRef && order.couponReservationStatus === 'RESERVED') {
         if (!couponSnap || !couponSnap.exists) return { ok: false, code: 'COUPON_RESERVATION_MISSING' };
         const coupon = couponSnap.data();
@@ -256,7 +262,7 @@ async function runExpiryWorker(deps, options = {}) {
 }
 
 module.exports = {
-  DEFAULT_BATCH_SIZE, MAX_BATCH_SIZE, RETRY_DELAY_MS,
+  DEFAULT_BATCH_SIZE, MAX_BATCH_SIZE,
   timingSafeSecretEqual, reconcilePaymentBeforeExpiry,
   finalizeExpiredOrder, runExpiryWorker
 };
