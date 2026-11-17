@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { FakeFirestore } = require('./fake-firestore');
 const { createOrder } = require('../spin-backend/ecommerce/orders');
-const { initialisePaystackPayment } = require('../spin-backend/ecommerce/payments');
+const { initialisePaystackPayment, verifyPaystackOrderPayment } = require('../spin-backend/ecommerce/payments');
 const { runExpiryWorker } = require('../spin-backend/ecommerce/expiry-worker');
 
 const NOW = 1700000000000;
@@ -122,6 +122,39 @@ test('expiry worker never releases stock after a late successful Paystack charge
   assert.equal(order.paymentStatus, 'PAID_REQUIRES_REVIEW');
   assert.equal(db.read('products/pods').stock, 5);
   assert.equal(db.read('products/pods').reservedStock, 2);
+});
+
+test('late success after a previously failed and released reservation is escalated, never fulfilled', async () => {
+  const { db, deps } = setup();
+  const created = await createExpiredOrder(deps, { couponCode: null, referralCreditPesewas: 0 }, false);
+  deps.paystackInitialize = async payload => ({ status: true, data: {
+    reference: payload.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'test'
+  } });
+  await initialisePaystackPayment(deps, {
+    orderId: created.json.orderId, email: 'buyer@example.com', guestAccessSecret: created.json.guestAccessSecret
+  }, 'shopper-1');
+  deps.now = () => created.order.reservationExpiresAt + 1;
+  deps.paystackVerify = async reference => ({ found: true, data: {
+    reference, status: 'failed', currency: 'GHS', amount: created.json.totalPesewas,
+    metadata: { orderId: created.json.orderId, purpose: 'voltix_ecommerce_order' }
+  } });
+  const expiry = await runExpiryWorker(deps);
+  assert.equal(expiry.expired, 1);
+  assert.equal(db.read('products/pods').reservedStock, 0);
+
+  deps.paystackVerify = async reference => ({ found: true, data: {
+    reference, status: 'success', currency: 'GHS', amount: created.json.totalPesewas,
+    metadata: { orderId: created.json.orderId, purpose: 'voltix_ecommerce_order' }
+  } });
+  const late = await verifyPaystackOrderPayment(deps, {
+    orderId: created.json.orderId,
+    reference: db.read('orderPayments/' + created.json.orderId).reference
+  }, null, true);
+  assert.equal(late.http, 409);
+  assert.equal(db.read('orders/' + created.json.orderId).paymentStatus, 'PAID_REQUIRES_REVIEW');
+  assert.equal(db.read('orderPayments/' + created.json.orderId).status, 'PAID_REQUIRES_REVIEW');
+  assert.equal(db.read('products/pods').stock, 5);
+  assert.equal(db.read('products/pods').reservedStock, 0);
 });
 
 test('expiry worker releases only after provider confirms a definitive failure', async () => {
