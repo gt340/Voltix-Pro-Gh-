@@ -356,11 +356,16 @@ app.post('/api/verify-purchase', async (req,res)=>{
 // idempotent credit function as /api/verify-purchase ----------
 app.post('/api/paystack-webhook', async (req,res)=>{
   try{
-    const r = await payments.handleWebhook(payDeps, {
+    const webhookInput = {
       rawBody: req.body,
       signature: req.headers['x-paystack-signature']
-    });
-    res.status(r.http).send(r.text);
+    };
+    const ecommerceResult = await ecommercePayments.handlePaystackWebhook(payDeps, webhookInput);
+    if(ecommerceResult.handled){
+      return res.status(ecommerceResult.http).send(ecommerceResult.text);
+    }
+    const r = await payments.handleWebhook(payDeps, webhookInput);
+    return res.status(r.http).send(r.text);
   } catch(err){
     console.error('Webhook failed:', err.message);
     res.sendStatus(500);
