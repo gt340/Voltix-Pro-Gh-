@@ -95,6 +95,8 @@ test('expiry worker never releases stock after a late successful Paystack charge
   const init = await initialisePaystackPayment(deps, {
     orderId: created.json.orderId, email: 'buyer@example.com', guestAccessSecret: created.json.guestAccessSecret
   }, null);
+  assert.equal(init.http, 200);
+  deps.now = () => created.order.reservationExpiresAt + 1;
   deps.paystackVerify = async reference => ({ found: true, data: {
     reference, status: 'success', currency: 'GHS', amount: created.json.totalPesewas,
     metadata: { orderId: created.json.orderId, purpose: 'voltix_ecommerce_order' }
@@ -109,7 +111,7 @@ test('expiry worker never releases stock after a late successful Paystack charge
 
 test('expiry worker releases only after provider confirms a definitive failure', async () => {
   const { db, deps } = setup();
-  const created = await createExpiredOrder(deps, { couponCode: null, referralCreditPesewas: 0 });
+  const created = await createExpiredOrder(deps, { couponCode: null, referralCreditPesewas: 0 }, false);
   deps.paystackInitialize = async payload => ({ status: true, data: {
     reference: payload.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'test'
   } });
