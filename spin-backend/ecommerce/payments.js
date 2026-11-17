@@ -124,7 +124,7 @@ async function initialisePaystackPayment(deps, input, uid) {
       if (!coupon || !Number.isSafeInteger(coupon.reservedUses) || coupon.reservedUses < 1 ||
           !Number.isSafeInteger(coupon.usedCount) || coupon.usedCount < 0) {
         await markOrderPaymentReview(deps, orderId, 'COUPON_RESERVATION_INVALID');
-      return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } };
+        return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } };
       }
     }
     const committed = await inventory.commitReservation(deps, order.reservationId);
@@ -238,7 +238,8 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
     const coupon = couponSnap.exists ? couponSnap.data() : null;
     if (!coupon || !Number.isSafeInteger(coupon.reservedUses) || coupon.reservedUses < 1 ||
         !Number.isSafeInteger(coupon.usedCount) || coupon.usedCount < 0) {
-      return { http: 409, json: { error: 'COUPON_RESERVATION_REQUIRES_REVIEW' } };
+      await markOrderPaymentReview(deps, orderId, 'COUPON_RESERVATION_INVALID');
+      return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } };
     }
   }
   const committed = await inventory.commitReservation(deps, order.reservationId);
