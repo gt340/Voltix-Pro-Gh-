@@ -145,6 +145,18 @@ async function requireEcommerceAdmin(req, res) {
   return uid;
 }
 
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    const adminUid = await requireEcommerceAdmin(req, res);
+    if (!adminUid) return;
+    const result = await ecommerceAdminOrders.listAdminOrders(payDeps, { cursor: req.query.cursor || null });
+    return res.status(result.http).json(result.json);
+  } catch (err) {
+    console.error('admin ecommerce order list failed:', err.message);
+    return res.status(500).json({ error: 'Admin order list failed' });
+  }
+});
+
 app.get('/api/admin/orders/:orderId', async (req, res) => {
   try {
     const adminUid = await requireEcommerceAdmin(req, res);
