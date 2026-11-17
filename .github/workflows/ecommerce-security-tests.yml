@@ -25,5 +25,7 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Check backend syntax
+        run: node --check spin-backend/server.js && node --check spin-backend/ecommerce/payments.js
       - name: Run regression suite
         run: npm test
