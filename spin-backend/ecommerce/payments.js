@@ -15,6 +15,16 @@ function validOrderId(value) {
   return typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
 }
 
+function guestSecretMatches(secret, storedHash) {
+  if (typeof secret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(secret) ||
+      Buffer.from(secret, 'base64url').length !== 32 ||
+      Buffer.from(secret, 'base64url').toString('base64url') !== secret ||
+      typeof storedHash !== 'string' || !/^[a-f0-9]{64}$/.test(storedHash)) return false;
+  const actual = crypto.createHash('sha256').update(secret).digest();
+  const expected = Buffer.from(storedHash, 'hex');
+  return crypto.timingSafeEqual(actual, expected);
+}
+
 async function initialisePaystackPayment(deps, input, uid) {
   const { db, paystackInitialize } = deps;
   const now = deps.now || Date.now;
@@ -37,7 +47,10 @@ async function initialisePaystackPayment(deps, input, uid) {
       if (!orderSnap.exists) return { code: 'ORDER_NOT_FOUND' };
       const order = orderSnap.data();
       if (order.shopperUid && order.shopperUid !== uid) return { code: 'ORDER_FORBIDDEN' };
-      if (!order.shopperUid && !input.guestAccessSecret) return { code: 'GUEST_SECRET_REQUIRED' };
+      if (!order.shopperUid) {
+        const accessSnap = await tx.get(db.collection('orderAccess').doc(orderId));
+        if (!accessSnap.exists || !guestSecretMatches(input.guestAccessSecret, accessSnap.data().secretHash)) return { code: 'ORDER_FORBIDDEN' };
+      }
       if (order.paymentMethod === 'cod') return { code: 'COD_NOT_PAYSTACK' };
       if (order.paymentStatus === 'PAID') return { code: 'ALREADY_PAID' };
       if (!Number.isSafeInteger(order.totalPesewas) || order.totalPesewas < 0) return { code: 'INVALID_ORDER_AMOUNT' };
@@ -146,7 +159,10 @@ async function verifyPaystackOrderPayment(deps, input, uid) {
   const order = orderSnap.data();
   const payment = paymentSnap.data();
   if (order.shopperUid && order.shopperUid !== uid) return { http: 403, json: { error: 'ORDER_FORBIDDEN' } };
-  if (!order.shopperUid && !input.guestAccessSecret) return { http: 403, json: { error: 'GUEST_SECRET_REQUIRED' } };
+  if (!order.shopperUid) {
+    const accessSnap = await db.collection('orderAccess').doc(orderId).get();
+    if (!accessSnap.exists || !guestSecretMatches(input.guestAccessSecret, accessSnap.data().secretHash)) return { http: 403, json: { error: 'ORDER_FORBIDDEN' } };
+  }
   if (payment.reference !== reference) return { http: 409, json: { error: 'REFERENCE_ORDER_MISMATCH' } };
   if (payment.status === 'SUCCESS') return { http: 200, json: { status: 'paid', orderId } };
   if (typeof paystackVerify !== 'function') return { http: 503, json: { error: 'PAYMENT_PROVIDER_UNAVAILABLE' } };
@@ -180,6 +196,8 @@ async function verifyPaystackOrderPayment(deps, input, uid) {
   await db.runTransaction(async tx => {
     const freshOrder = await tx.get(orderRef);
     const freshPayment = await tx.get(paymentRef);
+    const couponRef = order.couponCode ? db.collection('coupons').doc(order.couponCode) : null;
+    const couponSnap = couponRef ? await tx.get(couponRef) : null;
     if (!freshOrder.exists || !freshPayment.exists) throw new Error('PAYMENT_RECORD_MISSING');
     if (freshPayment.data().status === 'SUCCESS') return;
     if (freshPayment.data().reference !== reference) throw new Error('PAYMENT_REFERENCE_CHANGED');
@@ -188,13 +206,21 @@ async function verifyPaystackOrderPayment(deps, input, uid) {
       amountPesewas: data.amount, currency: data.currency,
       verifiedAt: now(), updatedAt: now()
     }, { merge: true });
+    if (couponRef) {
+      if (!couponSnap.exists) throw new Error('COUPON_RESERVATION_MISSING');
+      const coupon = couponSnap.data();
+      if (!Number.isSafeInteger(coupon.reservedUses) || coupon.reservedUses < 1 ||
+          !Number.isSafeInteger(coupon.usedCount) || coupon.usedCount < 0) throw new Error('COUPON_COUNTER_INVALID');
+      tx.set(couponRef, { reservedUses: coupon.reservedUses - 1, usedCount: coupon.usedCount + 1 }, { merge: true });
+    }
     tx.set(orderRef, {
       paymentStatus: 'PAID', paidAmountPesewas: data.amount,
       paymentProvider: 'PAYSTACK', paymentReference: reference,
+      couponReservationStatus: couponRef ? 'COMMITTED' : null,
       paidAt: now(), updatedAt: now()
     }, { merge: true });
   });
   return { http: 200, json: { status: 'paid', orderId, amountPesewas: data.amount } };
 }
 
-module.exports = { initialisePaystackPayment, verifyPaystackOrderPayment, validEmail, validOrderId };
+module.exports = { initialisePaystackPayment, verifyPaystackOrderPayment, validEmail, validOrderId, guestSecretMatches };
