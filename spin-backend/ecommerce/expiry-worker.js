@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const inventory = require('./inventory');
 const ecommercePayments = require('./payments');
+const ecommerceOrders = require('./orders');
 
 const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 100;
@@ -177,11 +178,10 @@ async function finalizeExpiredOrder(deps, reservationId, reason) {
       }
       if (referrerRef && debitSnap.exists && !reversalSnap.exists) {
         const debit = debitSnap.data();
-        const balance = Number(referrerSnap.data().balance == null ? 0 : referrerSnap.data().balance);
-        const balancePesewas = Math.round(balance * 100);
-        if (!Number.isSafeInteger(balancePesewas) || balancePesewas < 0) {
-          return { ok: false, code: 'INVALID_REFERRAL_BALANCE' };
-        }
+        const balance = referrerSnap.data().balance == null ? 0 : referrerSnap.data().balance;
+        let balancePesewas;
+        try { balancePesewas = ecommerceOrders.moneyToPesewas(balance); }
+        catch (error) { return { ok: false, code: 'INVALID_REFERRAL_BALANCE' }; }
         const restored = balancePesewas + debit.amountPesewas;
         if (!Number.isSafeInteger(restored)) return { ok: false, code: 'INVALID_REFERRAL_BALANCE' };
         tx.set(referrerRef, { balance: restored / 100 }, { merge: true });
