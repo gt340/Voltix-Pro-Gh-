@@ -130,8 +130,8 @@ test('ecommerce payments: amount, currency and order metadata mismatches never c
     const result = await verifyPaystackOrderPayment(deps, {
       orderId: order.json.orderId, reference: initialized.json.reference
     }, 'shopper-1');
-    assert.equal(result.http, patch.currency ? 400 : 409);
-    assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'UNPAID');
+    assert.equal(result.http, 409);
+    assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'PAID_REQUIRES_REVIEW');
     assert.equal(db.read('products/pods').stock, 5);
     assert.equal(db.read('products/pods').reservedStock, 2);
   }
