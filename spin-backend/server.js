@@ -6,6 +6,7 @@ const axios = require('axios');
 const payments = require('./payments');
 const ecommerceOrders = require('./ecommerce/orders');
 const ecommercePayments = require('./ecommerce/payments');
+const ecommerceLookup = require('./ecommerce/lookup');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -119,6 +120,18 @@ app.post('/api/orders/:orderId/payments/verify', async (req, res) => {
   } catch (err) {
     console.error('ecommerce Paystack verification failed:', err.message);
     return res.status(500).json({ error: 'Payment verification failed' });
+  }
+});
+
+app.post('/api/orders/lookup', async (req, res) => {
+  try {
+    const uid = await ecommerceIdentity(req, res);
+    if (uid === false) return;
+    const result = await ecommerceLookup.lookupOrder(payDeps, req.body || {}, uid);
+    return res.status(result.http).json(result.json);
+  } catch (err) {
+    console.error('ecommerce order lookup failed:', err.message);
+    return res.status(500).json({ error: 'Order lookup failed' });
   }
 });
 
