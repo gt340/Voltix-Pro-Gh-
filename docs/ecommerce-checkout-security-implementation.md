@@ -47,7 +47,7 @@ The exact schema and collection names must be reconciled with existing productio
 - `PATCH /api/admin/orders/:orderId/status`: verify admin identity, validate allowed fulfilment transition, and append audit event.
 - Internal reservation expiry/reconciliation worker: release expired holds and reconcile interrupted payment/referral operations. It must be safe under duplicate execution.
 
-`POST /api/orders` is implemented on the feature branch. Remaining endpoints are proposed and not yet implemented.
+`POST /api/orders`, Paystack initialization, payment verification, and the shared signed Paystack webhook dispatcher are implemented on the feature branch. Guest order lookup, admin order APIs, and the expiry/reconciliation worker remain outstanding.
 
 ## State and transaction rules
 
@@ -100,11 +100,11 @@ The exact schema and collection names must be reconciled with existing productio
 - Inventory counters, the reservation record, order, guest access hash, coupon-capacity hold, and idempotency record are now written in one Firestore transaction. Product prices and stock are read in that same transaction; failed transactions leave no partial reservation or order.
 - Idempotency records prevent duplicate logical orders and reject a reused key with a changed request. Guest orders must provide a client-generated canonical 256-bit base64url access secret with the idempotency key; only its SHA-256 hash is persisted. Retrying with the same key and secret returns the same secret in the response without persisting plaintext. Authenticated requests may provide a Firebase ID token and are associated with its verified UID.
 - Coupon validation is performed against the server-side coupon document. Capacity is reserved through `reservedUses`, not counted as a completed redemption. A later verified-payment transition must convert the reservation to `usedCount`, and expiry/cancellation processing must release it. That transition and worker are not implemented yet.
-- New orders are explicitly `UNPAID`. COD orders use `AWAITING_CONFIRMATION`; online payments use `AWAITING_PAYMENT`. This API does not initialize Paystack or confirm payment.
+- New orders are explicitly `UNPAID`. COD orders use `AWAITING_CONFIRMATION`; online payments use `AWAITING_PAYMENT`. `POST /api/orders` does not initialize or confirm payment; the separate ecommerce payment module owns those transitions.
 - Added `tests/ecommerce-orders.test.js` for server-side pricing, guest-secret hashing, idempotency, coupon capacity and malformed coupon metadata, stock shortage, COD and express-delivery rules, concurrent final-unit order creation, and variant-specific pricing/stock. WP1 tests cover reservation lifecycle, concurrent final-unit reservations, immediate cancellation, malformed reserved-stock counters, and invalid product document paths.
 - Added `.github/workflows/ecommerce-security-tests.yml` to run the root regression suite on pushes to this feature branch and pull requests. The suite has executed successfully on commit `9587a4e504dd72883cc578774afde5b0f31c1a81`: 63 tests passed, 0 failed (GitHub Actions run 43964450571).
 
-WP2 backend regression tests are passing, but WP2 remains **partially implemented** until the checkout frontend is migrated to this API and the real Firestore transaction behavior is validated in a staging emulator/project. Paystack initialization/verification and coupon-hold commit/release are intentionally deferred to WP4 and the expiry/reconciliation worker.
+WP2 backend regression tests are passing, but WP2 remains **partially implemented** until the checkout frontend is migrated to this API and the real Firestore transaction behavior is validated in a staging emulator/project. Paystack initialization/verification and coupon-hold commit are implemented in WP4. Coupon-hold release on expired or cancelled orders remains assigned to the expiry/reconciliation worker.
 
 ## Delivery order
 
@@ -140,3 +140,15 @@ Each work package must include code review, automated tests, and a rollback/reco
 - Added `reverseReferralDebit` as a trusted backend primitive. It restores the original debit once, writes a deterministic `_reversal` ledger entry, and records reversal metadata on the order. It is not exposed as a public route and must only be called by a trusted cancellation/refund/expiry workflow after that workflow has established that reversal is authorized.
 - Added tests for authenticated debit, guest rejection, UID ownership, insufficient balance, idempotency, concurrent spending, reversal, and duplicate reversal. GitHub Actions run 43964450571 passed 63/63 tests.
 - WP3 is **partially implemented**, not end-to-end complete: the expiry/reconciliation worker and verified-payment/cancellation workflow do not yet invoke the reversal primitive; ledger Firestore rules and staging Firestore transaction validation remain outstanding. The current storefront still performs its legacy client-side referral debit and has not been migrated.
+
+## WP4 Paystack integration status
+
+- Added `spin-backend/ecommerce/payments.js` and routes `POST /api/orders/:orderId/paystack/initialize` and `POST /api/orders/:orderId/payments/verify`.
+- Initialization reads the server-created order, requires a valid email for provider-funded balances, uses the order's remaining integer-pesewa amount and GHS currency, and generates the Paystack reference on the server. The browser cannot choose the amount or reference. Initialization is lease/idempotency guarded per order.
+- Guest initialization and verification require the original 256-bit guest access secret; the backend compares its SHA-256 hash with `orderAccess/{orderId}` using a timing-safe comparison. Authenticated orders require the matching verified Firebase UID.
+- Verification calls Paystack server-to-server and binds the returned reference, successful status, amount, currency, and metadata (`orderId` plus purpose) to the stored order payment record. It commits the inventory reservation only after verification, then transitions payment and coupon reservation state transactionally.
+- Full referral-credit coverage settles without calling Paystack or requiring an email. Partial referral coverage initializes Paystack for only the remaining balance.
+- The existing `/api/paystack-webhook` endpoint now dispatches matching ecommerce payment references to a separate signed-webhook handler while preserving the existing Spin webhook path. Ecommerce webhook receipts are persisted by a SHA-256 payload ID; webhook processing re-verifies the transaction with Paystack rather than trusting webhook amount fields.
+- A successful provider charge that cannot be safely bound to the order or committed to inventory is marked `PAID_REQUIRES_REVIEW`; it is not silently treated as unpaid or fulfilled. Such cases require reconciliation/refund handling.
+- Regression coverage includes server-generated references, exact amount/currency, authenticated and guest authorization, full/partial referral coverage, payment/order binding, inventory and coupon commit, signed/invalid webhooks, duplicate webhook handling, and mismatched successful charges. GitHub Actions run 44165387613 passed 75/75 tests; backend syntax checks also passed.
+- WP4 is **partially implemented and test-validated**, not production-ready. No real Paystack sandbox transaction or staging Firestore emulator/project test has been run. The storefront still uses its legacy client-side Paystack flow and has not been migrated. Expiry/reconciliation, refund automation, and payment operations monitoring remain outstanding.
