@@ -110,6 +110,32 @@ test('ecommerce payments: verified payment commits inventory and marks order pai
   assert.equal(db.read('inventoryReservations/' + db.read('orders/' + order.json.orderId).reservationId).status, 'COMMITTED');
 });
 
+test('ecommerce payments: definitive failed attempt can be retried with a fresh server reference', async () => {
+  const { db, deps } = setup();
+  const order = await create(deps, {}, 'shopper-1');
+  deps.paystackInitialize = async value => ({ status: true, data: {
+    reference: value.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'x'
+  } });
+  const first = await initialisePaystackPayment(deps, {
+    orderId: order.json.orderId, email: 'buyer@example.com'
+  }, 'shopper-1');
+  deps.paystackVerify = async reference => ({ found: true, data: {
+    reference, status: 'failed', currency: 'GHS', amount: 10000,
+    metadata: { orderId: order.json.orderId, purpose: 'voltix_ecommerce_order' }
+  } });
+  const failed = await verifyPaystackOrderPayment(deps, {
+    orderId: order.json.orderId, reference: first.json.reference
+  }, 'shopper-1');
+  assert.equal(failed.http, 409);
+  assert.equal(db.read('orderPayments/' + order.json.orderId).status, 'FAILED');
+  const second = await initialisePaystackPayment(deps, {
+    orderId: order.json.orderId, email: 'buyer@example.com'
+  }, 'shopper-1');
+  assert.equal(second.http, 200);
+  assert.notEqual(second.json.reference, first.json.reference);
+  assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'UNPAID');
+});
+
 test('ecommerce payments: amount, currency and order metadata mismatches never commit stock', async () => {
   for (const patch of [
     { amount: 9999 }, { currency: 'USD' },
