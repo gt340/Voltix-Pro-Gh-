@@ -165,7 +165,7 @@ test('ecommerce payments: full referral coverage commits without calling Paystac
   let providerCalled = false;
   deps.paystackInitialize = async () => { providerCalled = true; throw new Error('must not call provider'); };
   const result = await initialisePaystackPayment(deps, {
-    orderId: order.json.orderId, email: 'buyer@example.com'
+    orderId: order.json.orderId
   }, 'shopper-1');
   assert.equal(result.http, 200);
   assert.equal(result.json.status, 'paid');
