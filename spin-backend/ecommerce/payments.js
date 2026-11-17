@@ -94,6 +94,14 @@ async function initialisePaystackPayment(deps, input, uid) {
     const orderSnap = await orderRef.get();
     const order = orderSnap.data();
     if (!order || !order.reservationId) return { http: 409, json: { error: 'RESERVATION_MISSING' } };
+    if (order.couponCode) {
+      const couponSnap = await db.collection('coupons').doc(order.couponCode).get();
+      const coupon = couponSnap.exists ? couponSnap.data() : null;
+      if (!coupon || !Number.isSafeInteger(coupon.reservedUses) || coupon.reservedUses < 1 ||
+          !Number.isSafeInteger(coupon.usedCount) || coupon.usedCount < 0) {
+        return { http: 409, json: { error: 'COUPON_RESERVATION_REQUIRES_REVIEW' } };
+      }
+    }
     const committed = await inventory.commitReservation(deps, order.reservationId);
     if (!committed.ok) return { http: 409, json: { error: 'INVENTORY_COMMIT_REQUIRES_REVIEW', detail: committed.code } };
     await db.runTransaction(async tx => {
@@ -192,6 +200,14 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
     return { http: 409, json: { error: 'PAYMENT_ORDER_BINDING_MISMATCH' } };
   }
 
+  if (order.couponCode) {
+    const couponSnap = await db.collection('coupons').doc(order.couponCode).get();
+    const coupon = couponSnap.exists ? couponSnap.data() : null;
+    if (!coupon || !Number.isSafeInteger(coupon.reservedUses) || coupon.reservedUses < 1 ||
+        !Number.isSafeInteger(coupon.usedCount) || coupon.usedCount < 0) {
+      return { http: 409, json: { error: 'COUPON_RESERVATION_REQUIRES_REVIEW' } };
+    }
+  }
   const committed = await inventory.commitReservation(deps, order.reservationId);
   if (!committed.ok) {
     await paymentRef.set({
