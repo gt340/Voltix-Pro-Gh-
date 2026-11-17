@@ -94,7 +94,7 @@ test('expiry worker never releases stock after a late successful Paystack charge
   } });
   const init = await initialisePaystackPayment(deps, {
     orderId: created.json.orderId, email: 'buyer@example.com', guestAccessSecret: created.json.guestAccessSecret
-  }, null);
+  }, 'shopper-1');
   assert.equal(init.http, 200);
   deps.now = () => created.order.reservationExpiresAt + 1;
   deps.paystackVerify = async reference => ({ found: true, data: {
@@ -117,7 +117,7 @@ test('expiry worker releases only after provider confirms a definitive failure',
   } });
   await initialisePaystackPayment(deps, {
     orderId: created.json.orderId, email: 'buyer@example.com', guestAccessSecret: created.json.guestAccessSecret
-  }, null);
+  }, 'shopper-1');
   deps.now = () => created.order.reservationExpiresAt + 1;
   deps.paystackVerify = async reference => ({ found: true, data: {
     reference, status: 'failed', currency: 'GHS', amount: created.json.totalPesewas,
