@@ -214,7 +214,7 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   }
   if (payment.reference !== reference) return { http: 409, json: { error: 'REFERENCE_ORDER_MISMATCH' } };
   if (payment.status === 'SUCCESS') return { http: 200, json: { status: 'paid', orderId } };
-  if (!['INITIALIZED', 'INITIALIZING', 'INIT_FAILED', 'PAID_REQUIRES_REVIEW'].includes(payment.status)) return { http: 409, json: { error: 'PAYMENT_NOT_INITIALIZED' } };
+  if (!['INITIALIZED', 'INITIALIZING', 'INIT_FAILED', 'FAILED', 'PAID_REQUIRES_REVIEW'].includes(payment.status)) return { http: 409, json: { error: 'PAYMENT_NOT_INITIALIZED' } };
   if (typeof paystackVerify !== 'function') return { http: 503, json: { error: 'PAYMENT_PROVIDER_UNAVAILABLE' } };
 
   let result;
