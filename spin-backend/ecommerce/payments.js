@@ -31,7 +31,6 @@ async function initialisePaystackPayment(deps, input, uid) {
   const orderId = input && input.orderId;
   const email = input && typeof input.email === 'string' ? input.email.trim() : '';
   if (!validOrderId(orderId)) return { http: 400, json: { error: 'INVALID_ORDER_ID' } };
-  if (!validEmail(email)) return { http: 400, json: { error: 'VALID_EMAIL_REQUIRED' } };
   if (typeof paystackInitialize !== 'function') return { http: 503, json: { error: 'PAYMENT_PROVIDER_UNAVAILABLE' } };
 
   const orderRef = db.collection('orders').doc(orderId);
@@ -55,6 +54,8 @@ async function initialisePaystackPayment(deps, input, uid) {
       if (order.paymentStatus === 'PAID') return { code: 'ALREADY_PAID' };
       if (!Number.isSafeInteger(order.totalPesewas) || order.totalPesewas < 0) return { code: 'INVALID_ORDER_AMOUNT' };
       if (order.totalPesewas === 0) return { code: order.referralCreditPesewas > 0 ? 'FULLY_COVERED' : 'ZERO_AMOUNT_NOT_REFERRAL' };
+      if (order.paymentStatus !== 'UNPAID') return { code: 'ORDER_NOT_PAYABLE' };
+      if (!validEmail(email)) return { code: 'VALID_EMAIL_REQUIRED' };
 
       const paymentSnap = await tx.get(paymentRef);
       if (paymentSnap.exists) {
@@ -79,7 +80,8 @@ async function initialisePaystackPayment(deps, input, uid) {
   if (decision.code === 'ORDER_NOT_FOUND') return { http: 404, json: { error: decision.code } };
   if (decision.code === 'ORDER_FORBIDDEN' || decision.code === 'GUEST_SECRET_REQUIRED') return { http: 403, json: { error: decision.code } };
   if (decision.code === 'COD_NOT_PAYSTACK') return { http: 400, json: { error: decision.code } };
-  if (decision.code === 'ALREADY_PAID') return { http: 409, json: { error: decision.code } };
+  if (decision.code === 'ALREADY_PAID' || decision.code === 'ORDER_NOT_PAYABLE') return { http: 409, json: { error: decision.code } };
+  if (decision.code === 'VALID_EMAIL_REQUIRED') return { http: 400, json: { error: decision.code } };
   if (decision.code === 'INVALID_ORDER_AMOUNT' || decision.code === 'ZERO_AMOUNT_NOT_REFERRAL') return { http: 409, json: { error: decision.code } };
   if (decision.code === 'IN_PROGRESS') return { http: 409, json: { error: decision.code } };
   if (decision.code === 'EXISTING') {
@@ -183,7 +185,7 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   }
   if (payment.reference !== reference) return { http: 409, json: { error: 'REFERENCE_ORDER_MISMATCH' } };
   if (payment.status === 'SUCCESS') return { http: 200, json: { status: 'paid', orderId } };
-  if (!['INITIALIZED', 'PAID_REQUIRES_REVIEW'].includes(payment.status)) return { http: 409, json: { error: 'PAYMENT_NOT_INITIALIZED' } };
+  if (!['INITIALIZED', 'INITIALIZING', 'PAID_REQUIRES_REVIEW'].includes(payment.status)) return { http: 409, json: { error: 'PAYMENT_NOT_INITIALIZED' } };
   if (typeof paystackVerify !== 'function') return { http: 503, json: { error: 'PAYMENT_PROVIDER_UNAVAILABLE' } };
 
   let result;
@@ -199,6 +201,10 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   if (!metadata || metadata.orderId !== orderId || metadata.purpose !== 'voltix_ecommerce_order') {
     return { http: 409, json: { error: 'PAYMENT_ORDER_BINDING_MISMATCH' } };
   }
+  const latestPayment = await paymentRef.get();
+  if (latestPayment.exists && latestPayment.data().status === 'SUCCESS') return { http: 200, json: { status: 'paid', orderId } };
+  const latestOrder = await orderRef.get();
+  if (latestOrder.exists && latestOrder.data().paymentStatus === 'PAID') return { http: 200, json: { status: 'paid', orderId } };
 
   if (order.couponCode) {
     const couponSnap = await db.collection('coupons').doc(order.couponCode).get();
