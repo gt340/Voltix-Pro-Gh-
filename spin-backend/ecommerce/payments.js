@@ -54,7 +54,7 @@ async function initialisePaystackPayment(deps, input, uid) {
       if (order.paymentMethod === 'cod') return { code: 'COD_NOT_PAYSTACK' };
       if (order.paymentStatus === 'PAID') return { code: 'ALREADY_PAID' };
       if (!Number.isSafeInteger(order.totalPesewas) || order.totalPesewas < 0) return { code: 'INVALID_ORDER_AMOUNT' };
-      if (order.totalPesewas === 0) return { code: 'FULLY_COVERED' };
+      if (order.totalPesewas === 0) return { code: order.referralCreditPesewas > 0 ? 'FULLY_COVERED' : 'ZERO_AMOUNT_NOT_REFERRAL' };
 
       const paymentSnap = await tx.get(paymentRef);
       if (paymentSnap.exists) {
@@ -80,7 +80,7 @@ async function initialisePaystackPayment(deps, input, uid) {
   if (decision.code === 'ORDER_FORBIDDEN' || decision.code === 'GUEST_SECRET_REQUIRED') return { http: 403, json: { error: decision.code } };
   if (decision.code === 'COD_NOT_PAYSTACK') return { http: 400, json: { error: decision.code } };
   if (decision.code === 'ALREADY_PAID') return { http: 409, json: { error: decision.code } };
-  if (decision.code === 'INVALID_ORDER_AMOUNT') return { http: 409, json: { error: decision.code } };
+  if (decision.code === 'INVALID_ORDER_AMOUNT' || decision.code === 'ZERO_AMOUNT_NOT_REFERRAL') return { http: 409, json: { error: decision.code } };
   if (decision.code === 'IN_PROGRESS') return { http: 409, json: { error: decision.code } };
   if (decision.code === 'EXISTING') {
     return { http: 200, json: {
@@ -98,11 +98,21 @@ async function initialisePaystackPayment(deps, input, uid) {
     if (!committed.ok) return { http: 409, json: { error: 'INVENTORY_COMMIT_REQUIRES_REVIEW', detail: committed.code } };
     await db.runTransaction(async tx => {
       const fresh = await tx.get(orderRef);
+      const couponRef = order.couponCode ? db.collection('coupons').doc(order.couponCode) : null;
+      const couponSnap = couponRef ? await tx.get(couponRef) : null;
       if (!fresh.exists) throw new Error('ORDER_NOT_FOUND');
       if (fresh.data().paymentStatus === 'PAID') return;
+      if (couponRef) {
+        if (!couponSnap.exists) throw new Error('COUPON_RESERVATION_MISSING');
+        const coupon = couponSnap.data();
+        if (!Number.isSafeInteger(coupon.reservedUses) || coupon.reservedUses < 1 || !Number.isSafeInteger(coupon.usedCount) || coupon.usedCount < 0) throw new Error('COUPON_COUNTER_INVALID');
+        tx.set(couponRef, { reservedUses: coupon.reservedUses - 1, usedCount: coupon.usedCount + 1 }, { merge: true });
+      }
       tx.set(orderRef, {
         paymentStatus: 'PAID', paymentProvider: 'REFERRAL_CREDIT',
-        paidAmountPesewas: 0, paidAt: now(), updatedAt: now()
+        paidAmountPesewas: 0, paidByReferralPesewas: order.referralCreditPesewas,
+        couponReservationStatus: couponRef ? 'COMMITTED' : null,
+        paidAt: now(), updatedAt: now()
       }, { merge: true });
     });
     return { http: 200, json: { status: 'paid', method: 'referral_credit', amountPesewas: 0 } };
@@ -144,7 +154,7 @@ async function initialisePaystackPayment(deps, input, uid) {
   } };
 }
 
-async function verifyPaystackOrderPayment(deps, input, uid) {
+async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = false) {
   const { db, paystackVerify } = deps;
   const now = deps.now || Date.now;
   const orderId = input && input.orderId;
@@ -159,12 +169,13 @@ async function verifyPaystackOrderPayment(deps, input, uid) {
   const order = orderSnap.data();
   const payment = paymentSnap.data();
   if (order.shopperUid && order.shopperUid !== uid) return { http: 403, json: { error: 'ORDER_FORBIDDEN' } };
-  if (!order.shopperUid) {
+  if (!trustedWebhook && !order.shopperUid) {
     const accessSnap = await db.collection('orderAccess').doc(orderId).get();
     if (!accessSnap.exists || !guestSecretMatches(input.guestAccessSecret, accessSnap.data().secretHash)) return { http: 403, json: { error: 'ORDER_FORBIDDEN' } };
   }
   if (payment.reference !== reference) return { http: 409, json: { error: 'REFERENCE_ORDER_MISMATCH' } };
   if (payment.status === 'SUCCESS') return { http: 200, json: { status: 'paid', orderId } };
+  if (!['INITIALIZED', 'PAID_REQUIRES_REVIEW'].includes(payment.status)) return { http: 409, json: { error: 'PAYMENT_NOT_INITIALIZED' } };
   if (typeof paystackVerify !== 'function') return { http: 503, json: { error: 'PAYMENT_PROVIDER_UNAVAILABLE' } };
 
   let result;
@@ -223,4 +234,46 @@ async function verifyPaystackOrderPayment(deps, input, uid) {
   return { http: 200, json: { status: 'paid', orderId, amountPesewas: data.amount } };
 }
 
-module.exports = { initialisePaystackPayment, verifyPaystackOrderPayment, validEmail, validOrderId, guestSecretMatches };
+function verifyWebhookSignature(rawBody, signature, secret) {
+  if (!secret || !signature || !rawBody) return false;
+  const expected = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(String(signature), 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+async function handlePaystackWebhook(deps, { rawBody, signature }) {
+  if (!verifyWebhookSignature(rawBody, signature, deps.paystackSecret)) {
+    return { handled: true, http: 401, text: 'Invalid signature' };
+  }
+  let event;
+  try { event = JSON.parse(rawBody.toString('utf8')); }
+  catch (e) { return { handled: true, http: 400, text: 'Bad payload' }; }
+  if (!event || event.event !== 'charge.success' || !event.data || typeof event.data.reference !== 'string') {
+    return { handled: true, http: 200, text: 'Ignored' };
+  }
+  const reference = event.data.reference;
+  const matches = await deps.db.collection('orderPayments').where('reference', '==', reference).get();
+  if (!matches || matches.empty) return { handled: false };
+  const paymentDoc = matches.docs[0];
+  const orderId = paymentDoc.id;
+  const receiptId = crypto.createHash('sha256').update(rawBody).digest('hex');
+  const receiptRef = deps.db.collection('paymentWebhookEvents').doc(receiptId);
+  await receiptRef.set({
+    provider: 'PAYSTACK', event: event.event, reference, orderId,
+    status: 'RECEIVED', receivedAt: (deps.now || Date.now)()
+  }, { merge: true });
+  const result = await verifyPaystackOrderPayment(deps, { orderId, reference }, null, true);
+  if (result.transient || result.http >= 500) {
+    await receiptRef.set({ status: 'RETRY', updatedAt: (deps.now || Date.now)() }, { merge: true });
+    return { handled: true, http: 500, text: 'Retry later' };
+  }
+  await receiptRef.set({
+    status: result.http === 200 ? 'PROCESSED' : 'REVIEW',
+    resultCode: result.json && (result.json.error || result.json.status),
+    updatedAt: (deps.now || Date.now)()
+  }, { merge: true });
+  return { handled: true, http: 200, text: 'OK' };
+}
+
+module.exports = { initialisePaystackPayment, verifyPaystackOrderPayment, handlePaystackWebhook, verifyWebhookSignature, validEmail, validOrderId, guestSecretMatches };
