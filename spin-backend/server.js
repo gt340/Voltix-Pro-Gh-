@@ -85,7 +85,7 @@ app.post('/api/orders', async (req,res)=>{
 async function ecommerceIdentity(req, res) {
   const authHeader = req.headers.authorization || '';
   if (!authHeader) return null;
-  const match = /^Bearer\\s+(.+)$/i.exec(authHeader);
+  const match = /^Bearer\s+(.+)$/i.exec(authHeader);
   if (!match) { res.status(401).json({ error: 'Invalid authorization header' }); return false; }
   try {
     const decoded = await admin.auth().verifyIdToken(match[1]);
