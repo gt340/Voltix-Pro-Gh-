@@ -140,8 +140,9 @@ async function requireEcommerceAdmin(req, res) {
   const uid = await ecommerceIdentity(req, res);
   if (uid === false) return false;
   if (!uid) { res.status(401).json({ error: 'ADMIN_AUTH_REQUIRED' }); return false; }
-  const adminSnap = await db.collection('admins').doc(uid).get();
-  if (!adminSnap.exists) { res.status(403).json({ error: 'ADMIN_FORBIDDEN' }); return false; }
+  if (!await ecommerceAdminOrders.isAdminUid(payDeps, uid)) {
+    res.status(403).json({ error: 'ADMIN_FORBIDDEN' }); return false;
+  }
   return uid;
 }
 
