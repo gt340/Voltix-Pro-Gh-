@@ -31,26 +31,47 @@ async function reconcilePaymentBeforeExpiry(deps, order, payment) {
     return { safeToRelease: false, reason: 'PAYMENT_REFERENCE_UNAVAILABLE' };
   }
 
-  // Reuse the same server-to-server verification and binding checks as the webhook.
-  // A verified late success will be marked PAID_REQUIRES_REVIEW because the
-  // reservation is expired; it must never be released or fulfilled automatically.
-  const result = await ecommercePayments.verifyPaystackOrderPayment(
-    deps,
-    { orderId: order.orderId, reference: payment.reference },
-    null,
-    true
-  );
-  const fresh = await deps.db.collection('orderPayments').doc(order.orderId).get();
-  if (fresh.exists && fresh.data().status === 'FAILED') {
+  // Query Paystack directly first. Only a definitive provider "failed" state
+  // permits release. Missing, pending, timeout, or unknown results keep stock held.
+  if (typeof deps.paystackVerify !== 'function') {
+    return { safeToRelease: false, reason: 'PAYMENT_PROVIDER_UNAVAILABLE' };
+  }
+  const providerResult = await deps.paystackVerify(payment.reference);
+  if (!providerResult || !providerResult.found || !providerResult.data) {
+    return { safeToRelease: false, reason: 'PAYMENT_STATUS_AMBIGUOUS' };
+  }
+  const data = providerResult.data;
+  if (data.reference !== payment.reference) {
+    return { safeToRelease: false, reason: 'PAYMENT_REFERENCE_MISMATCH' };
+  }
+  if (data.status === 'failed') {
+    const paymentRef = deps.db.collection('orderPayments').doc(order.orderId);
+    await deps.db.runTransaction(async tx => {
+      const latest = await tx.get(paymentRef);
+      if (latest.exists && latest.data().reference === payment.reference &&
+          !['SUCCESS', 'PAID_REQUIRES_REVIEW'].includes(latest.data().status)) {
+        tx.set(paymentRef, {
+          status: 'FAILED', providerStatus: 'failed', failureCode: 'PAYMENT_NOT_SUCCESSFUL',
+          leaseExpiresAt: 0, updatedAt: (deps.now || Date.now)()
+        }, { merge: true });
+      }
+    });
     return { safeToRelease: true, reason: 'PAYMENT_FAILED' };
   }
+  if (data.status !== 'success') {
+    return { safeToRelease: false, reason: 'PAYMENT_STATUS_AMBIGUOUS' };
+  }
+
+  // A success must pass the same amount/currency/reference/order binding checks.
+  // If its reservation is expired, payment verification marks it for manual review.
+  await ecommercePayments.verifyPaystackOrderPayment(
+    deps, { orderId: order.orderId, reference: payment.reference }, null, true
+  );
+  const fresh = await deps.db.collection('orderPayments').doc(order.orderId).get();
   if (fresh.exists && ['SUCCESS', 'PAID_REQUIRES_REVIEW'].includes(fresh.data().status)) {
     return { safeToRelease: false, reason: 'PAYMENT_SETTLED_OR_REVIEW' };
   }
-  return {
-    safeToRelease: false,
-    reason: result && result.json && result.json.error || 'PAYMENT_STATUS_AMBIGUOUS'
-  };
+  return { safeToRelease: false, reason: 'PAYMENT_SUCCESS_REQUIRES_REVIEW' };
 }
 
 async function finalizeExpiredOrder(deps, reservationId, reason) {
