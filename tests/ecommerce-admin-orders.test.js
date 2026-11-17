@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { FakeFirestore } = require('./fake-firestore');
 const { createOrder } = require('../spin-backend/ecommerce/orders');
-const { listAdminOrders, getAdminOrder, updateFulfilmentStatus } = require('../spin-backend/ecommerce/admin-orders');
+const { isAdminUid, listAdminOrders, getAdminOrder, updateFulfilmentStatus } = require('../spin-backend/ecommerce/admin-orders');
 
 const baseRequest = (overrides = {}) => ({
   idempotencyKey: 'admin_order_test_001',
@@ -28,6 +28,14 @@ async function markPaid(db, orderId, extra = {}) {
   }, { merge: true });
 }
 
+
+test('admin auth: only UIDs with an admins allowlist document pass the server-side gate', async () => {
+  const { db, deps } = setup();
+  db.seed('admins/admin-1', { grantedAt: '2026-01-01T00:00:00Z' });
+  assert.equal(await isAdminUid(deps, 'admin-1'), true);
+  assert.equal(await isAdminUid(deps, 'shopper-1'), false);
+  assert.equal(await isAdminUid(deps, null), false);
+});
 
 test('admin orders: list is bounded and cursor pagination has no duplicates or skipped rows', async () => {
   const { db, deps } = setup();
