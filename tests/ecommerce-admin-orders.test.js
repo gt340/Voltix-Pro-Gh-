@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { FakeFirestore } = require('./fake-firestore');
 const { createOrder } = require('../spin-backend/ecommerce/orders');
-const { getAdminOrder, updateFulfilmentStatus } = require('../spin-backend/ecommerce/admin-orders');
+const { listAdminOrders, getAdminOrder, updateFulfilmentStatus } = require('../spin-backend/ecommerce/admin-orders');
 
 const baseRequest = (overrides = {}) => ({
   idempotencyKey: 'admin_order_test_001',
@@ -27,6 +27,41 @@ async function markPaid(db, orderId, extra = {}) {
     paymentStatus: 'PAID', fulfilmentStatus: 'PROCESSING', paymentProvider: 'PAYSTACK', ...extra
   }, { merge: true });
 }
+
+
+test('admin orders: list is bounded and cursor pagination has no duplicates or skipped rows', async () => {
+  const { db, deps } = setup();
+  for (let i = 1; i <= 55; i++) {
+    const id = i.toString(16).padStart(32, '0');
+    db.seed('orders/' + id, {
+      orderId: id, orderRef: '#'+i, shopperUid: null,
+      customer: { name: 'Buyer '+i, phone: '0241234567', region: 'Greater Accra', city: 'Accra', address: 'Street' },
+      items: [], subtotalPesewas: 1000, discountPesewas: 0,
+      deliveryPesewas: 0, referralCreditPesewas: 0, totalPesewas: 1000,
+      currency: 'GHS', deliveryMethod: 'standard', paymentMethod: 'momo',
+      paymentStatus: 'PAID', fulfilmentStatus: 'PROCESSING', createdAt: i, updatedAt: i
+    });
+  }
+  const first = await listAdminOrders(deps, {});
+  assert.equal(first.http, 200);
+  assert.equal(first.json.orders.length, 50);
+  assert.equal(first.json.hasMore, true);
+  const second = await listAdminOrders(deps, { cursor: first.json.nextCursor });
+  assert.equal(second.http, 200);
+  assert.equal(second.json.orders.length, 5);
+  assert.equal(second.json.hasMore, false);
+  assert.equal(second.json.nextCursor, null);
+  const allIds = [...first.json.orders, ...second.json.orders].map(o => o.orderId);
+  assert.equal(new Set(allIds).size, 55);
+  assert.equal(allIds.length, 55);
+});
+
+test('admin orders: invalid pagination cursor is rejected', async () => {
+  const { deps } = setup();
+  const result = await listAdminOrders(deps, { cursor: 'not-a-cursor' });
+  assert.equal(result.http, 400);
+  assert.equal(result.json.error, 'INVALID_CURSOR');
+});
 
 test('admin orders: only paid orders can advance through valid fulfilment states', async () => {
   const { db, deps } = setup();
