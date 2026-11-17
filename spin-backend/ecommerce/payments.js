@@ -15,6 +15,28 @@ function validOrderId(value) {
   return typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
 }
 
+async function markOrderPaymentReview(deps, orderId, code) {
+  const now = deps.now || Date.now;
+  const orderRef = deps.db.collection('orders').doc(orderId);
+  const paymentRef = deps.db.collection('orderPayments').doc(orderId);
+  await deps.db.runTransaction(async tx => {
+    const orderSnap = await tx.get(orderRef);
+    const paymentSnap = await tx.get(paymentRef);
+    if (paymentSnap.exists && paymentSnap.data().status !== 'SUCCESS') {
+      tx.set(paymentRef, {
+        status: 'PAID_REQUIRES_REVIEW', providerStatus: 'success',
+        failureCode: code, verifiedAt: now(), updatedAt: now()
+      }, { merge: true });
+    }
+    if (orderSnap.exists && orderSnap.data().paymentStatus !== 'PAID') {
+      tx.set(orderRef, {
+        paymentStatus: 'PAID_REQUIRES_REVIEW',
+        paymentReviewCode: code, updatedAt: now()
+      }, { merge: true });
+    }
+  });
+}
+
 function guestSecretMatches(secret, storedHash) {
   if (typeof secret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(secret) ||
       Buffer.from(secret, 'base64url').length !== 32 ||
@@ -101,11 +123,15 @@ async function initialisePaystackPayment(deps, input, uid) {
       const coupon = couponSnap.exists ? couponSnap.data() : null;
       if (!coupon || !Number.isSafeInteger(coupon.reservedUses) || coupon.reservedUses < 1 ||
           !Number.isSafeInteger(coupon.usedCount) || coupon.usedCount < 0) {
-        return { http: 409, json: { error: 'COUPON_RESERVATION_REQUIRES_REVIEW' } };
+        await markOrderPaymentReview(deps, orderId, 'COUPON_RESERVATION_INVALID');
+      return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } };
       }
     }
     const committed = await inventory.commitReservation(deps, order.reservationId);
-    if (!committed.ok) return { http: 409, json: { error: 'INVENTORY_COMMIT_REQUIRES_REVIEW', detail: committed.code } };
+    if (!committed.ok) {
+      await orderRef.set({ paymentStatus: 'PAID_REQUIRES_REVIEW', paymentReviewCode: committed.code, updatedAt: now() }, { merge: true });
+      return { http: 409, json: { error: 'INVENTORY_COMMIT_REQUIRES_REVIEW', detail: committed.code } };
+    }
     await db.runTransaction(async tx => {
       const fresh = await tx.get(orderRef);
       const couponRef = order.couponCode ? db.collection('coupons').doc(order.couponCode) : null;
@@ -193,13 +219,14 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   catch (e) { return { http: 502, transient: true, json: { error: 'PAYMENT_VERIFICATION_UNAVAILABLE' } }; }
   if (!result || !result.found || !result.data) return { http: 400, json: { error: 'PAYMENT_REFERENCE_NOT_FOUND' } };
   const data = result.data;
-  if (data.reference !== reference) return { http: 400, json: { error: 'REFERENCE_MISMATCH' } };
+  if (data.reference !== reference) { await markOrderPaymentReview(deps, orderId, 'REFERENCE_MISMATCH'); return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } }; }
   if (data.status !== 'success') return { http: 409, json: { error: 'PAYMENT_NOT_SUCCESSFUL' } };
-  if (data.currency !== 'GHS') return { http: 400, json: { error: 'PAYMENT_CURRENCY_MISMATCH' } };
-  if (data.amount !== payment.expectedAmountPesewas) return { http: 409, json: { error: 'PAYMENT_AMOUNT_MISMATCH' } };
+  if (data.currency !== 'GHS') { await markOrderPaymentReview(deps, orderId, 'CURRENCY_MISMATCH'); return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } }; }
+  if (data.amount !== payment.expectedAmountPesewas) { await markOrderPaymentReview(deps, orderId, 'AMOUNT_MISMATCH'); return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } }; }
   const metadata = data.metadata;
   if (!metadata || metadata.orderId !== orderId || metadata.purpose !== 'voltix_ecommerce_order') {
-    return { http: 409, json: { error: 'PAYMENT_ORDER_BINDING_MISMATCH' } };
+    await markOrderPaymentReview(deps, orderId, 'ORDER_BINDING_MISMATCH');
+    return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } };
   }
   const latestPayment = await paymentRef.get();
   if (latestPayment.exists && latestPayment.data().status === 'SUCCESS') return { http: 200, json: { status: 'paid', orderId } };
@@ -216,13 +243,7 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   }
   const committed = await inventory.commitReservation(deps, order.reservationId);
   if (!committed.ok) {
-    await paymentRef.set({
-      status: 'PAID_REQUIRES_REVIEW', providerStatus: 'success',
-      verifiedAt: now(), failureCode: committed.code, updatedAt: now()
-    }, { merge: true });
-    await orderRef.set({
-      paymentStatus: 'PAID_REQUIRES_REVIEW', updatedAt: now()
-    }, { merge: true });
+    await markOrderPaymentReview(deps, orderId, committed.code);
     return { http: 409, json: { error: 'PAYMENT_RECEIVED_INVENTORY_REQUIRES_REVIEW' } };
   }
 
