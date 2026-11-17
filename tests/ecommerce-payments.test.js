@@ -1,9 +1,10 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 const { FakeFirestore } = require('./fake-firestore');
 const { createOrder } = require('../spin-backend/ecommerce/orders');
-const { initialisePaystackPayment, verifyPaystackOrderPayment } = require('../spin-backend/ecommerce/payments');
+const { initialisePaystackPayment, verifyPaystackOrderPayment, handlePaystackWebhook } = require('../spin-backend/ecommerce/payments');
 
 const NOW = 1700000000000;
 const request = (overrides = {}) => ({
@@ -150,6 +151,85 @@ test('ecommerce payments: a reference cannot be verified against another order',
   }, 'shopper-1');
   assert.equal(result.http, 409);
   assert.equal(result.json.error, 'REFERENCE_ORDER_MISMATCH');
+});
+
+
+test('ecommerce payments: full referral coverage commits without calling Paystack', async () => {
+  const { db, deps } = setup();
+  db.seed('referrers/shopper-1', { balance: 100 });
+  const order = await create(deps, { referralCreditPesewas: 10000 }, 'shopper-1');
+  let providerCalled = false;
+  deps.paystackInitialize = async () => { providerCalled = true; throw new Error('must not call provider'); };
+  const result = await initialisePaystackPayment(deps, {
+    orderId: order.json.orderId, email: 'buyer@example.com'
+  }, 'shopper-1');
+  assert.equal(result.http, 200);
+  assert.equal(result.json.status, 'paid');
+  assert.equal(providerCalled, false);
+  assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'PAID');
+  assert.equal(db.read('orders/' + order.json.orderId).paymentProvider, 'REFERRAL_CREDIT');
+  assert.equal(db.read('products/pods').stock, 3);
+  assert.equal(db.read('referrers/shopper-1').balance, 0);
+});
+
+test('ecommerce payments: successful payment commits coupon reservation exactly once', async () => {
+  const { db, deps } = setup();
+  db.seed('coupons/SAVE10', { code: 'SAVE10', type: 'percent', value: 10, active: true, usedCount: 0, reservedUses: 0 });
+  const order = await create(deps, { couponCode: 'SAVE10' }, 'shopper-1');
+  deps.paystackInitialize = async value => ({ status: true, data: {
+    reference: value.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'x'
+  } });
+  const initialized = await initialisePaystackPayment(deps, {
+    orderId: order.json.orderId, email: 'buyer@example.com'
+  }, 'shopper-1');
+  deps.paystackVerify = async reference => ({ found: true, data: {
+    reference, status: 'success', currency: 'GHS', amount: 9000,
+    metadata: { orderId: order.json.orderId, purpose: 'voltix_ecommerce_order' }
+  } });
+  const result = await verifyPaystackOrderPayment(deps, {
+    orderId: order.json.orderId, reference: initialized.json.reference
+  }, 'shopper-1');
+  assert.equal(result.http, 200);
+  assert.equal(db.read('coupons/SAVE10').usedCount, 1);
+  assert.equal(db.read('coupons/SAVE10').reservedUses, 0);
+  assert.equal(db.read('orders/' + order.json.orderId).couponReservationStatus, 'COMMITTED');
+});
+
+test('ecommerce payments: signed Paystack webhook verifies server-side and is idempotent', async () => {
+  const { db, deps } = setup();
+  const order = await create(deps, {});
+  deps.paystackSecret = 'test_webhook_secret';
+  deps.paystackInitialize = async value => ({ status: true, data: {
+    reference: value.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'x'
+  } });
+  const initialized = await initialisePaystackPayment(deps, {
+    orderId: order.json.orderId, email: 'buyer@example.com', guestAccessSecret: order.json.guestAccessSecret
+  }, null);
+  deps.paystackVerify = async reference => ({ found: true, data: {
+    reference, status: 'success', currency: 'GHS', amount: 10000,
+    metadata: { orderId: order.json.orderId, purpose: 'voltix_ecommerce_order' }
+  } });
+  const rawBody = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: initialized.json.reference } }));
+  const signature = crypto.createHmac('sha512', deps.paystackSecret).update(rawBody).digest('hex');
+  const first = await handlePaystackWebhook(deps, { rawBody, signature });
+  const second = await handlePaystackWebhook(deps, { rawBody, signature });
+  assert.equal(first.handled, true);
+  assert.equal(first.http, 200);
+  assert.equal(second.http, 200);
+  assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'PAID');
+  assert.equal(db.read('products/pods').stock, 3);
+  assert.equal(db.read('paymentWebhookEvents/' + crypto.createHash('sha256').update(rawBody).digest('hex')).status, 'PROCESSED');
+});
+
+test('ecommerce payments: invalid webhook signature cannot change order or inventory', async () => {
+  const { db, deps } = setup();
+  const order = await create(deps, {}, 'shopper-1');
+  deps.paystackSecret = 'test_webhook_secret';
+  const rawBody = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: 'VOLTIX_0123456789abcdef0123456789abcdef' } }));
+  const result = await handlePaystackWebhook(deps, { rawBody, signature: 'bad' });
+  assert.equal(result.http, 401);
+  assert.equal(db.read('orders/' + order.json.orderId).paymentStatus, 'UNPAID');
+  assert.equal(db.read('products/pods').stock, 5);
 });
 
 test('ecommerce payments: COD, missing email and wrong shopper are rejected', async () => {
