@@ -37,10 +37,11 @@ test('ecommerce payments: Paystack receives server amount, GHS and server-genera
     } };
   };
   const result = await initialisePaystackPayment(deps, {
-    orderId: order.json.orderId, email: 'buyer@example.com'
+    orderId: order.json.orderId, email: 'buyer@example.com', amount: 1, reference: 'CLIENT_REFERENCE'
   }, 'shopper-1');
   assert.equal(result.http, 200);
   assert.equal(payload.amount, 10000);
+  assert.notEqual(payload.reference, 'CLIENT_REFERENCE');
   assert.equal(payload.currency, 'GHS');
   assert.match(payload.reference, /^VOLTIX_[a-f0-9]{32}$/);
   assert.equal(payload.metadata.orderId, order.json.orderId);
