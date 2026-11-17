@@ -220,7 +220,10 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   if (!result || !result.found || !result.data) return { http: 400, json: { error: 'PAYMENT_REFERENCE_NOT_FOUND' } };
   const data = result.data;
   if (data.reference !== reference) { await markOrderPaymentReview(deps, orderId, 'REFERENCE_MISMATCH'); return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } }; }
-  if (data.status !== 'success') return { http: 409, json: { error: 'PAYMENT_NOT_SUCCESSFUL' } };
+  if (data.status !== 'success') {
+    await paymentRef.set({ status: 'FAILED', providerStatus: String(data.status || 'unknown'), failureCode: 'PAYMENT_NOT_SUCCESSFUL', leaseExpiresAt: 0, updatedAt: now() }, { merge: true });
+    return { http: 409, json: { error: 'PAYMENT_NOT_SUCCESSFUL' } };
+  }
   if (data.currency !== 'GHS') { await markOrderPaymentReview(deps, orderId, 'CURRENCY_MISMATCH'); return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } }; }
   if (data.amount !== payment.expectedAmountPesewas) { await markOrderPaymentReview(deps, orderId, 'AMOUNT_MISMATCH'); return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } }; }
   const metadata = data.metadata;
