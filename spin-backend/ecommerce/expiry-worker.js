@@ -8,6 +8,8 @@ const ecommercePayments = require('./payments');
 
 const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 100;
+const PAYMENT_RETRY_DELAY_MS = 5 * 60 * 1000;
+const REVIEW_RETRY_DELAY_MS = 60 * 60 * 1000;
 
 function validOrderId(value) {
   return typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
@@ -212,6 +214,14 @@ async function finalizeExpiredOrder(deps, reservationId, reason) {
   }
 }
 
+async function deferReservation(deps, reservationId, delayMs) {
+  const timestamp = (deps.now || Date.now)();
+  await deps.db.collection('inventoryReservations').doc(reservationId).set({
+    nextReconcileAt: timestamp + delayMs,
+    lastReconciledAt: timestamp
+  }, { merge: true });
+}
+
 async function runExpiryWorker(deps, options = {}) {
   const now = deps.now || Date.now;
   const batchSize = options.batchSize == null ? DEFAULT_BATCH_SIZE : Number(options.batchSize);
@@ -220,7 +230,8 @@ async function runExpiryWorker(deps, options = {}) {
   }
   const snapshot = await deps.db.collection('inventoryReservations')
     .where('status', '==', 'RESERVED')
-    .orderBy('expiresAt', 'asc')
+    .where('nextReconcileAt', '<=', now())
+    .orderBy('nextReconcileAt', 'asc')
     .limit(batchSize)
     .get();
 
@@ -262,7 +273,7 @@ async function runExpiryWorker(deps, options = {}) {
 }
 
 module.exports = {
-  DEFAULT_BATCH_SIZE, MAX_BATCH_SIZE,
+  DEFAULT_BATCH_SIZE, MAX_BATCH_SIZE, PAYMENT_RETRY_DELAY_MS, REVIEW_RETRY_DELAY_MS, deferReservation,
   timingSafeSecretEqual, reconcilePaymentBeforeExpiry,
   finalizeExpiredOrder, runExpiryWorker
 };
