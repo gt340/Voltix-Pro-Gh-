@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const payments = require('./payments');
 const ecommerceOrders = require('./ecommerce/orders');
+const ecommercePayments = require('./ecommerce/payments');
 
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -24,6 +25,15 @@ const SPIN_COST = 20;
 const DAILY_SPIN_CAP = 10;
 
 // ---------- PAYSTACK (server-side verification, shared by verify + webhook) ----------
+async function paystackInitialize(payload){
+  const resp = await axios.post('https://api.paystack.co/transaction/initialize', payload, {
+    headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+    timeout: 15000,
+    validateStatus: s => s < 500
+  });
+  if(resp.status === 401) throw new Error('payment provider rejected credentials');
+  return resp.data;
+}
 async function paystackVerify(reference){
   const resp = await axios.get(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
     headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
@@ -38,6 +48,8 @@ const payDeps = {
   db,
   FieldValue: admin.firestore.FieldValue,
   paystackVerify,
+  paystackInitialize,
+  paystackCallbackUrl: process.env.PAYSTACK_ECOMMERCE_CALLBACK_URL || undefined,
   paystackSecret: PAYSTACK_SECRET_KEY,
   now: () => Date.now()
 };
@@ -66,6 +78,47 @@ app.post('/api/orders', async (req,res)=>{
   } catch(err){
     console.error('ecommerce order creation failed:', err.message);
     return res.status(500).json({ error:'Order creation failed' });
+  }
+});
+
+// ---------- ECOMMERCE PAYSTACK: server-generated reference and server verification ----------
+async function ecommerceIdentity(req, res) {
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader) return null;
+  const match = /^Bearer\\s+(.+)$/i.exec(authHeader);
+  if (!match) { res.status(401).json({ error: 'Invalid authorization header' }); return false; }
+  try {
+    const decoded = await admin.auth().verifyIdToken(match[1]);
+    return decoded.uid;
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid or expired identity token' });
+    return false;
+  }
+}
+
+app.post('/api/orders/:orderId/paystack/initialize', async (req, res) => {
+  try {
+    const uid = await ecommerceIdentity(req, res);
+    if (uid === false) return;
+    const input = { ...(req.body || {}), orderId: req.params.orderId };
+    const result = await ecommercePayments.initialisePaystackPayment(payDeps, input, uid);
+    return res.status(result.http).json(result.json);
+  } catch (err) {
+    console.error('ecommerce Paystack initialization failed:', err.message);
+    return res.status(500).json({ error: 'Payment initialization failed' });
+  }
+});
+
+app.post('/api/orders/:orderId/payments/verify', async (req, res) => {
+  try {
+    const uid = await ecommerceIdentity(req, res);
+    if (uid === false) return;
+    const input = { ...(req.body || {}), orderId: req.params.orderId };
+    const result = await ecommercePayments.verifyPaystackOrderPayment(payDeps, input, uid);
+    return res.status(result.http).json(result.json);
+  } catch (err) {
+    console.error('ecommerce Paystack verification failed:', err.message);
+    return res.status(500).json({ error: 'Payment verification failed' });
   }
 });
 
