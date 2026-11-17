@@ -71,7 +71,15 @@ class Collection {
     const docs = [];
     for (const [path, data] of this.db.store) {
       if (!path.startsWith(this.name + '/')) continue;
-      if (this.filters.every(([f, , v]) => data[f] === v)) {
+      if (this.filters.every(([f, op, v]) => {
+        const actual = data[f];
+        if (op === '==') return actual === v;
+        if (op === '<=') return actual !== undefined && actual <= v;
+        if (op === '<') return actual !== undefined && actual < v;
+        if (op === '>=') return actual !== undefined && actual >= v;
+        if (op === '>') return actual !== undefined && actual > v;
+        return false;
+      })) {
         docs.push({ id: path.slice(this.name.length + 1), data: () => JSON.parse(JSON.stringify(data)) });
       }
     }
