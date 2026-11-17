@@ -130,7 +130,7 @@ app.post('/api/orders/:orderId/payments/verify', async (req, res) => {
 // this endpoint from a scheduler. No schedule is activated by this code change.
 app.post('/api/internal/ecommerce/expire-reservations', async (req, res) => {
   const expected = process.env.ECOMMERCE_EXPIRY_CRON_SECRET;
-  const supplied = String(req.headers.authorization || '').replace(/^Bearer\\s+/i, '');
+  const supplied = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (!expected) return res.status(503).json({ error: 'EXPIRY_WORKER_NOT_CONFIGURED' });
   if (!ecommerceExpiryWorker.timingSafeSecretEqual(expected, supplied)) {
     return res.status(401).json({ error: 'UNAUTHORIZED' });
