@@ -206,3 +206,22 @@ The current storefront is not safe to switch to the new API until the operationa
 - Latest GitHub Actions run: `44167262862`, commit `61054f5a3ac1c1f6e64420bab5bebe5da5c1c547`, completed successfully: 90 tests passed, 0 failed; backend syntax check passed.
 - Both Vercel checks report success. Branch pushes have produced READY preview deployments; these are preview builds, not production promotion. No merge or production promotion was performed.
 - Feature branch remains 91 commits ahead of `main`, 0 behind. No Firestore rules or production data were changed.
+
+
+## WP7 operational dependency — expiry and reconciliation worker
+
+- Added `spin-backend/ecommerce/expiry-worker.js` with a bounded batch size (default 25, maximum 100). It scans active inventory reservations by expiry time and finalizes expired checkout reservations in one Firestore transaction.
+- Finalization releases product/variant reserved stock, releases coupon `reservedUses`, reverses a posted referral debit into an immutable deterministic ledger entry, and marks the order checkout as expired. These effects commit atomically and repeated execution is idempotent.
+- Before release, the worker checks the order's payment record. If no payment was initialized, release is allowed after expiry. If Paystack has a payment reference, the worker queries Paystack server-to-server. Only a definitive provider `failed` status permits release. Missing, pending, timeout, or otherwise ambiguous results retain the stock hold for another reconciliation attempt.
+- A late provider success is passed through the existing amount/currency/reference/order-binding verification. Since the reservation has expired, the existing payment path marks the order `PAID_REQUIRES_REVIEW`; the worker does not release stock or automatically fulfil it.
+- Payment initialization now checks that the order is not expired and that its inventory reservation is still active and within its expiry window. This closes the race where a new Paystack payment could otherwise be initialized after stock had already been released.
+- Added a protected backend endpoint `POST /api/internal/ecommerce/expire-reservations`. It requires `ECOMMERCE_EXPIRY_CRON_SECRET` and accepts a bounded optional `batchSize`. No scheduler has been configured or activated; the endpoint is inert until the secret is set and an external scheduler is configured.
+- Added `tests/ecommerce-expiry-worker.test.js` for abandoned checkout release, coupon and referral compensation, repeat execution, pending payments, late successful charges, and definitive provider failure.
+
+### Worker limitations and release gates
+
+- The worker is code-complete only pending CI and real Firestore staging validation. The repository's fake Firestore regression tests do not prove production transaction contention, query-index availability, or Paystack provider behavior.
+- Configure the required Firestore composite index for `inventoryReservations(status, expiresAt)` if Firestore reports it is needed.
+- Configure a scheduler to call the protected endpoint at a short interval (for example, every minute) only after staging credentials and a monitored scheduler are available. Do not place production Paystack or Firebase credentials in preview deployments.
+- A reservation with an unresolved Paystack reference is deliberately retained rather than released. These cases need operational monitoring and manual review; safety is preferred over freeing stock prematurely.
+- COD orders currently expire through the same 15-minute reservation policy. COD remains disabled in the migrated checkout until its separate collection and failed-delivery workflow is implemented.
