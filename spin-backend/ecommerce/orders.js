@@ -210,6 +210,7 @@ async function createOrder(deps, input, uid) {
         reservationId, orderId, items: request.items,
         status: 'RESERVED', createdAt,
         expiresAt: createdAt + inventory.DEFAULT_RESERVATION_TTL_MS,
+        nextReconcileAt: createdAt + inventory.DEFAULT_RESERVATION_TTL_MS,
         updatedAt: createdAt
       };
       const order = {
