@@ -217,10 +217,13 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
   let result;
   try { result = await paystackVerify(reference); }
   catch (e) { return { http: 502, transient: true, json: { error: 'PAYMENT_VERIFICATION_UNAVAILABLE' } }; }
-  if (!result || !result.found || !result.data) return { http: 400, json: { error: 'PAYMENT_REFERENCE_NOT_FOUND' } };
+  if (!result || !result.found || !result.data) return trustedWebhook
+    ? { http: 502, transient: true, json: { error: 'PAYMENT_VERIFICATION_PENDING' } }
+    : { http: 400, json: { error: 'PAYMENT_REFERENCE_NOT_FOUND' } };
   const data = result.data;
   if (data.reference !== reference) { await markOrderPaymentReview(deps, orderId, 'REFERENCE_MISMATCH'); return { http: 409, json: { error: 'PAYMENT_REQUIRES_REVIEW' } }; }
   if (data.status !== 'success') {
+    if (trustedWebhook) return { http: 502, transient: true, json: { error: 'PAYMENT_VERIFICATION_PENDING' } };
     await paymentRef.set({ status: 'FAILED', providerStatus: String(data.status || 'unknown'), failureCode: 'PAYMENT_NOT_SUCCESSFUL', leaseExpiresAt: 0, updatedAt: now() }, { merge: true });
     return { http: 409, json: { error: 'PAYMENT_NOT_SUCCESSFUL' } };
   }
