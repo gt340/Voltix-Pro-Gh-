@@ -145,7 +145,7 @@ async function initialisePaystackPayment(deps, input, uid) {
         tx.set(couponRef, { reservedUses: coupon.reservedUses - 1, usedCount: coupon.usedCount + 1 }, { merge: true });
       }
       tx.set(orderRef, {
-        paymentStatus: 'PAID', paymentProvider: 'REFERRAL_CREDIT',
+        paymentStatus: 'PAID', fulfilmentStatus: 'PROCESSING', paymentProvider: 'REFERRAL_CREDIT',
         paidAmountPesewas: 0, paidByReferralPesewas: order.referralCreditPesewas,
         couponReservationStatus: couponRef ? 'COMMITTED' : null,
         paidAt: now(), updatedAt: now()
@@ -275,7 +275,7 @@ async function verifyPaystackOrderPayment(deps, input, uid, trustedWebhook = fal
       tx.set(couponRef, { reservedUses: coupon.reservedUses - 1, usedCount: coupon.usedCount + 1 }, { merge: true });
     }
     tx.set(orderRef, {
-      paymentStatus: 'PAID', paidAmountPesewas: data.amount,
+      paymentStatus: 'PAID', fulfilmentStatus: 'PROCESSING', paidAmountPesewas: data.amount,
       paymentProvider: 'PAYSTACK', paymentReference: reference,
       couponReservationStatus: couponRef ? 'COMMITTED' : null,
       paidAt: now(), updatedAt: now()
