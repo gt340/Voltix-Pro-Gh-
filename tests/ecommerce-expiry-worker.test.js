@@ -73,7 +73,7 @@ test('expiry worker does not release stock while Paystack status is pending or u
   } });
   const init = await initialisePaystackPayment(deps, {
     orderId: created.json.orderId, email: 'buyer@example.com', guestAccessSecret: created.json.guestAccessSecret
-  }, null);
+  }, 'shopper-1');
   assert.equal(init.http, 200);
   deps.now = () => created.order.reservationExpiresAt + 1;
   deps.paystackVerify = async reference => ({ found: true, data: {
