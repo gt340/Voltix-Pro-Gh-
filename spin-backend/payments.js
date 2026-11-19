@@ -168,7 +168,15 @@ async function creditSpinPurchase(deps, reference) {
   try {
     verified = await paystackVerify(reference);
   } catch (e) {
-    await failReference(db, reference, token, 'VERIFY_UNAVAILABLE', null, now());
+    const configurationError = e && e.code === 'PAYSTACK_CONFIGURATION_ERROR';
+    await failReference(db, reference, token,
+      configurationError ? 'PAYSTACK_CONFIGURATION_ERROR' : 'VERIFY_UNAVAILABLE', null, now());
+    if (configurationError) {
+      return {
+        http: 503, code: 'PAYSTACK_CONFIGURATION_ERROR', configurationError: true,
+        json: { error: 'Payment verification is temporarily unavailable due to provider configuration' }
+      };
+    }
     return { http: 502, transient: true, json: { error: 'Could not reach payment provider, try again' } };
   }
   if (!verified || !verified.found || !verified.data) return fail(400, 'INVALID_REFERENCE', 'Invalid reference');
@@ -529,7 +537,7 @@ async function persistWebhookReceipt(db, reference, event, nowMs) {
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(receiptRef);
     const previous = snap.exists ? (snap.data() || {}) : null;
-    const terminal = previous && ['PROCESSED', 'RECOVERY_REQUIRED', 'REQUIRES_REVIEW'].includes(previous.status);
+    const terminal = previous && ['PROCESSED', 'RECOVERY_REQUIRED', 'REQUIRES_REVIEW', 'CONFIGURATION_BLOCKED'].includes(previous.status);
     tx.set(receiptRef, {
       reference,
       event: 'charge.success',
@@ -564,6 +572,11 @@ async function processWebhookReceipt(deps, reference) {
   if (receipt.status === 'REQUIRES_REVIEW') {
     return { http: 200, text: 'OK', outcome: 'REQUIRES_REVIEW', json: { status: 'requires_review', code: receipt.resultCode || 'PAYMENT_VALIDATION_FAILED' } };
   }
+  if (receipt.status === 'CONFIGURATION_BLOCKED') {
+    return { http: 200, text: 'OK', outcome: 'CONFIGURATION_BLOCKED', json: {
+      status: 'configuration_blocked', code: 'PAYSTACK_CONFIGURATION_ERROR'
+    } };
+  }
 
   const purchaseSnap = await deps.db.collection('coinPurchases').doc(reference).get();
   if (!purchaseSnap.exists) {
@@ -580,6 +593,15 @@ async function processWebhookReceipt(deps, reference) {
   const result = await creditSpinPurchase(deps, reference);
   // Keep the receipt durable and let Paystack retry if verification is transient
   // or another worker owns the processing lease.
+  if (result.configurationError) {
+    await receiptRef.set({
+      status: 'CONFIGURATION_BLOCKED',
+      resultCode: 'PAYSTACK_CONFIGURATION_ERROR',
+      blockedAt: (deps.now || Date.now)(),
+      updatedAt: (deps.now || Date.now)(),
+    }, { merge: true });
+    return { http: 200, text: 'OK', outcome: 'CONFIGURATION_BLOCKED', json: result.json };
+  }
   if (result.transient || result.code === 'IN_PROGRESS') {
     return { http: 500, text: 'Retry later', outcome: 'PROCESSING' };
   }
@@ -631,6 +653,7 @@ async function reconcileWebhookInbox(deps, options) {
     unmatched: 0,
     recoveryRequired: 0,
     requiresReview: 0,
+    configurationBlocked: 0,
     retryable: 0,
     failed: 0,
   };
@@ -653,6 +676,7 @@ async function reconcileWebhookInbox(deps, options) {
         else if (result.outcome === 'UNMATCHED') summary.unmatched++;
         else if (result.outcome === 'RECOVERY_REQUIRED') summary.recoveryRequired++;
         else if (result.outcome === 'REQUIRES_REVIEW') summary.requiresReview++;
+        else if (result.outcome === 'CONFIGURATION_BLOCKED') summary.configurationBlocked++;
         else if (result.http >= 500 || result.outcome === 'PROCESSING') summary.retryable++;
         else summary.failed++;
       }

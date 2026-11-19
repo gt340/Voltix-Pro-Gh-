@@ -3,9 +3,11 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const axios = require('axios');
+const { createPaystackVerify } = require('./paystack-verify');
 const payments = require('./payments');
 const shopperWallet = require('./shopper-wallet');
 const { registerAdminWebhookReconciliationRoute } = require('./admin-reconciliation-route');
+const { registerAdminConfigurationRecoveryRoute } = require('./admin-configuration-recovery-route');
 const { resolveAdminUid } = require('./admin-auth');
 
 admin.initializeApp({
@@ -26,16 +28,7 @@ const SPIN_COST = 20;
 const DAILY_SPIN_CAP = 10;
 
 // ---------- PAYSTACK (server-side verification, shared by verify + webhook) ----------
-async function paystackVerify(reference){
-  const resp = await axios.get(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-    headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
-    timeout: 15000,
-    validateStatus: s => s < 500
-  });
-  if(resp.status === 401) throw new Error('payment provider rejected credentials');
-  if(!resp.data || resp.data.status !== true || !resp.data.data) return { found:false };
-  return { found:true, data: resp.data.data };
-}
+const paystackVerify = createPaystackVerify({ axios, secret: PAYSTACK_SECRET_KEY });
 const payDeps = {
   db,
   FieldValue: admin.firestore.FieldValue,
@@ -353,6 +346,7 @@ app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
 // Manual, bounded recovery for durable receipts left unmatched after provider retries
 // expire. No public trigger, cron secret, or automatic production schedule is added.
 registerAdminWebhookReconciliationRoute(app, { getAdminUid, payments, payDeps, db });
+registerAdminConfigurationRecoveryRoute(app, { getAdminUid, db, now: () => Date.now() });
 
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
 // function with the webhook, so a purchase can only ever be credited once. ----------
