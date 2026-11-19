@@ -104,3 +104,41 @@ test('admin configuration recovery operation IDs are single-use and concurrent r
   assert.equal(second.code, 409);
   assert.equal(f.db.read('paymentWebhookConfigurationRecoveryAudit/' + operationId).createdAt, 200);
 });
+
+
+test('released configuration-blocked receipt is reverified and credited once by the existing reconciler', async () => {
+  const { FieldValue } = require('./fake-firestore');
+  const payments = require('../spin-backend/payments');
+  const f = fixture();
+  f.db.seed('wallets/0536193862', { ownerUid: 'shopper-1', coins: 0, totalSpend: 0 });
+  const deps = {
+    db: f.db,
+    FieldValue,
+    now: () => 300,
+    paystackVerify: async (ref) => ({
+      found: true,
+      data: {
+        reference: ref,
+        status: 'success',
+        currency: 'GHS',
+        amount: 1000,
+        customer: { email: '0536193862@voltix.com' }
+      }
+    })
+  };
+
+  const release = response();
+  await handleAdminConfigurationRecovery({ req: request(), res: release, ...f, now: () => 200 });
+  assert.equal(release.code, 200);
+  assert.equal(walletCoins(f.db), 0);
+
+  const summary = await payments.reconcileWebhookInbox(deps, { limit: 5 });
+  assert.equal(summary.processed, 1);
+  assert.equal(walletCoins(f.db), 100);
+  assert.equal(f.db.read('paymentWebhookInbox/' + reference).status, 'PROCESSED');
+  assert.equal(f.db.read('paymentEvents/' + reference).status, 'SUCCESS');
+
+  const repeated = await payments.reconcileWebhookInbox(deps, { limit: 5 });
+  assert.equal(repeated.processed, 0);
+  assert.equal(walletCoins(f.db), 100);
+});
