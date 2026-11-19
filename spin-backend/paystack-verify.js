@@ -17,10 +17,13 @@ function createPaystackVerify({ axios, secret }) {
       throw error;
     }
     const body = response && response.data;
-    // Paystack's documented "status:false" response envelope can represent
-    // an unknown reference. Require its message field; an incomplete envelope
-    // is malformed and must not be treated as absence.
-    if (body && body.status === false && typeof body.message === 'string' && body.message.trim()) {
+    // Only Paystack's specifically documented unknown-reference error is absence.
+    // Other status:false envelopes (including validation/configuration failures)
+    // must not be mistaken for a missing transaction.
+    const providerMessage = body && typeof body.message === 'string'
+      ? body.message.trim().toLowerCase()
+      : '';
+    if (body && body.status === false && providerMessage === 'transaction reference not found') {
       return { found: false };
     }
     if (!body || body.status !== true || !body.data || typeof body.data !== 'object' ||
