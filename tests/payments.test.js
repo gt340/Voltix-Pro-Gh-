@@ -925,8 +925,8 @@ test('RECOVERY ADMIN: resolution ID cannot be reused for a different payment', a
 // ======================= PAYSTACK PROVIDER RETRY CLASSIFICATION =======================
 const { createPaystackVerify } = require('../spin-backend/paystack-verify');
 
-test('PAYSTACK adapter: 408, 429, auth and unexpected HTTP errors remain retryable', async () => {
-  for (const status of [401, 403, 408, 429, 404, 503]) {
+test('PAYSTACK adapter: transient and unexpected HTTP errors remain provider errors', async () => {
+  for (const status of [408, 429, 404, 503]) {
     const verify = createPaystackVerify({
       secret: SECRET,
       axios: { get: async () => ({ status, data: { status: false } }) },
@@ -934,6 +934,19 @@ test('PAYSTACK adapter: 408, 429, auth and unexpected HTTP errors remain retryab
     await assert.rejects(
       () => verify('COINS-RETRY0001'),
       (error) => error.code === 'PAYSTACK_PROVIDER_HTTP_ERROR' && error.status === status
+    );
+  }
+});
+
+test('PAYSTACK adapter: HTTP authentication failures are configuration errors', async () => {
+  for (const status of [401, 403]) {
+    const verify = createPaystackVerify({
+      secret: SECRET,
+      axios: { get: async () => ({ status, data: { status: false } }) },
+    });
+    await assert.rejects(
+      () => verify('COINS-CONFIG0001'),
+      (error) => error.code === 'PAYSTACK_CONFIGURATION_ERROR' && error.status === status
     );
   }
 });
@@ -1029,4 +1042,33 @@ test('PAYSTACK adapter: valid HTTP 200 returns verified transaction data', async
     get: async () => ({ status: 200, data: { status: true, data: transaction } })
   }});
   assert.deepEqual(await verify(transaction.reference), { found: true, data: transaction });
+});
+
+
+test('SPIN webhook: Paystack authentication failure is durably blocked, not retried', async () => {
+  const db = new FakeFirestore();
+  const ref = 'COINS-AUTHBLOCK01';
+  const deps = mkDeps(db, { [ref]: paid(1000) });
+  await buy(deps, ref);
+  deps.paystackVerify = createPaystackVerify({
+    secret: SECRET,
+    axios: { get: async () => ({ status: 401, data: { status: false, message: 'Unauthorized' } }) },
+  });
+  const raw = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: ref } }));
+  const signature = crypto.createHmac('sha512', SECRET).update(raw).digest('hex');
+
+  const first = await spin.handleWebhook(deps, { rawBody: raw, signature });
+  assert.equal(first.http, 200);
+  assert.equal(first.outcome, 'CONFIGURATION_BLOCKED');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'CONFIGURATION_BLOCKED');
+  assert.equal(db.read('paymentEvents/' + ref).status, 'FAILED');
+  assert.equal(walletCoins(db), 0);
+
+  // Duplicate delivery must preserve the blocked state and must not call Paystack again.
+  deps.paystackVerify = async () => { throw new Error('must not be called for a blocked receipt'); };
+  const duplicate = await spin.handleWebhook(deps, { rawBody: raw, signature });
+  assert.equal(duplicate.http, 200);
+  assert.equal(duplicate.outcome, 'CONFIGURATION_BLOCKED');
+  assert.equal(db.read('paymentWebhookInbox/' + ref).status, 'CONFIGURATION_BLOCKED');
+  assert.equal(walletCoins(db), 0);
 });
