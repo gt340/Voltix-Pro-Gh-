@@ -242,7 +242,7 @@ test('SPIN webhook reconciler: admin batch processes matched receipts and retain
   const summary = await spin.reconcileWebhookInbox(deps, { limit: 10 });
   assert.deepEqual(summary, {
     scanned: 2, processed: 1, unmatched: 1, recoveryRequired: 0,
-    requiresReview: 0, retryable: 0, failed: 0,
+    requiresReview: 0, configurationBlocked: 0, retryable: 0, failed: 0,
   });
   assert.equal(walletCoins(db), 100);
   assert.equal(db.read('paymentWebhookInbox/' + matchedRef).status, 'PROCESSED');
