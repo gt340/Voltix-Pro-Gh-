@@ -996,3 +996,36 @@ test('SPIN webhook: Paystack 429 stays retryable and a later provider success cr
   assert.equal(db.read('paymentEvents/' + ref).status, 'SUCCESS');
   assert.equal(walletCoins(db), 100);
 });
+
+
+test('PAYSTACK adapter: HTTP 400 is an error, never a missing reference', async () => {
+  const verify = createPaystackVerify({ secret: SECRET, axios: {
+    get: async () => ({ status: 400, data: { status: false, message: 'validation error' } })
+  }});
+  await assert.rejects(verify('COINS-4000001'), (error) => {
+    assert.equal(error.code, 'PAYSTACK_PROVIDER_HTTP_ERROR');
+    assert.equal(error.status, 400);
+    return true;
+  });
+});
+
+test('PAYSTACK adapter: malformed HTTP 200 is an error, never a missing reference', async () => {
+  for (const data of [null, {}, { status: false }, { status: true }, { status: true, data: null },
+    { status: true, data: [] }, { status: true, data: { amount: 1000 } }]) {
+    const verify = createPaystackVerify({ secret: SECRET, axios: {
+      get: async () => ({ status: 200, data })
+    }});
+    await assert.rejects(verify('COINS-MALFORMED1'), (error) => {
+      assert.equal(error.code, 'PAYSTACK_MALFORMED_RESPONSE');
+      return true;
+    });
+  }
+});
+
+test('PAYSTACK adapter: valid HTTP 200 returns verified transaction data', async () => {
+  const transaction = { reference: 'COINS-VALID0001', status: 'success', amount: 1000, currency: 'GHS' };
+  const verify = createPaystackVerify({ secret: SECRET, axios: {
+    get: async () => ({ status: 200, data: { status: true, data: transaction } })
+  }});
+  assert.deepEqual(await verify(transaction.reference), { found: true, data: transaction });
+});
