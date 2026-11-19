@@ -1,39 +1,29 @@
 'use strict';
 
-// Paystack transaction verification adapter. Provider availability and API
-// failures must remain retryable; only a valid provider response can classify
-// a transaction as absent or unsuccessful.
+// Only a structurally valid successful verification response may supply
+// transaction data. Provider and malformed-response errors are never absence.
 function createPaystackVerify({ axios, secret }) {
-  if (!axios || typeof axios.get !== 'function') {
-    throw new TypeError('An Axios-compatible client is required');
-  }
-
+  if (!axios || typeof axios.get !== 'function') throw new TypeError('An Axios-compatible client is required');
   return async function paystackVerify(reference) {
     const response = await axios.get(
       `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-      {
-        headers: { Authorization: `Bearer ${secret}` },
-        timeout: 15000,
-        // Paystack rate limits (429) and request timeouts (408) are handled
-        // below as retryable errors rather than ordinary validation results.
-        validateStatus: (status) => status < 500,
-      }
+      { headers: { Authorization: `Bearer ${secret}` }, timeout: 15000, validateStatus: () => true }
     );
-
     const status = Number(response && response.status);
-    if (status === 408 || status === 429 || status === 401 ||
-        (status >= 400 && status !== 400) || status >= 500) {
-      const error = new Error('Paystack verification temporarily unavailable');
+    if (status !== 200) {
+      const error = new Error('Paystack verification returned HTTP ' + status);
       error.code = 'PAYSTACK_PROVIDER_HTTP_ERROR';
       error.status = status;
       throw error;
     }
-
-    if (!response.data || response.data.status !== true || !response.data.data) {
-      return { found: false };
+    const body = response && response.data;
+    if (!body || body.status !== true || !body.data || typeof body.data !== 'object' ||
+        Array.isArray(body.data) || typeof body.data.reference !== 'string' || !body.data.reference) {
+      const error = new Error('Paystack verification response is malformed');
+      error.code = 'PAYSTACK_MALFORMED_RESPONSE';
+      throw error;
     }
-    return { found: true, data: response.data.data };
+    return { found: true, data: body.data };
   };
 }
-
 module.exports = { createPaystackVerify };
