@@ -130,11 +130,11 @@ test('released configuration-blocked receipt is reverified and credited once by 
   const release = response();
   await handleAdminConfigurationRecovery({ req: request(), res: release, ...f, now: () => 200 });
   assert.equal(release.code, 200);
-  assert.equal(walletCoins(f.db), 0);
+  assert.equal((f.db.read('wallets/0536193862') || {}).coins || 0, 0);
 
   const summary = await payments.reconcileWebhookInbox(deps, { limit: 5 });
   assert.equal(summary.processed, 1);
-  assert.equal(walletCoins(f.db), 100);
+  assert.equal((f.db.read('wallets/0536193862') || {}).coins || 0, 100);
   assert.equal(f.db.read('paymentWebhookInbox/' + reference).status, 'PROCESSED');
   assert.equal(f.db.read('paymentEvents/' + reference).status, 'SUCCESS');
 
