@@ -7,6 +7,7 @@ const { createPaystackVerify } = require('./paystack-verify');
 const payments = require('./payments');
 const shopperWallet = require('./shopper-wallet');
 const { registerAdminWebhookReconciliationRoute } = require('./admin-reconciliation-route');
+const { registerAdminConfigurationRecoveryRoute } = require('./admin-configuration-recovery-route');
 const { resolveAdminUid } = require('./admin-auth');
 
 admin.initializeApp({
@@ -345,6 +346,7 @@ app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
 // Manual, bounded recovery for durable receipts left unmatched after provider retries
 // expire. No public trigger, cron secret, or automatic production schedule is added.
 registerAdminWebhookReconciliationRoute(app, { getAdminUid, payments, payDeps, db });
+registerAdminConfigurationRecoveryRoute(app, { getAdminUid, db, now: () => Date.now() });
 
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
 // function with the webhook, so a purchase can only ever be credited once. ----------
