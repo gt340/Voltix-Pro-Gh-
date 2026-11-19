@@ -12,7 +12,9 @@ function createPaystackVerify({ axios, secret }) {
     const status = Number(response && response.status);
     if (status !== 200) {
       const error = new Error('Paystack verification returned HTTP ' + status);
-      error.code = 'PAYSTACK_PROVIDER_HTTP_ERROR';
+      error.code = status === 401 || status === 403
+        ? 'PAYSTACK_CONFIGURATION_ERROR'
+        : 'PAYSTACK_PROVIDER_HTTP_ERROR';
       error.status = status;
       throw error;
     }
