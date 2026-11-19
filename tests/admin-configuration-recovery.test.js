@@ -140,5 +140,5 @@ test('released configuration-blocked receipt is reverified and credited once by 
 
   const repeated = await payments.reconcileWebhookInbox(deps, { limit: 5 });
   assert.equal(repeated.processed, 0);
-  assert.equal(walletCoins(f.db), 100);
+  assert.equal((f.db.read('wallets/0536193862') || {}).coins || 0, 100);
 });
