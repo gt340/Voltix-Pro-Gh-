@@ -17,6 +17,12 @@ function createPaystackVerify({ axios, secret }) {
       throw error;
     }
     const body = response && response.data;
+    // Paystack's documented "status:false" response envelope can represent
+    // an unknown reference. Require its message field; an incomplete envelope
+    // is malformed and must not be treated as absence.
+    if (body && body.status === false && typeof body.message === 'string' && body.message.trim()) {
+      return { found: false };
+    }
     if (!body || body.status !== true || !body.data || typeof body.data !== 'object' ||
         Array.isArray(body.data) || typeof body.data.reference !== 'string' || !body.data.reference) {
       const error = new Error('Paystack verification response is malformed');
