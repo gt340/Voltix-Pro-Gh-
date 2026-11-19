@@ -941,7 +941,7 @@ test('PAYSTACK adapter: 408, 429, auth and unexpected HTTP errors remain retryab
 test('PAYSTACK adapter: only a valid provider response can classify an unknown reference', async () => {
   const verify = createPaystackVerify({
     secret: SECRET,
-    axios: { get: async () => ({ status: 200, data: { status: false, message: 'not found' } }) },
+    axios: { get: async () => ({ status: 200, data: { status: false, message: 'Transaction reference not found' } }) },
   });
   assert.deepEqual(await verify('COINS-UNKNOWN01'), { found: false });
 });
@@ -1010,7 +1010,8 @@ test('PAYSTACK adapter: HTTP 400 is an error, never a missing reference', async 
 });
 
 test('PAYSTACK adapter: malformed HTTP 200 is an error, never a missing reference', async () => {
-  for (const data of [null, {}, { status: false }, { status: true }, { status: true, data: null },
+  for (const data of [null, {}, { status: false }, { status: false, message: 'Invalid API key' },
+    { status: false, message: 'not found' }, { status: true }, { status: true, data: null },
     { status: true, data: [] }, { status: true, data: { amount: 1000 } }]) {
     const verify = createPaystackVerify({ secret: SECRET, axios: {
       get: async () => ({ status: 200, data })
