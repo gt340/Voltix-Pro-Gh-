@@ -4,13 +4,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test ../tests/spin-client-recovery.test.js tests/security-regression.test.js tests/phone-auth-diagnostics.test.js tests/admin-reconciliation-http.test.js ../tests/payments.test.js ../tests/sneaker-coins.test.js ../tests/shopper-wallet.test.js"
+    "test": "node --test ../tests/spin-client-recovery.test.js tests/security-regression.test.js tests/phone-auth-diagnostics.test.js tests/admin-reconciliation-http.test.js ../tests/payments.test.js ../tests/sneaker-coins.test.js ../tests/shopper-wallet.test.js tests/firebase-wif-credential.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
     "firebase-admin": "^12.1.0",
     "axios": "^1.7.2",
-    "body-parser": "^1.20.2"
+    "body-parser": "^1.20.2",
+    "@vercel/oidc": "^4.0.9",
+    "google-auth-library": "^9.15.1"
   }
 }
