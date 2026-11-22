@@ -42,11 +42,7 @@ test('Firebase WIF credential is bound to the staging pool, provider, and servic
     'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/' +
       SERVICE_ACCOUNT_EMAIL + ':generateAccessToken'
   );
-  assert.deepEqual(options.subject_token_supplier && Object.keys(options.subject_token_supplier), ['getSubjectToken']);
-  assert.deepEqual(
-    options.subject_token_supplier && options.subject_token_supplier.constructor,
-    Object.getPrototypeOf(options.subject_token_supplier).constructor
-  );
+  assert.equal(typeof options.subject_token_supplier.getSubjectToken, 'function');
   assert.deepEqual(result.access_token, 'short-lived-google-access-token');
   assert.ok(result.expires_in > 0 && result.expires_in <= 3600);
   assert.equal(PROJECT_ID, 'voltix-pro-gh-staging');
