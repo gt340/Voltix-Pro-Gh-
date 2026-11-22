@@ -10,9 +10,37 @@ const { registerAdminWebhookReconciliationRoute } = require('./admin-reconciliat
 const { registerAdminConfigurationRecoveryRoute } = require('./admin-configuration-recovery-route');
 const { resolveAdminUid } = require('./admin-auth');
 
-admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
-});
+// Vercel Preview uses request-scoped OIDC federation to impersonate the
+// dedicated staging service account. Production and local environments retain
+// their existing credential path; Preview never falls back to a static key.
+function getFirebaseAdminCredential() {
+  if (process.env.VERCEL_ENV === 'preview') {
+    const { IdentityPoolClient } = require('google-auth-library');
+    const { createFirebaseWifCredential, PROJECT_ID } = require('./firebase-wif-credential');
+    return {
+      credential: createFirebaseWifCredential({
+        IdentityPoolClient,
+        getOidcToken: async () => {
+          const { getVercelOidcToken } = await import('@vercel/oidc');
+          return getVercelOidcToken();
+        }
+      }),
+      projectId: PROJECT_ID
+    };
+  }
+
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is required outside Vercel Preview');
+  }
+
+  return {
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+    projectId: process.env.FIREBASE_PROJECT_ID
+  };
+}
+
+const firebaseAdminOptions = getFirebaseAdminCredential();
+admin.initializeApp(firebaseAdminOptions);
 const db = admin.firestore();
 
 const app = express();
