@@ -100,18 +100,18 @@ test('Firebase WIF credential fails closed when Vercel does not provide an OIDC 
 
 test('Vercel Preview uses federated Firestore auth and cannot fall back to a static key', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(server, /process\\.env\\.VERCEL_ENV === 'preview'/);
-  assert.match(server, /createFirebaseWifClients/);
-  assert.match(server, /new GoogleAuth\\(/);
-  assert.match(server, /new FirestoreSdk\\.Firestore\\(\\{ projectId: firebaseAdminOptions\\.projectId, auth: firestoreAuth \\}\\)/);
-  assert.match(server, /FirestoreSdk\\.FieldValue/);
-  assert.match(server, /await import\\('@vercel\\/oidc'\\)/);
-  assert.match(server, /if \\(!process\\.env\\.FIREBASE_SERVICE_ACCOUNT\\)/);
-  assert.match(server, /admin\\.credential\\.cert\\(JSON\\.parse\\(process\\.env\\.FIREBASE_SERVICE_ACCOUNT\\)\\)/);
+  assert.ok(server.includes("process.env.VERCEL_ENV === 'preview'"));
+  assert.ok(server.includes('createFirebaseWifClients'));
+  assert.ok(server.includes('new GoogleAuth('));
+  assert.ok(server.includes('new FirestoreSdk.Firestore({ projectId: firebaseAdminOptions.projectId, auth: firestoreAuth })'));
+  assert.ok(server.includes('FirestoreSdk.FieldValue'));
+  assert.ok(server.includes("await import('@vercel/oidc')"));
+  assert.ok(server.includes('if (!process.env.FIREBASE_SERVICE_ACCOUNT)'));
+  assert.ok(server.includes('admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))'));
   const previewBlock = server.slice(
     server.indexOf("if (process.env.VERCEL_ENV === 'preview')"),
     server.indexOf("if (!process.env.FIREBASE_SERVICE_ACCOUNT)")
   );
   assert.doesNotMatch(previewBlock, /FIREBASE_SERVICE_ACCOUNT/);
-  assert.match(server, /: admin\\.firestore\\(\\);/);
+  assert.ok(server.includes(': admin.firestore();'));
 });
