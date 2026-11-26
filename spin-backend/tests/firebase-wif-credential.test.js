@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { IdentityPoolClient } = require('google-auth-library');
 const {
   createFirebaseWifCredential,
   PROJECT_ID,
@@ -46,6 +47,15 @@ test('Firebase WIF credential is bound to the staging pool, provider, and servic
   assert.deepEqual(result.access_token, 'short-lived-google-access-token');
   assert.ok(result.expires_in > 0 && result.expires_in <= 3600);
   assert.equal(PROJECT_ID, 'voltix-pro-gh-staging');
+});
+
+test('Firebase WIF credential initializes with the real google-auth-library client', () => {
+  const credential = createFirebaseWifCredential({
+    IdentityPoolClient,
+    getOidcToken: async () => 'vercel-preview-oidc-token'
+  });
+
+  assert.equal(typeof credential.getAccessToken, 'function');
 });
 
 test('Firebase WIF credential fails closed when Vercel does not provide an OIDC token', async () => {
