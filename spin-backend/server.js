@@ -40,7 +40,11 @@ function getFirebaseAdminCredential() {
 }
 
 const firebaseAdminOptions = getFirebaseAdminCredential();
-admin.initializeApp(firebaseAdminOptions);
+// Vercel may evaluate this module more than once in a warm function process.
+// Reuse the existing default app instead of crashing with app/duplicate-app.
+if (admin.apps.length === 0) {
+  admin.initializeApp(firebaseAdminOptions);
+}
 const db = admin.firestore();
 
 const app = express();
