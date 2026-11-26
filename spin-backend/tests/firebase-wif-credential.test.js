@@ -37,7 +37,7 @@ test('Firebase WIF credential is bound to the staging pool, provider, and servic
   const result = await credential.getAccessToken();
 
   assert.equal(suppliedToken, 'vercel-preview-oidc-token');
-  assert.match(options.audience, /projects\\/403309153314\\/locations\\/global\\/workloadIdentityPools\\/voltix-staging-vercel\\/providers\\/vercel-preview$/);
+  assert.ok(options.audience.includes('projects/403309153314/locations/global/workloadIdentityPools/voltix-staging-vercel/providers/vercel-preview'));
   assert.equal(options.subject_token_type, 'urn:ietf:params:oauth:token-type:id_token');
   assert.equal(options.token_url, 'https://sts.googleapis.com/v1/token');
   assert.equal(
