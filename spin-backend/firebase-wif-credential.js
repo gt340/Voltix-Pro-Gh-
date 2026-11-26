@@ -6,8 +6,9 @@ const WORKLOAD_POOL_ID = 'voltix-staging-vercel';
 const PROVIDER_ID = 'vercel-preview';
 const SERVICE_ACCOUNT_EMAIL =
   'voltix-staging-backend@voltix-pro-gh-staging.iam.gserviceaccount.com';
+const CLOUD_PLATFORM_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
-function createFirebaseWifCredential({ IdentityPoolClient, getOidcToken }) {
+function createFirebaseWifClients({ IdentityPoolClient, getOidcToken }) {
   if (typeof IdentityPoolClient !== 'function') {
     throw new TypeError('IdentityPoolClient is required');
   }
@@ -17,7 +18,7 @@ function createFirebaseWifCredential({ IdentityPoolClient, getOidcToken }) {
 
   const audience =
     `//iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WORKLOAD_POOL_ID}/providers/${PROVIDER_ID}`;
-  const client = new IdentityPoolClient({
+  const authClient = new IdentityPoolClient({
     audience,
     subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
     token_url: 'https://sts.googleapis.com/v1/token',
@@ -34,12 +35,14 @@ function createFirebaseWifCredential({ IdentityPoolClient, getOidcToken }) {
     }
   });
 
-  client.scopes = ['https://www.googleapis.com/auth/cloud-platform'];
+  authClient.scopes = [CLOUD_PLATFORM_SCOPE];
 
-  return {
+  // Firebase Admin Auth accepts this credential interface, while GoogleAuth
+  // consumes the original IdentityPoolClient directly for Firestore requests.
+  const credential = {
     async getAccessToken() {
-      await client.getAccessToken();
-      const credentials = client.credentials || {};
+      await authClient.getAccessToken();
+      const credentials = authClient.credentials || {};
       if (
         typeof credentials.access_token !== 'string' ||
         !credentials.access_token ||
@@ -56,10 +59,18 @@ function createFirebaseWifCredential({ IdentityPoolClient, getOidcToken }) {
       };
     }
   };
+
+  return { authClient, credential };
+}
+
+function createFirebaseWifCredential(options) {
+  return createFirebaseWifClients(options).credential;
 }
 
 module.exports = {
+  createFirebaseWifClients,
   createFirebaseWifCredential,
   PROJECT_ID,
-  SERVICE_ACCOUNT_EMAIL
+  SERVICE_ACCOUNT_EMAIL,
+  CLOUD_PLATFORM_SCOPE
 };
