@@ -15,17 +15,24 @@ const { resolveAdminUid } = require('./admin-auth');
 // their existing credential path; Preview never falls back to a static key.
 function getFirebaseAdminCredential() {
   if (process.env.VERCEL_ENV === 'preview') {
-    const { IdentityPoolClient } = require('google-auth-library');
-    const { createFirebaseWifCredential, PROJECT_ID } = require('./firebase-wif-credential');
+    const { IdentityPoolClient, GoogleAuth } = require('google-auth-library');
+    const { createFirebaseWifClients, PROJECT_ID } = require('./firebase-wif-credential');
+    const wif = createFirebaseWifClients({
+      IdentityPoolClient,
+      getOidcToken: async () => {
+        const { getVercelOidcToken } = await import('@vercel/oidc');
+        return getVercelOidcToken();
+      }
+    });
     return {
-      credential: createFirebaseWifCredential({
-        IdentityPoolClient,
-        getOidcToken: async () => {
-          const { getVercelOidcToken } = await import('@vercel/oidc');
-          return getVercelOidcToken();
-        }
-      }),
-      projectId: PROJECT_ID
+      credential: wif.credential,
+      projectId: PROJECT_ID,
+      isPreview: true,
+      firestoreAuth: new GoogleAuth({
+        authClient: wif.authClient,
+        projectId: PROJECT_ID,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform']
+      })
     };
   }
 
@@ -39,13 +46,20 @@ function getFirebaseAdminCredential() {
   };
 }
 
-const firebaseAdminOptions = getFirebaseAdminCredential();
+const { isPreview = false, firestoreAuth, ...firebaseAdminOptions } = getFirebaseAdminCredential();
 // Vercel may evaluate this module more than once in a warm function process.
 // Reuse the existing default app instead of crashing with app/duplicate-app.
 if (admin.apps.length === 0) {
   admin.initializeApp(firebaseAdminOptions);
 }
-const db = admin.firestore();
+// Firebase Admin Firestore rejects third-party WIF credentials. In Preview,
+// use the Google Cloud Firestore client with GoogleAuth backed by the same
+// federated IdentityPoolClient. Firebase Admin remains responsible for Auth.
+const FirestoreSdk = isPreview ? require('@google-cloud/firestore') : null;
+const db = isPreview
+  ? new FirestoreSdk.Firestore({ projectId: firebaseAdminOptions.projectId, auth: firestoreAuth })
+  : admin.firestore();
+const FieldValue = isPreview ? FirestoreSdk.FieldValue : admin.firestore.FieldValue;
 
 const app = express();
 app.use(cors());
@@ -63,7 +77,7 @@ const DAILY_SPIN_CAP = 10;
 const paystackVerify = createPaystackVerify({ axios, secret: PAYSTACK_SECRET_KEY });
 const payDeps = {
   db,
-  FieldValue: admin.firestore.FieldValue,
+  FieldValue,
   paystackVerify,
   paystackSecret: PAYSTACK_SECRET_KEY,
   now: () => Date.now()
@@ -279,7 +293,7 @@ app.post('/api/spin', async (req,res)=>{
   }
   try{
     if(prize.type === 'coins'){
-      await walletRef.update({ coins: admin.firestore.FieldValue.increment(prize.value) });
+      await walletRef.update({ coins: FieldValue.increment(prize.value) });
       await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
     } else if(prize.type === 'airtime'){
       await sendReloadlyAirtime(phone, finalNetwork, prize.value);
