@@ -3,15 +3,63 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const axios = require('axios');
+const { createPaystackVerify } = require('./paystack-verify');
 const payments = require('./payments');
 const shopperWallet = require('./shopper-wallet');
 const { registerAdminWebhookReconciliationRoute } = require('./admin-reconciliation-route');
+const { registerAdminConfigurationRecoveryRoute } = require('./admin-configuration-recovery-route');
 const { resolveAdminUid } = require('./admin-auth');
 
-admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
-});
-const db = admin.firestore();
+// Vercel Preview uses request-scoped OIDC federation to impersonate the
+// dedicated staging service account. Production and local environments retain
+// their existing credential path; Preview never falls back to a static key.
+function getFirebaseAdminCredential() {
+  if (process.env.VERCEL_ENV === 'preview') {
+    const { IdentityPoolClient, GoogleAuth } = require('google-auth-library');
+    const { createFirebaseWifClients, PROJECT_ID } = require('./firebase-wif-credential');
+    const wif = createFirebaseWifClients({
+      IdentityPoolClient,
+      getOidcToken: async () => {
+        const { getVercelOidcToken } = await import('@vercel/oidc');
+        return getVercelOidcToken();
+      }
+    });
+    return {
+      credential: wif.credential,
+      projectId: PROJECT_ID,
+      isPreview: true,
+      firestoreAuth: new GoogleAuth({
+        authClient: wif.authClient,
+        projectId: PROJECT_ID,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform']
+      })
+    };
+  }
+
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is required outside Vercel Preview');
+  }
+
+  return {
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+    projectId: process.env.FIREBASE_PROJECT_ID
+  };
+}
+
+const { isPreview = false, firestoreAuth, ...firebaseAdminOptions } = getFirebaseAdminCredential();
+// Vercel may evaluate this module more than once in a warm function process.
+// Reuse the existing default app instead of crashing with app/duplicate-app.
+if (admin.apps.length === 0) {
+  admin.initializeApp(firebaseAdminOptions);
+}
+// Firebase Admin Firestore rejects third-party WIF credentials. In Preview,
+// use the Google Cloud Firestore client with GoogleAuth backed by the same
+// federated IdentityPoolClient. Firebase Admin remains responsible for Auth.
+const FirestoreSdk = isPreview ? require('@google-cloud/firestore') : null;
+const db = isPreview
+  ? new FirestoreSdk.Firestore({ projectId: firebaseAdminOptions.projectId, auth: firestoreAuth })
+  : admin.firestore();
+const FieldValue = isPreview ? FirestoreSdk.FieldValue : admin.firestore.FieldValue;
 
 const app = express();
 app.use(cors());
@@ -26,19 +74,10 @@ const SPIN_COST = 20;
 const DAILY_SPIN_CAP = 10;
 
 // ---------- PAYSTACK (server-side verification, shared by verify + webhook) ----------
-async function paystackVerify(reference){
-  const resp = await axios.get(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-    headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
-    timeout: 15000,
-    validateStatus: s => s < 500
-  });
-  if(resp.status === 401) throw new Error('payment provider rejected credentials');
-  if(!resp.data || resp.data.status !== true || !resp.data.data) return { found:false };
-  return { found:true, data: resp.data.data };
-}
+const paystackVerify = createPaystackVerify({ axios, secret: PAYSTACK_SECRET_KEY });
 const payDeps = {
   db,
-  FieldValue: admin.firestore.FieldValue,
+  FieldValue,
   paystackVerify,
   paystackSecret: PAYSTACK_SECRET_KEY,
   now: () => Date.now()
@@ -254,7 +293,7 @@ app.post('/api/spin', async (req,res)=>{
   }
   try{
     if(prize.type === 'coins'){
-      await walletRef.update({ coins: admin.firestore.FieldValue.increment(prize.value) });
+      await walletRef.update({ coins: FieldValue.increment(prize.value) });
       await logSpinWinner(phone, name, prizeLabelMap[prize.id], prize.id);
     } else if(prize.type === 'airtime'){
       await sendReloadlyAirtime(phone, finalNetwork, prize.value);
@@ -353,6 +392,7 @@ app.post('/api/admin/resolve-payment-recovery', async (req,res)=>{
 // Manual, bounded recovery for durable receipts left unmatched after provider retries
 // expire. No public trigger, cron secret, or automatic production schedule is added.
 registerAdminWebhookReconciliationRoute(app, { getAdminUid, payments, payDeps, db });
+registerAdminConfigurationRecoveryRoute(app, { getAdminUid, db, now: () => Date.now() });
 
 // ---------- VERIFY & CREDIT — primary crediting path. Shares ONE idempotent credit
 // function with the webhook, so a purchase can only ever be credited once. ----------
