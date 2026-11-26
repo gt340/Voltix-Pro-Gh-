@@ -4,11 +4,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { IdentityPoolClient } = require('google-auth-library');
+const { IdentityPoolClient, GoogleAuth } = require('google-auth-library');
 const {
+  createFirebaseWifClients,
   createFirebaseWifCredential,
   PROJECT_ID,
-  SERVICE_ACCOUNT_EMAIL
+  SERVICE_ACCOUNT_EMAIL,
+  CLOUD_PLATFORM_SCOPE
 } = require('../firebase-wif-credential');
 
 test('Firebase WIF credential is bound to the staging pool, provider, and service account', async () => {
@@ -28,14 +30,14 @@ test('Firebase WIF credential is bound to the staging pool, provider, and servic
     }
   }
 
-  const credential = createFirebaseWifCredential({
+  const { credential, authClient } = createFirebaseWifClients({
     IdentityPoolClient: FakeIdentityPoolClient,
     getOidcToken: async () => 'vercel-preview-oidc-token'
   });
   const result = await credential.getAccessToken();
 
   assert.equal(suppliedToken, 'vercel-preview-oidc-token');
-  assert.match(options.audience, /projects\/403309153314\/locations\/global\/workloadIdentityPools\/voltix-staging-vercel\/providers\/vercel-preview$/);
+  assert.match(options.audience, /projects\\/403309153314\\/locations\\/global\\/workloadIdentityPools\\/voltix-staging-vercel\\/providers\\/vercel-preview$/);
   assert.equal(options.subject_token_type, 'urn:ietf:params:oauth:token-type:id_token');
   assert.equal(options.token_url, 'https://sts.googleapis.com/v1/token');
   assert.equal(
@@ -44,8 +46,9 @@ test('Firebase WIF credential is bound to the staging pool, provider, and servic
       SERVICE_ACCOUNT_EMAIL + ':generateAccessToken'
   );
   assert.equal(typeof options.subject_token_supplier.getSubjectToken, 'function');
-  assert.deepEqual(result.access_token, 'short-lived-google-access-token');
+  assert.equal(result.access_token, 'short-lived-google-access-token');
   assert.ok(result.expires_in > 0 && result.expires_in <= 3600);
+  assert.equal(authClient.scopes[0], CLOUD_PLATFORM_SCOPE);
   assert.equal(PROJECT_ID, 'voltix-pro-gh-staging');
 });
 
@@ -54,8 +57,23 @@ test('Firebase WIF credential initializes with the real google-auth-library clie
     IdentityPoolClient,
     getOidcToken: async () => 'vercel-preview-oidc-token'
   });
-
   assert.equal(typeof credential.getAccessToken, 'function');
+});
+
+test('GoogleAuth uses the exact federated IdentityPoolClient for Firestore', () => {
+  const { authClient } = createFirebaseWifClients({
+    IdentityPoolClient,
+    getOidcToken: async () => 'vercel-preview-oidc-token'
+  });
+  const auth = new GoogleAuth({
+    authClient,
+    projectId: PROJECT_ID,
+    scopes: [CLOUD_PLATFORM_SCOPE]
+  });
+
+  assert.equal(auth.cachedCredential, authClient);
+  assert.equal(auth._cachedProjectId, PROJECT_ID);
+  assert.deepEqual(auth.scopes, [CLOUD_PLATFORM_SCOPE]);
 });
 
 test('Firebase WIF credential fails closed when Vercel does not provide an OIDC token', async () => {
@@ -80,16 +98,20 @@ test('Firebase WIF credential fails closed when Vercel does not provide an OIDC 
   );
 });
 
-test('Vercel Preview uses WIF and cannot fall back to FIREBASE_SERVICE_ACCOUNT', () => {
+test('Vercel Preview uses federated Firestore auth and cannot fall back to a static key', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(server, /process\.env\.VERCEL_ENV === 'preview'/);
-  assert.match(server, /createFirebaseWifCredential/);
-  assert.match(server, /await import\('@vercel\/oidc'\)/);
-  assert.match(server, /if \(!process\.env\.FIREBASE_SERVICE_ACCOUNT\)/);
-  assert.match(server, /admin\.credential\.cert\(JSON\.parse\(process\.env\.FIREBASE_SERVICE_ACCOUNT\)\)/);
+  assert.match(server, /process\\.env\\.VERCEL_ENV === 'preview'/);
+  assert.match(server, /createFirebaseWifClients/);
+  assert.match(server, /new GoogleAuth\\(/);
+  assert.match(server, /new FirestoreSdk\\.Firestore\\(\\{ projectId: firebaseAdminOptions\\.projectId, auth: firestoreAuth \\}\\)/);
+  assert.match(server, /FirestoreSdk\\.FieldValue/);
+  assert.match(server, /await import\\('@vercel\\/oidc'\\)/);
+  assert.match(server, /if \\(!process\\.env\\.FIREBASE_SERVICE_ACCOUNT\\)/);
+  assert.match(server, /admin\\.credential\\.cert\\(JSON\\.parse\\(process\\.env\\.FIREBASE_SERVICE_ACCOUNT\\)\\)/);
   const previewBlock = server.slice(
     server.indexOf("if (process.env.VERCEL_ENV === 'preview')"),
     server.indexOf("if (!process.env.FIREBASE_SERVICE_ACCOUNT)")
   );
   assert.doesNotMatch(previewBlock, /FIREBASE_SERVICE_ACCOUNT/);
+  assert.match(server, /: admin\\.firestore\\(\\);/);
 });
