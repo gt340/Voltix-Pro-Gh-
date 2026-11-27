@@ -76,6 +76,22 @@ app.use(cors(isPreview
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
 
+// OTP requests from the staging browser use text/plain so credentialed cross-origin
+// POSTs remain CORS-simple and do not trigger an OPTIONS preflight. Parse JSON only
+// within the OTP route namespace; all other API routes retain their existing parser.
+app.use('/api/auth/otp', bodyParser.text({ type: 'text/plain', limit: '2kb' }), (req, res, next) => {
+  if (typeof req.body !== 'string') return next();
+  try {
+    req.body = JSON.parse(req.body);
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Invalid OTP request body' });
+    }
+    return next();
+  } catch (error) {
+    return res.status(400).json({ error: 'Invalid OTP request body' });
+  }
+});
+
 // ---------- ARKESEL SHOPPER OTP AUTH ----------
 // Disabled unless explicitly enabled in the selected deployment environment.
 // Enabling this switch can trigger billable SMS messages.
