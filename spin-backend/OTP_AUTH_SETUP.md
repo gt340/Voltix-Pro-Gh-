@@ -1,46 +1,65 @@
 # Voltix Pro GH — Arkesel OTP rollout notes
 
-## Current safety state
+## Safety state
 
-- `OTP_AUTH_ENABLED` defaults to disabled unless explicitly set to `true`.
-- The frontend Arkesel path is separately opt-in through `window.VOLTIX_USE_ARKESEL_OTP === true`; Firebase Phone Auth remains the fallback and is not removed.
-- Do not enable it in Production until the owner approves live SMS activation.
-- Arkesel OTP generation is a live, billable operation. No test or sandbox request is made by this code.
-- The browser receives only a Firebase custom token after server-side Arkesel verification. The Arkesel API key and rate-limit secret must never be added to frontend files.
+- The server exposes Arkesel OTP endpoints only when `OTP_AUTH_ENABLED=true` is set in that deployment environment.
+- Keep `OTP_AUTH_ENABLED=false` in Preview and Production until the owner separately approves a controlled SMS test.
+- Arkesel OTP generation is a live, billable operation. Automated tests use mocked HTTP responses and do not contact Arkesel.
+- Firebase Phone Authentication / Firebase SMS is not part of the Arkesel flow. Do not restore it as a fallback.
+- The browser receives a Firebase custom token only after the server verifies the Arkesel challenge.
+- The Arkesel API key and OTP rate-limit secret must never be added to frontend files or committed to Git.
 
-## Server-side environment variables
-
-Configure these only on the intended Vercel environment:
+## Required server-side environment variables
 
 | Variable | Purpose |
 | --- | --- |
-| `OTP_AUTH_ENABLED` | Set to `false` until live OTP activation is separately approved |
-| `ARKESEL_API_KEY` | Arkesel API key; server-side only |
-| `ARKESEL_SENDER_ID` | Approved sender ID |
-| `OTP_RATE_LIMIT_SECRET` | Random secret of at least 32 characters for HMAC-hashing phone/IP rate-limit keys |
+| `OTP_AUTH_ENABLED` | Explicit activation gate; keep `false` until live SMS is separately approved |
+| `ARKESEL_API_KEY` | Arkesel main API key; server-side only |
+| `ARKESEL_SENDER_ID` | Approved sender ID (1–11 characters) |
+| `OTP_RATE_LIMIT_SECRET` | Random secret of at least 32 characters used to HMAC-hash phone/IP rate-limit keys |
 | `OTP_DAILY_GLOBAL_LIMIT` | Maximum generated OTP requests per UTC day; defaults to 250 |
 
-The default global cap is 250 requests per UTC day. At the quoted GH₵0.035 per OTP generation, that is a nominal ceiling of GH₵8.75 per day before any provider-specific billing differences. Failed delivery attempts may still be charged, according to Arkesel support.
+The Arkesel API key already reported as Preview-only is not sufficient by itself. The sender ID and rate-limit secret must also exist in Preview before the OTP service can initialize. Do not paste any secret into chat.
 
-## Firestore retention
+## Firebase custom-token signing
 
-The service writes:
-- `otpChallenges` with an `expireAt` timestamp 24 hours after creation.
-- `otpRateLimits` with an `expireAt` timestamp 48 hours after the last update.
+Preview uses the dedicated staging service account:
+`voltix-staging-backend@voltix-pro-gh-staging.iam.gserviceaccount.com`.
 
-Before live activation, configure Firestore TTL policies on the `expireAt` field for both collection groups. OTP codes are not stored in Firestore; Arkesel generates and verifies them.
+The Firebase Admin SDK is configured with this explicit `serviceAccountId` so custom tokens use Google-managed signing rather than a downloaded private key. The WIF identity must have `iam.serviceAccounts.signBlob` permission on that service account (normally via `roles/iam.serviceAccountTokenCreator`). This IAM grant has not been applied by this code change and must be verified before the first token-signing test. Do not create or upload a service-account JSON key.
 
-## Rollout gates
+## OTP lifecycle and limits
 
-1. The current branch preview frontend is `https://voltix-pro-gh-git-phase3-ark-abacb9-nekarakodiya-7935s-projects.vercel.app` and its paired backend branch alias is `https://spin-backend-git-phase3-arke-127ac8-nekarakodiya-7935s-projects.vercel.app`. The frontend selects this backend only on that exact preview hostname; other hosts use the Production backend alias. Keep `window.VOLTIX_USE_ARKESEL_OTP` unset/false until the backend preview is READY and its environment is checked. Do not enable OTP in Production.
-2. Keep `OTP_AUTH_ENABLED=false` while reviewing the preview build and CI test results.
-3. Obtain separate approval before enabling billable OTP requests, including any real-user SMS trial.
-4. Verify the resulting Firebase ID token contains the standard `phone_number` claim and the `shopperPhoneVerified` custom claim. The frontend fails closed if either check is absent.
-5. Test existing Firebase phone users retain their UID. Do not delete or recreate users to force migration.
-6. Do not merge or promote to Production without separate approval.
+- OTP expiry: 5 minutes.
+- Resend cooldown: 60 seconds per phone.
+- Per-phone generation limit: 5 per hour.
+- Per-IP generation limit: 20 per hour.
+- Global generation budget: 250 per UTC day by default.
+- Verification attempts: maximum 5 per challenge.
+- Challenge IDs are random UUIDs; OTP values are not stored in Firestore.
+- A consumed challenge cannot be replayed.
+- If Arkesel verification succeeds but Firebase token issuance fails, the challenge is retained as provider-verified so token issuance can be retried without re-verifying the consumed OTP.
 
-## Recovery considerations
+The service writes `otpChallenges` with an `expireAt` timestamp 24 hours after creation and `otpRateLimits` with an `expireAt` timestamp 48 hours after the last update. Configure Firestore TTL policies for the `expireAt` field on both collection groups before live activation. Until then, expired records remain stored even though application-level expiry checks still apply.
 
-Phone OTP proves current control of a number; it does not prove continuity of ownership. If a mobile number has been recycled, a new holder could resolve to the old Firebase user by phone and inherit that UID. UID-bound wallet checks do not prevent that specific recycled-number takeover. Before enabling this for accounts with material wallet balances or purchase history, decide on a second factor or a manual recovery step for existing accounts. Do not describe phone-only OTP as protection against recycled-number account takeover.
+The current default global cap is 250 generated OTPs per UTC day. At the previously quoted GH₵0.035 per request, that would represent a nominal maximum of GH₵8.75 per day. Confirm current Arkesel pricing and account balance before enabling live requests; failed delivery attempts may still be charged.
 
-If Arkesel verification succeeds but Firebase token issuance fails, the challenge is retained in a provider-verified state so token issuance can be retried without re-verifying the already-consumed OTP. A consumed challenge cannot be replayed.
+## Identity and wallet ownership
+
+- Arkesel verifies possession of the submitted Ghana phone number.
+- After successful verification, the backend looks up the Firebase Auth user by canonical E.164 phone number and reuses that user's UID. It creates a user only when no account exists for that phone.
+- The backend issues a custom token with `shopperPhoneVerified=true`.
+- Wallet routes require both the standard Firebase `phone_number` claim and the server-issued `shopperPhoneVerified` claim, then enforce the existing `ownerUid` match.
+- Existing wallet records are never migrated, reassigned, or rewritten by the OTP flow.
+
+Phone-only OTP does not prove continuity of ownership if a carrier recycles a phone number. Accounts with material wallet balances or purchase history may need an additional recovery factor or manual recovery process before production rollout.
+
+## Remaining rollout gates
+
+1. Confirm the staging Firebase Web App configuration and configure the Preview frontend to use the staging Firebase project, not the production project.
+2. Confirm the exact Preview backend URL and allow only the intended Preview frontend origin for browser OTP requests.
+3. Verify the WIF service account can call IAM `signBlob`; no IAM role changes are included in this branch.
+4. Keep `OTP_AUTH_ENABLED=false` while reviewing Preview build and automated test results.
+5. Run a mocked end-to-end flow and verify the resulting Firebase ID token contains the correct `phone_number` and `shopperPhoneVerified` claims.
+6. Obtain separate approval before enabling billable OTP requests or sending a real-user SMS.
+7. Do not merge or promote to Production without separate approval.
