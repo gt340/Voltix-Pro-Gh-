@@ -682,7 +682,7 @@ function shareProductCard(id, e){
         const response = await fetch(ARKESEL_PREVIEW_BACKEND + '/api/auth/otp/request', {
           method:'POST',
           credentials:'include',
-          headers:{ 'Content-Type':'application/json' },
+          headers:{ 'Content-Type':'text/plain' },
           body:JSON.stringify({ phone:e164 })
         });
         const payload = await response.json().catch(()=>({}));
