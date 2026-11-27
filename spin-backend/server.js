@@ -71,7 +71,7 @@ app.set('trust proxy', 1);
 // Restrict browser requests from Preview to the explicitly configured frontend
 // origin. Production retains its existing CORS behavior.
 app.use(cors(isPreview
-  ? { origin: process.env.OTP_ALLOWED_ORIGIN || false }
+  ? { origin: process.env.OTP_ALLOWED_ORIGIN || false, credentials: true }
   : undefined));
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
