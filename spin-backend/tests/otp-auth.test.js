@@ -51,7 +51,7 @@ function fakeFirestore() {
 
 function makeService(overrides = {}) {
   const db = fakeFirestore();
-  const calls = { generated: [], verified: [], tokens: [] };
+  const calls = { generated: [], verified: [], tokens: [], claims: [] };
   const users = new Map();
   let tokenFailed = false;
   const auth = {
@@ -68,6 +68,16 @@ function makeService(overrides = {}) {
       const user = { uid: 'uid-' + data.phoneNumber, phoneNumber: data.phoneNumber, disabled: false };
       users.set(data.phoneNumber, user);
       return user;
+    },
+    async getUser(uid) {
+      const user = [...users.values()].find(item => item.uid === uid);
+      if (!user) throw new Error('user not found');
+      return user;
+    },
+    async setCustomUserClaims(uid, claims) {
+      calls.claims.push({ uid, claims });
+      const user = [...users.values()].find(item => item.uid === uid);
+      user.customClaims = { ...claims };
     },
     async createCustomToken(uid, claims) {
       calls.tokens.push({ uid, claims });
@@ -108,7 +118,8 @@ test('OTP request persists a challenge without storing the OTP and successful ve
   const verified = await ctx.service.verifyOtp(requested.challengeId, '123456');
   assert.equal(verified.phone, '+233241234567');
   assert.equal(verified.customToken, 'custom-token-uid-+233241234567');
-  assert.deepEqual(ctx.calls.tokens[0].claims, { shopperPhoneVerified: true });
+  assert.equal(ctx.calls.tokens[0].claims, undefined);
+  assert.deepEqual(ctx.calls.claims[0].claims, { shopperPhoneVerified: true });
   assert.equal(ctx.db.records.get('otpChallenges/' + requested.challengeId).status, 'consumed');
 });
 
@@ -150,13 +161,18 @@ test('existing Firebase user UID is preserved when phone is verified', async () 
   ctx.users.set('+233241234567', {
     uid: 'existing-shopper-uid',
     phoneNumber: '+233241234567',
-    disabled: false
+    disabled: false,
+    customClaims: { existingRole: 'shopper' }
   });
   const requested = await ctx.service.requestOtp('0241234567', '203.0.113.8');
   const verified = await ctx.service.verifyOtp(requested.challengeId, '123456');
   assert.equal(verified.uid, 'existing-shopper-uid');
   assert.equal(ctx.users.size, 1);
   assert.equal(ctx.calls.tokens[0].uid, 'existing-shopper-uid');
+  assert.deepEqual(ctx.calls.claims[0].claims, {
+    existingRole: 'shopper',
+    shopperPhoneVerified: true
+  });
 });
 
 test('Firebase token issuance can retry after Arkesel has already verified the OTP', async () => {
