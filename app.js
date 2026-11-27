@@ -681,6 +681,7 @@ function shareProductCard(id, e){
       if(IS_ARKESEL_PREVIEW){
         const response = await fetch(ARKESEL_PREVIEW_BACKEND + '/api/auth/otp/request', {
           method:'POST',
+          credentials:'include',
           headers:{ 'Content-Type':'application/json' },
           body:JSON.stringify({ phone:e164 })
         });
@@ -752,6 +753,7 @@ function shareProductCard(id, e){
         if(!challengeId) throw new Error('Request a verification code first.');
         const response = await fetch(ARKESEL_PREVIEW_BACKEND + '/api/auth/otp/verify', {
           method:'POST',
+          credentials:'include',
           headers:{ 'Content-Type':'application/json' },
           body:JSON.stringify({ challengeId, code:String(code || '').trim() })
         });
