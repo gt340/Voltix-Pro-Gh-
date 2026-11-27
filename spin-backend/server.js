@@ -65,6 +65,9 @@ const db = isPreview
 const FieldValue = isPreview ? FirestoreSdk.FieldValue : admin.firestore.FieldValue;
 
 const app = express();
+// Vercel terminates TLS/proxy traffic before Express; use the forwarded client IP
+// for OTP rate limits instead of grouping every shopper under the proxy address.
+app.set('trust proxy', 1);
 app.use(cors());
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
