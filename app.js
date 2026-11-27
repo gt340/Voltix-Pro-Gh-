@@ -9,9 +9,10 @@ const FIREBASE_CONFIG = {
 
 // Arkesel OTP is isolated to Vercel Preview. Production continues using its
 // existing Firebase project and phone-auth flow until a separately approved rollout.
-const IS_ARKESEL_PREVIEW = window.location.hostname.startsWith('voltix-pro-') &&
-  window.location.hostname.endsWith('nekarakodiya-7935s-projects.vercel.app');
-const ARKESEL_PREVIEW_BACKEND = 'https://spin-backend-gqg8yf69w-nekarakodiya-7935s-projects.vercel.app';
+const IS_ARKESEL_PREVIEW =
+  window.location.hostname === 'voltix-pro-gh-git-feat-arkes-640b1f-nekarakodiya-7935s-projects.vercel.app';
+const ARKESEL_PREVIEW_BACKEND =
+  'https://spin-backend-git-feat-arkese-fb80dd-nekarakodiya-7935s-projects.vercel.app';
 const STAGING_SHOPPER_FIREBASE_CONFIG = {
   apiKey: "AIzaSyB7A8LFoyxV_ZQ14lt__V_sbJvevocEDE0",
   authDomain: "voltix-pro-gh-staging.firebaseapp.com",
