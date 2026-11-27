@@ -204,7 +204,14 @@ function createOtpAuthService(options = {}) {
         });
       });
 
-      const customToken = await auth.createCustomToken(user.uid, { shopperPhoneVerified: true });
+      // Persist the verification claim on the Firebase user so it remains
+      // present after the first ID token is refreshed. Preserve unrelated claims.
+      const currentUser = await auth.getUser(user.uid);
+      await auth.setCustomUserClaims(user.uid, {
+        ...(currentUser.customClaims || {}),
+        shopperPhoneVerified: true
+      });
+      const customToken = await auth.createCustomToken(user.uid);
       await db.runTransaction(async tx => {
         const snap = await tx.get(challengeRef);
         const current = snap.exists ? snap.data() : null;
