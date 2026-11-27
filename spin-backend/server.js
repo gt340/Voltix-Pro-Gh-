@@ -68,7 +68,11 @@ const app = express();
 // Vercel terminates TLS/proxy traffic before Express; use the forwarded client IP
 // for OTP rate limits instead of grouping every shopper under the proxy address.
 app.set('trust proxy', 1);
-app.use(cors());
+// Restrict browser requests from Preview to the explicitly configured frontend
+// origin. Production retains its existing CORS behavior.
+app.use(cors(isPreview
+  ? { origin: process.env.OTP_ALLOWED_ORIGIN || false }
+  : undefined));
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
 
