@@ -7,6 +7,22 @@ const FIREBASE_CONFIG = {
   appId: "1:778425016855:web:6bbe58c7e8b7ffa9ccf252"
 };
 
+// Arkesel OTP is isolated to Vercel Preview. Production continues using its
+// existing Firebase project and phone-auth flow until a separately approved rollout.
+const IS_ARKESEL_PREVIEW =
+  window.location.hostname === 'voltix-pro-gh-git-feat-arkes-640b1f-nekarakodiya-7935s-projects.vercel.app';
+const ARKESEL_PREVIEW_BACKEND =
+  'https://spin-backend-git-feat-arkese-fb80dd-nekarakodiya-7935s-projects.vercel.app';
+const STAGING_SHOPPER_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB7A8LFoyxV_ZQ14lt__V_sbJvevocEDE0",
+  authDomain: "voltix-pro-gh-staging.firebaseapp.com",
+  projectId: "voltix-pro-gh-staging",
+  storageBucket: "voltix-pro-gh-staging.firebasestorage.app",
+  messagingSenderId: "403309153314",
+  appId: "1:403309153314:web:e34b9df1fb635025308e7b",
+  measurementId: "G-S4Z28VZZ4K"
+};
+
 const COMMISSION_TIERS = { 40:5, 120:7, 130:7, 220:10 };
 
 function isVideoUrl(url){
@@ -222,7 +238,7 @@ function shareProductCard(id, e){
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail,
-    signInWithPhoneNumber, RecaptchaVerifier
+    signInWithPhoneNumber, signInWithCustomToken, RecaptchaVerifier
   } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   const {
     getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
@@ -231,6 +247,11 @@ function shareProductCard(id, e){
   const app = initializeApp(FIREBASE_CONFIG);
   const db = getFirestore(app);
   const auth = getAuth(app);
+  // Keep store/admin/referrer Firestore and Auth on the existing production app.
+  // Shopper sessions in this Preview use the isolated staging Firebase project.
+  const shopperAuth = IS_ARKESEL_PREVIEW
+    ? getAuth(initializeApp(STAGING_SHOPPER_FIREBASE_CONFIG, 'voltix-shopper-staging'))
+    : auth;
   const storage = getStorage(app);
 
   const STORAGE_UPLOAD_TIMEOUT_MS = 360000;
@@ -657,6 +678,25 @@ function shareProductCard(id, e){
     async sendShopperPhoneCode(phone, recaptchaContainerId){
       const digits = this.normalizeShopperPhone(phone);
       const e164 = '+233' + digits.slice(1);
+      if(IS_ARKESEL_PREVIEW){
+        const response = await fetch(ARKESEL_PREVIEW_BACKEND + '/api/auth/otp/request', {
+          method:'POST',
+          credentials:'include',
+          headers:{ 'Content-Type':'text/plain' },
+          body:JSON.stringify({ phone:e164 })
+        });
+        const payload = await response.json().catch(()=>({}));
+        if(!response.ok){
+          const error = new Error(payload.error || 'Could not send a verification code.');
+          error.code = payload.code || ('HTTP_' + response.status);
+          throw error;
+        }
+        if(typeof payload.challengeId !== 'string' || !payload.challengeId){
+          throw new Error('The verification service returned an invalid session.');
+        }
+        window.__voltixArkeselChallengeId = payload.challengeId;
+        return { phone:digits };
+      }
       const container = document.getElementById(recaptchaContainerId);
       if(!container) throw new Error('Phone verification could not start: reCAPTCHA container is missing.');
 
@@ -708,6 +748,29 @@ function shareProductCard(id, e){
       }
     },
     async confirmShopperPhoneCode(code){
+      if(IS_ARKESEL_PREVIEW){
+        const challengeId = window.__voltixArkeselChallengeId;
+        if(!challengeId) throw new Error('Request a verification code first.');
+        const response = await fetch(ARKESEL_PREVIEW_BACKEND + '/api/auth/otp/verify', {
+          method:'POST',
+          credentials:'include',
+          headers:{ 'Content-Type':'application/json' },
+          body:JSON.stringify({ challengeId, code:String(code || '').trim() })
+        });
+        const payload = await response.json().catch(()=>({}));
+        if(!response.ok){
+          const error = new Error(payload.error || 'Could not verify the code.');
+          error.code = payload.code || ('HTTP_' + response.status);
+          if(response.status === 410) window.__voltixArkeselChallengeId = null;
+          throw error;
+        }
+        if(typeof payload.customToken !== 'string' || !payload.customToken){
+          throw new Error('The verification service did not return a sign-in token.');
+        }
+        const credential = await signInWithCustomToken(shopperAuth, payload.customToken);
+        window.__voltixArkeselChallengeId = null;
+        return { uid:credential.user.uid, phone:this.normalizeShopperPhone(credential.user.phoneNumber) };
+      }
       const confirmation = window.__voltixPhoneConfirmation;
       if(!confirmation) throw new Error('Request an SMS verification code first.');
       const credential = await confirmation.confirm(String(code || '').trim());
@@ -715,11 +778,11 @@ function shareProductCard(id, e){
       return { uid: credential.user.uid, phone: this.normalizeShopperPhone(credential.user.phoneNumber) };
     },
     async getVerifiedShopperIdentity(){
-      let user = auth.currentUser;
+      let user = shopperAuth.currentUser;
       if(!user){
         user = await new Promise(resolve=>{
           let unsubscribe = null;
-          unsubscribe = onAuthStateChanged(auth, nextUser=>{
+          unsubscribe = onAuthStateChanged(shopperAuth, nextUser=>{
             if(unsubscribe) unsubscribe();
             resolve(nextUser);
           });
@@ -730,13 +793,15 @@ function shareProductCard(id, e){
     },
     async getShopperIdToken(){
       const identity = await this.getVerifiedShopperIdentity();
-      const user = auth.currentUser;
+      const user = shopperAuth.currentUser;
       if(!identity || !user || user.uid !== identity.uid) return null;
       return user.getIdToken();
     },
     async shopperLogout(){
-      const user = auth.currentUser;
-      if(user && user.phoneNumber) await signOut(auth);
+      const user = shopperAuth.currentUser;
+      if(user && user.phoneNumber) await signOut(shopperAuth);
+      window.__voltixArkeselChallengeId = null;
+      window.__voltixPhoneConfirmation = null;
     },
     adminLogin(email,pw){ return signInWithEmailAndPassword(auth,email,pw); },
     adminLogout(){ return signOut(auth); },

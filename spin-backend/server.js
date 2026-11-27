@@ -9,6 +9,8 @@ const shopperWallet = require('./shopper-wallet');
 const { registerAdminWebhookReconciliationRoute } = require('./admin-reconciliation-route');
 const { registerAdminConfigurationRecoveryRoute } = require('./admin-configuration-recovery-route');
 const { resolveAdminUid } = require('./admin-auth');
+const { createArkeselOtpClient } = require('./arkesel-otp');
+const { createOtpAuthService } = require('./otp-auth');
 
 // Vercel Preview uses request-scoped OIDC federation to impersonate the
 // dedicated staging service account. Production and local environments retain
@@ -16,7 +18,7 @@ const { resolveAdminUid } = require('./admin-auth');
 function getFirebaseAdminCredential() {
   if (process.env.VERCEL_ENV === 'preview') {
     const { IdentityPoolClient, GoogleAuth } = require('google-auth-library');
-    const { createFirebaseWifClients, PROJECT_ID } = require('./firebase-wif-credential');
+    const { createFirebaseWifClients, PROJECT_ID, SERVICE_ACCOUNT_EMAIL } = require('./firebase-wif-credential');
     const wif = createFirebaseWifClients({
       IdentityPoolClient,
       getOidcToken: async () => {
@@ -27,6 +29,7 @@ function getFirebaseAdminCredential() {
     return {
       credential: wif.credential,
       projectId: PROJECT_ID,
+      serviceAccountId: SERVICE_ACCOUNT_EMAIL,
       isPreview: true,
       firestoreAuth: new GoogleAuth({
         authClient: wif.authClient,
@@ -62,9 +65,101 @@ const db = isPreview
 const FieldValue = isPreview ? FirestoreSdk.FieldValue : admin.firestore.FieldValue;
 
 const app = express();
-app.use(cors());
+// Vercel terminates TLS/proxy traffic before Express; use the forwarded client IP
+// for OTP rate limits instead of grouping every shopper under the proxy address.
+app.set('trust proxy', 1);
+// Restrict browser requests from Preview to the explicitly configured frontend
+// origin. Production retains its existing CORS behavior.
+app.use(cors(isPreview
+  ? { origin: process.env.OTP_ALLOWED_ORIGIN || false, credentials: true }
+  : undefined));
 app.use('/api/paystack-webhook', bodyParser.raw({ type: 'application/json' }));
 app.use(bodyParser.json());
+
+// OTP requests from the staging browser use text/plain so credentialed cross-origin
+// POSTs remain CORS-simple and do not trigger an OPTIONS preflight. Parse JSON only
+// within the OTP route namespace; all other API routes retain their existing parser.
+app.use('/api/auth/otp', bodyParser.text({ type: 'text/plain', limit: '2kb' }), (req, res, next) => {
+  if (typeof req.body !== 'string') return next();
+  try {
+    req.body = JSON.parse(req.body);
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Invalid OTP request body' });
+    }
+    return next();
+  } catch (error) {
+    return res.status(400).json({ error: 'Invalid OTP request body' });
+  }
+});
+
+// ---------- ARKESEL SHOPPER OTP AUTH ----------
+// Disabled unless explicitly enabled in the selected deployment environment.
+// Enabling this switch can trigger billable SMS messages.
+const otpAuthEnabled = process.env.OTP_AUTH_ENABLED === 'true';
+let otpAuthService = null;
+if (otpAuthEnabled) {
+  try {
+    const otpClient = createArkeselOtpClient({
+      http: axios,
+      apiKey: process.env.ARKESEL_API_KEY,
+      senderId: process.env.ARKESEL_SENDER_ID,
+      expiryMinutes: 5
+    });
+    otpAuthService = createOtpAuthService({
+      db,
+      auth: admin.auth(),
+      otpClient,
+      hashSecret: process.env.OTP_RATE_LIMIT_SECRET,
+      dailyLimit: Number(process.env.OTP_DAILY_GLOBAL_LIMIT) || 250
+    });
+  } catch (error) {
+    console.error('OTP auth is disabled because server configuration is incomplete:', error.name);
+  }
+}
+
+app.post('/api/auth/otp/request', async (req, res) => {
+  if (!otpAuthEnabled || !otpAuthService) {
+    return res.status(503).json({ error: 'Phone verification is temporarily unavailable' });
+  }
+  const phone = req.body && req.body.phone;
+  if (typeof phone !== 'string' || phone.length > 32) {
+    return res.status(400).json({ error: 'Enter a valid Ghana phone number' });
+  }
+  try {
+    const result = await otpAuthService.requestOtp(phone, req.ip || '');
+    return res.status(202).json({ ok: true, ...result });
+  } catch (error) {
+    if (error.code === 'OTP_RESEND_COOLDOWN' || error.code === 'OTP_RATE_LIMITED') {
+      return res.status(429).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof TypeError) {
+      return res.status(400).json({ error: 'Enter a valid Ghana phone number' });
+    }
+    console.error('OTP request failed:', error && error.name);
+    return res.status(502).json({ error: 'Could not send a verification code. Try again later.' });
+  }
+});
+
+app.post('/api/auth/otp/verify', async (req, res) => {
+  if (!otpAuthEnabled || !otpAuthService) {
+    return res.status(503).json({ error: 'Phone verification is temporarily unavailable' });
+  }
+  const body = req.body || {};
+  try {
+    const result = await otpAuthService.verifyOtp(body.challengeId, body.code);
+    return res.json({ customToken: result.customToken });
+  } catch (error) {
+    const status = error.code === 'OTP_RATE_LIMITED' || error.code === 'OTP_ATTEMPTS_EXCEEDED' ? 429 :
+      (error.code === 'OTP_CHALLENGE_INVALID' || error.code === 'OTP_EXPIRED' ? 410 :
+        (error.code === 'OTP_CODE_INVALID' || error.code === 'OTP_CODE_INCORRECT' ? 400 :
+          (error.code === 'OTP_VERIFY_IN_PROGRESS' ? 409 : 502)));
+    if (status === 502) console.error('OTP verification failed:', error && error.name);
+    return res.status(status).json({
+      error: status === 502 ? 'Could not verify the code. Try again later.' : error.message,
+      code: error.code || 'OTP_VERIFICATION_FAILED'
+    });
+  }
+});
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const RELOADLY_CLIENT_ID = process.env.RELOADLY_CLIENT_ID;
@@ -140,6 +235,10 @@ async function requireVerifiedShopper(req, res, requestedPhone){
   let decoded;
   try { decoded = await admin.auth().verifyIdToken(match[1]); }
   catch (_) { res.status(401).json({ error:'Invalid or expired shopper token' }); return null; }
+  if(decoded.shopperPhoneVerified !== true){
+    res.status(403).json({ error:'Arkesel-verified shopper authentication is required' });
+    return null;
+  }
   if(typeof decoded.phone_number !== 'string' || !decoded.phone_number){
     res.status(403).json({ error:'Verified phone ownership required for this wallet operation' });
     return null;
